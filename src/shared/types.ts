@@ -10,7 +10,7 @@ export interface AIConnection {
 
 // === Chat Modes ===
 
-export type ChatMode = 'free' | 'debate' | 'consult' | 'coding';
+export type ChatMode = 'free' | 'debate' | 'consult' | 'coding' | 'roundtable';
 
 // 三方辯證
 export interface DebateRoles {
@@ -33,7 +33,14 @@ export interface CodingRoles {
   coder: AIProvider;    // 執行+品管
 }
 
-export type ModeRoles = DebateRoles | ConsultRoles | CodingRoles;
+// 道理辯證 (5 rounds)
+export interface RoundtableRoles {
+  first: AIProvider;   // 每輪第一位發言
+  second: AIProvider;  // 每輪第二位發言
+  third: AIProvider;   // 每輪第三位發言
+}
+
+export type ModeRoles = DebateRoles | ConsultRoles | CodingRoles | RoundtableRoles;
 
 // === Messages ===
 

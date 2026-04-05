@@ -6,6 +6,7 @@ import type {
   DebateRoles,
   ConsultRoles,
   CodingRoles,
+  RoundtableRoles,
 } from '../shared/types';
 import {
   AI_PROVIDERS,
@@ -13,6 +14,7 @@ import {
   DEFAULT_DEBATE_ROLES,
   DEFAULT_CONSULT_ROLES,
   DEFAULT_CODING_ROLES,
+  DEFAULT_ROUNDTABLE_ROLES,
 } from '../shared/constants';
 
 // === State ===
@@ -180,7 +182,7 @@ function checkAborted(): void {
 async function handleSendMessage(params: {
   text: string;
   mode: ChatMode;
-  roles?: DebateRoles | ConsultRoles | CodingRoles;
+  roles?: DebateRoles | ConsultRoles | CodingRoles | RoundtableRoles;
   targets?: AIProvider[];
 }) {
   const { text, mode, roles } = params;
@@ -199,6 +201,9 @@ async function handleSendMessage(params: {
         break;
       case 'coding':
         await handleCodingMode(text, (roles as CodingRoles) ?? DEFAULT_CODING_ROLES);
+        break;
+      case 'roundtable':
+        await handleRoundtableMode(text, (roles as RoundtableRoles) ?? DEFAULT_ROUNDTABLE_ROLES);
         break;
     }
   } catch (err) {
@@ -316,5 +321,31 @@ async function handleCodingMode(text: string, roles: CodingRoles) {
   sendRoleAssignment(roles.coder, 'coder', 'Coder');
   const coderPrompt = PROMPTS.coding.coder(text, planResponse, plannerName, reviewResponse, reviewerName);
   await sendAndWait(roles.coder, coderPrompt);
+  sendWorkflowStatus('');
+}
+
+// --- Roundtable Mode: 5 rounds × 3 participants (Dialectical Spiral) ---
+const ROUND_LABELS = ['開場立論', '交叉質疑', '攻防深化', '核心收斂', '真理浮現'];
+
+async function handleRoundtableMode(text: string, roles: RoundtableRoles) {
+  const participants: AIProvider[] = [roles.first, roles.second, roles.third];
+  const history: { name: string; round: number; text: string }[] = [];
+
+  for (let round = 1; round <= 5; round++) {
+    for (const participant of participants) {
+      checkAborted();
+
+      const name = AI_PROVIDERS[participant].name;
+      const roundLabel = ROUND_LABELS[round - 1];
+      sendWorkflowStatus(`🔄 第${round}輪「${roundLabel}」— ${name} 發言中...`);
+      sendRoleAssignment(participant, `R${round}`, `第${round}輪`);
+
+      const prompt = PROMPTS.roundtable.buildPrompt(text, round, name, history);
+      const response = await sendAndWait(participant, prompt);
+
+      history.push({ name, round, text: response });
+    }
+  }
+
   sendWorkflowStatus('');
 }

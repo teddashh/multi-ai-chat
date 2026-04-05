@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { AIProvider, AIConnection, ChatMode, ChatMessage, ModeRoles } from '../shared/types';
-import { CHAT_MODES, DEFAULT_DEBATE_ROLES, DEFAULT_CONSULT_ROLES, DEFAULT_CODING_ROLES } from '../shared/constants';
+import { CHAT_MODES, DEFAULT_DEBATE_ROLES, DEFAULT_CONSULT_ROLES, DEFAULT_CODING_ROLES, DEFAULT_ROUNDTABLE_ROLES } from '../shared/constants';
 import ConnectionBar from './components/ConnectionBar';
 import ModeSelector from './components/ModeSelector';
 import RoleConfig from './components/RoleConfig';
@@ -11,6 +11,7 @@ const DEFAULT_ROLES: Record<string, ModeRoles> = {
   debate: DEFAULT_DEBATE_ROLES,
   consult: DEFAULT_CONSULT_ROLES,
   coding: DEFAULT_CODING_ROLES,
+  roundtable: DEFAULT_ROUNDTABLE_ROLES,
 };
 
 export default function App() {

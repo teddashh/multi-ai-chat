@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function ModeSelector({ mode, onModeChange }: Props) {
-  const modes: ChatMode[] = ['free', 'debate', 'consult', 'coding'];
+  const modes: ChatMode[] = ['free', 'debate', 'consult', 'coding', 'roundtable'];
 
   return (
     <div className="flex gap-1">

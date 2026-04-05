@@ -12,6 +12,7 @@ const ROLE_LABELS: Record<string, Record<string, string>> = {
   debate: { pro: '正方', con: '反方', summary: '總結' },
   consult: { first: '先答', reviewer: '審查', summary: '總結' },
   coding: { planner: '規劃', reviewer: '審查', coder: 'Coder/QC' },
+  roundtable: { first: '第一位', second: '第二位', third: '第三位' },
 };
 
 const providers: AIProvider[] = ['chatgpt', 'claude', 'gemini'];
