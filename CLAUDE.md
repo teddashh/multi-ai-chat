@@ -1,42 +1,39 @@
-﻿# Workspace: Multi-AI Chat
-> å¾ž template è¤‡è£½å¾Œï¼ŒæŠŠ Multi-AI Chat æ›æˆå¯¦éš›çš„å°ˆæ¡ˆåç¨±
+# Workspace: Multi-AI Chat
+> Chrome Extension：同時操控多家 AI 網頁版的統一聊天介面
 
 ---
 
-## Boot Sequenceï¼ˆæ¯æ¬¡å•Ÿå‹•ä¾åºåŸ·è¡Œï¼‰
+## Boot Sequence（每次啟動依序執行）
 
-1. è®€ soul æª”ï¼ˆå·²åœ¨å…¨åŸŸ CLAUDE.md è¼‰å…¥ï¼‰
-2. è®€ Layer 1ï¼š@.claude-memory/session.md
-3. è®€ Layer 2ï¼šåŸ·è¡Œ `python scripts/db_read.py summary` å–å¾—å°ˆæ¡ˆç‹€æ…‹æ‘˜è¦
-4. è®€ Layer 3 ç´¢å¼•ï¼šå·²åœ¨å…¨åŸŸè¼‰å…¥ï¼ŒæŒ‰éœ€æŸ¥è©¢
-5. ç°¡çŸ­å‘Šè¨´ç”¨æˆ¶ç›®å‰ç‹€æ…‹ï¼šã€Œç¹¼çºŒ [ä¸»é¡Œ]ï¼Œæœ‰ X å€‹ open questionsã€
+1. 讀 soul 檔（已在全域 CLAUDE.md 載入）
+2. 讀 Layer 1：@.claude-memory/session.md
+3. 讀 Layer 2：執行 `python scripts/db_read.py summary` 取得專案狀態摘要
+4. 讀 Layer 3 索引：已在全域載入，按需查詢
+5. 簡短告訴用戶目前狀態：「繼續 [主題]，有 X 個 open questions」
 
 ---
 
 ## This Project
 
-- **å°ˆæ¡ˆåç¨±**ï¼šMulti-AI Chat
-- **å°ˆæ¡ˆç›®çš„**ï¼š[å¡«å…¥]
-- **ä¸»è¦æŠ€è¡“**ï¼š[å¡«å…¥]
-- **ç›®å‰ç‹€æ…‹**ï¼š[å¡«å…¥]
-- **é‡è¦è·¯å¾‘**ï¼š[å¡«å…¥ä¸»è¦çš„ src ç›®éŒ„ç­‰]
+- **專案名稱**：Multi-AI Chat
+- **專案目的**：Chrome Extension — 同時操控 ChatGPT / Claude.ai / Gemini 網頁版，統一輸入、收集回應、跨 AI 轉發，像聊天室一樣
+- **主要技術**：Chrome Extension (Manifest V3), React, Tailwind CSS, Content Scripts, MutationObserver
+- **目前狀態**：初始建立，尚未開始寫 code
+- **重要路徑**：
+  - `src/` — Extension 主程式碼
+  - `src/sidepanel/` — Side Panel UI (React + Tailwind)
+  - `src/content/` — Content Scripts (ChatGPT, Claude, Gemini)
+  - `src/background/` — Service Worker (message routing)
+  - `public/` — manifest.json, icons
 
 ---
 
-## è¨˜æ†¶æ“ä½œ
+## Scripts 路徑
 
-**å„ªå…ˆä½¿ç”¨ MCP Memory Server toolsï¼ˆå·²å…¨åŸŸè¨»å†Šï¼‰ï¼š**
-- `memory_store` â€” æ™ºæ…§å„²å­˜ï¼ˆè‡ªå‹•åˆ†é¡žï¼‰
-- `memory_record_decision` â€” è¨˜éŒ„æ±ºç­–
-- `memory_record_knowledge` â€” è¨˜éŒ„çŸ¥è­˜
-- `memory_list` â€” åˆ—å‡ºè¨˜æ†¶
-- `memory_search` â€” è·¨ workspace æœå°‹
-- `memory_audit_search` â€” æœå°‹ç¨½æ ¸è»Œè·¡
-- `memory_daily_report` â€” æŸ¥çœ‹æ¯æ—¥å ±å‘Š
-- `memory_reinforce` â€” æ‰‹å‹•å¼·åŒ–è¨˜æ†¶é‡è¦æ€§
-- å®Œæ•´ 19 å€‹ tools è¦‹å…¨åŸŸ CLAUDE.md
+所有記憶操作 script 在：
+`~/Documents/claude-setup/scripts/`
 
-**Fallbackï¼ˆMCP ä¸å¯ç”¨æ™‚ï¼‰ï¼š**
+常用指令：
 ```
 python ~/Documents/claude-setup/scripts/db_write.py decision "what" "why" "how" "tag1,tag2"
 python ~/Documents/claude-setup/scripts/db_write.py resolved "what" "how" "tag1,tag2"
@@ -48,71 +45,71 @@ python ~/Documents/claude-setup/scripts/db_to_md.py Multi-AI Chat
 
 ## Automatic Behaviors
 
-### æ®µè½å®Œæˆæ™‚ï¼ˆè‡ªå‹•åˆ¤æ–·ï¼‰
-å®Œæˆä¸€å€‹ä»»å‹™ã€è§£æ±ºä¸€å€‹å•é¡Œã€æˆ–åšå‡ºä¸€å€‹æ±ºå®šæ™‚ï¼š
-1. åœ¨ session.md åŠ ä¸€ç­†è¨˜éŒ„ï¼ˆ5W1H æ ¼å¼ï¼‰
-2. ç”¨ MCP tool å¯«é€² memory.dbï¼ˆ`memory_record_decision` / `memory_record_resolved` / `memory_record_knowledge`ï¼‰
-3. å‘Šè¨´ç”¨æˆ¶ï¼šã€Œå·²è¨˜éŒ„ï¼š[ä¸€å¥è©±æ‘˜è¦]ã€
+### 段落完成時（自動判斷）
+完成一個任務、解決一個問題、或做出一個決定時：
+1. 在 session.md 加一筆記錄（5W1H 格式）
+2. 用 MCP tool 寫進 memory.db（`memory_record_decision` / `memory_record_resolved` / `memory_record_knowledge`）
+3. 告訴用戶：「已記錄：[一句話摘要]」
 
-### ç”¨æˆ¶èªªã€Œè¨˜ä¸‹ä¾†ï¼šXXXã€ï¼ˆéš¨æ™‚å¯ç”¨ï¼‰
-ä¸ç®¡åœ¨åšä»€éº¼ï¼Œç«‹åˆ»æŠŠ XXX append åˆ° INBOXï¼š
+### 用戶說「記下來：XXX」（隨時可用）
+不管在做什麼，立刻把 XXX append 到 INBOX：
 ```
 echo - [YYYY-MM-DD HH:MM] XXX >> ~/Documents/knowledge/INBOX.md
 ```
-å›žå ±ï¼šã€Œå·²ä¸Ÿé€² INBOX âœ“ã€ï¼Œç„¶å¾Œç¹¼çºŒåŽŸæœ¬çš„å·¥ä½œï¼Œä¸æ‰“æ–·æµç¨‹ã€‚
+回報：「已丟進 INBOX ✓」，然後繼續原本的工作，不打斷流程。
 
-### Compact æ™‚ï¼ˆsession.md > 100 è¡Œï¼Œæˆ–ç”¨æˆ¶èªªã€Œcompactã€ï¼‰
-1. èƒå– session.md é‡è¦å…§å®¹ï¼Œåˆ†é¡žå¯«é€² memory.db
-2. åŸ·è¡Œ db_to_md.py æŠŠæœªåŒæ­¥çš„ knowledge_items å¯«é€² Obsidian
-3. å£“ç¸® session.mdï¼Œåªä¿ç•™ä»Šå¤©é‚„åœ¨é€²è¡Œä¸­çš„äº‹
-4. **é †ä¾¿æ•´ç† INBOX**ï¼ˆè¦‹ä¸‹æ–¹ INBOX æ•´ç†è¦å‰‡ï¼‰
-5. å›žå ±ï¼šã€Œcompact å®Œæˆï¼ŒX ç­†é€² SQLiteï¼ŒY ç­†é€² Obsidianï¼ŒINBOX æ¸…äº† Z æ¢ã€
+### Compact 時（session.md > 100 行，或用戶說「compact」）
+1. 萃取 session.md 重要內容，分類寫進 memory.db
+2. 執行 db_to_md.py 把未同步的 knowledge_items 寫進 Obsidian
+3. 壓縮 session.md，只保留今天還在進行中的事
+4. **順便整理 INBOX**（見下方 INBOX 整理規則）
+5. 回報：「compact 完成，X 筆進 SQLite，Y 筆進 Obsidian，INBOX 清了 Z 條」
 
-### æ¯å¤©ç¬¬ä¸€æ¬¡å°è©±æ™‚ï¼ˆè‡ªå‹•ï¼‰
-1. è®€ memory.db çš„ open_questions å’Œ status
-2. å¦‚æžœä»Šå¤©çš„ Daily Log ä¸å­˜åœ¨ â†’ å»ºç«‹ï¼Œå¯«å…¥ header
-3. å¦‚æžœ INBOX æœ‰è¶…éŽ 5 æ¢æœªæ•´ç† â†’ æé†’ç”¨æˆ¶ï¼šã€ŒINBOX æœ‰ N æ¢ï¼Œè¦ç¾åœ¨æ•´ç†å—Žï¼Ÿã€
-4. ç°¡å ±ï¼šã€Œä»Šå¤©ç¹¼çºŒ [ä¸»é¡Œ]ï¼Œæœ‰ X å€‹ open questionsã€
+### 每天第一次對話時（自動）
+1. 讀 memory.db 的 open_questions 和 status
+2. 如果今天的 Daily Log 不存在 → 建立，寫入 header
+3. 如果 INBOX 有超過 5 條未整理 → 提醒用戶：「INBOX 有 N 條，要現在整理嗎？」
+4. 簡報：「今天繼續 [主題]，有 X 個 open questions」
 
-### æ”¶å·¥æ™‚ï¼ˆç”¨æˆ¶èªªã€Œæ”¶å·¥ã€ï¼‰
-1. **å…ˆæ•´ç† INBOX**ï¼ˆè¦‹ä¸‹æ–¹ INBOX æ•´ç†è¦å‰‡ï¼‰
-2. æŠŠä»Šå¤©çš„ Daily Log summary å¯«é€²ï¼š
+### 收工時（用戶說「收工」）
+1. **先整理 INBOX**（見下方 INBOX 整理規則）
+2. 把今天的 Daily Log summary 寫進：
    `~/Documents/knowledge/logs/Multi-AI Chat/YYYY-MM-DD-{machine}.md`
-   ï¼ˆç­†é›»ç”¨ `laptop`ï¼ŒAVD ç”¨ `avd`ã€‚åˆ¤æ–·æ–¹å¼ï¼šhostname å« FUHQ = laptopï¼Œå« AVD = avdï¼‰
-3. åŸ·è¡Œ db_to_md.py åšæœ€å¾ŒåŒæ­¥
-4. æ›´æ–° memory.db çš„ daily_logs table
-5. ä¸€å¥è©±æ‘˜è¦ä»Šå¤©åšäº†ä»€éº¼
-6. æé†’ç”¨æˆ¶ï¼šOracle sync ç”± claude-setup workspace çµ±ä¸€ç®¡ç†ï¼Œä¸éœ€è¦åœ¨é€™è£¡è·‘
+   （筆電用 `laptop`，AVD 用 `avd`。判斷方式：hostname 含 FUHQ = laptop，含 AVD = avd）
+3. 執行 db_to_md.py 做最後同步
+4. 更新 memory.db 的 daily_logs table
+5. 一句話摘要今天做了什麼
+6. 提醒用戶：Oracle sync 由 claude-setup workspace 統一管理，不需要在這裡跑
 
-### ç”¨æˆ¶èªªã€Œæ•´ç† inboxã€ï¼ˆæ‰‹å‹•è§¸ç™¼ï¼‰
-ç«‹åˆ»åŸ·è¡Œ INBOX æ•´ç†ï¼Œä¸åšå…¶ä»–äº‹ã€‚
+### 用戶說「整理 inbox」（手動觸發）
+立刻執行 INBOX 整理，不做其他事。
 
 ---
 
-## INBOX æ•´ç†è¦å‰‡
+## INBOX 整理規則
 
-INBOX è·¯å¾‘ï¼š`~/Documents/knowledge/INBOX.md`
+INBOX 路徑：`~/Documents/knowledge/INBOX.md`
 
-æ•´ç†æ™‚ï¼Œå°æ¯ä¸€æ¢ä¾åºåˆ¤æ–·ï¼š
+整理時，對每一條依序判斷：
 
-| å…§å®¹é¡žåž‹ | åŽ»å“ªè£¡ |
+| 內容類型 | 去哪裡 |
 |----------|--------|
-| é—œæ–¼é€™å€‹ project çš„æ±ºå®š | â†’ db_write.py decision |
-| é—œæ–¼é€™å€‹ project çš„å•é¡Œ | â†’ db_write.py question |
-| é€šç”¨çŸ¥è­˜ã€æŠ€è¡“ç­†è¨˜ | â†’ db_write.py knowledgeï¼Œä¹‹å¾ŒåŒæ­¥åˆ° Obsidian |
-| é—œæ–¼æˆ‘è‡ªå·±çš„åå¥½ã€ç¿’æ…£ | â†’ append åˆ° `knowledge/me/preferences.md` |
-| æƒ³æ³•ã€éˆæ„Ÿï¼Œè·Ÿç›®å‰ project ç„¡é—œ | â†’ append åˆ° `knowledge/notes/ideas.md` |
-| å·²éŽæ™‚æˆ–ç„¡æ„ç¾©çš„ | â†’ ç›´æŽ¥ä¸Ÿæ£„ |
+| 關於這個 project 的決定 | → db_write.py decision |
+| 關於這個 project 的問題 | → db_write.py question |
+| 通用知識、技術筆記 | → db_write.py knowledge，之後同步到 Obsidian |
+| 關於我自己的偏好、習慣 | → append 到 `knowledge/me/preferences.md` |
+| 想法、靈感，跟目前 project 無關 | → append 到 `knowledge/notes/ideas.md` |
+| 已過時或無意義的 | → 直接丟棄 |
 
-æ•´ç†å®Œå¾Œæ¸…ç©º INBOX.mdï¼Œåªä¿ç•™ headerã€‚
-å›žå ±ï¼šã€ŒINBOX æ•´ç†å®Œï¼Œå…± N æ¢ï¼šX é€² SQLiteï¼ŒY é€² knowledgeï¼ŒZ ä¸Ÿæ£„ã€
+整理完後清空 INBOX.md，只保留 header。
+回報：「INBOX 整理完，共 N 條：X 進 SQLite，Y 進 knowledge，Z 丟棄」
 
 ---
 
-## Daily Log æ ¼å¼
+## Daily Log 格式
 
-å¯«å…¥è·¯å¾‘ï¼š`~/Documents/knowledge/logs/Multi-AI Chat/YYYY-MM-DD-{machine}.md`
-ï¼ˆç­†é›» = `laptop`ï¼ŒAVD = `avd`ï¼‰
+寫入路徑：`~/Documents/knowledge/logs/Multi-AI Chat/YYYY-MM-DD-{machine}.md`
+（筆電 = `laptop`，AVD = `avd`）
 
 ```markdown
 ---
@@ -121,9 +118,9 @@ workspace: Multi-AI Chat
 tags: []
 ---
 
-# Daily Log â€” Multi-AI Chat â€” YYYY-MM-DD
+# Daily Log — Multi-AI Chat — YYYY-MM-DD
 
-## HH:MM | [ä¸»é¡Œ]
+## HH:MM | [主題]
 
 - **What**: 
 - **Why**: 
@@ -138,11 +135,10 @@ tags: []
 
 ---
 
-## Knowledge Base æŸ¥è©¢è¦å‰‡
+## Knowledge Base 查詢規則
 
-éœ€è¦æŸ¥è©¢èƒŒæ™¯çŸ¥è­˜æ™‚ï¼š
-1. å…ˆçœ‹å…¨åŸŸè¼‰å…¥çš„ INDEX.md
-2. åªè®€éœ€è¦çš„é‚£å€‹æª”æ¡ˆ
-3. ä¸è¦è®€å…¶ä»– workspace çš„ logs
-4. ä¸è¦ä¸€æ¬¡è¼‰å…¥å¤šå€‹ä¸ç›¸é—œçš„æª”æ¡ˆ
-
+需要查詢背景知識時：
+1. 先看全域載入的 INDEX.md
+2. 只讀需要的那個檔案
+3. 不要讀其他 workspace 的 logs
+4. 不要一次載入多個不相關的檔案
