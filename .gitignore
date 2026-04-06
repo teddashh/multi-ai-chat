@@ -1,7 +1,12 @@
 ﻿.claude-memory/
+CLAUDE.md
 *.tmp
 __pycache__/
 *.pyc
 node_modules/
 browser-session/
 *- Copy*
+.env
+.env.*
+*.pem
+*.key
