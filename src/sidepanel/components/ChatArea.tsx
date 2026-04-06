@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import type { ChatMessage, ChatMode } from '../../shared/types';
 import { AI_PROVIDERS } from '../../shared/constants';
+import { t } from '../../shared/i18n';
 
 interface Props {
   messages: ChatMessage[];
@@ -19,8 +20,8 @@ export default function ChatArea({ messages, mode }: Props) {
       <div className="flex-1 flex items-center justify-center text-gray-500 text-sm p-4">
         <div className="text-center">
           <p className="text-2xl mb-2">💬</p>
-          <p>連線 AI 後開始對話</p>
-          <p className="text-xs text-gray-600 mt-1">目前模式：{mode}</p>
+          <p>{t('chat.empty')}</p>
+          <p className="text-xs text-gray-600 mt-1">{t('chat.mode')}：{mode}</p>
         </div>
       </div>
     );

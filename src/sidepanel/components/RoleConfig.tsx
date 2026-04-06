@@ -1,6 +1,7 @@
 import React from 'react';
 import type { AIProvider, ChatMode, ModeRoles } from '../../shared/types';
 import { AI_PROVIDERS } from '../../shared/constants';
+import { t } from '../../shared/i18n';
 
 interface Props {
   mode: ChatMode;
@@ -9,10 +10,10 @@ interface Props {
 }
 
 const ROLE_LABELS: Record<string, Record<string, string>> = {
-  debate: { pro: '正方', con: '反方', summary: '總結' },
-  consult: { first: '先答', reviewer: '審查', summary: '總結' },
-  coding: { planner: '規劃', reviewer: '審查', coder: 'Coder/QC' },
-  roundtable: { first: '第一位', second: '第二位', third: '第三位' },
+  debate: { pro: t('role.pro'), con: t('role.con'), summary: t('role.summary') },
+  consult: { first: t('role.first'), reviewer: t('role.reviewer'), summary: t('role.summary') },
+  coding: { planner: t('role.planner'), reviewer: t('role.reviewer'), coder: t('role.coder') },
+  roundtable: { first: t('role.first_speaker'), second: t('role.second_speaker'), third: t('role.third_speaker') },
 };
 
 const providers: AIProvider[] = ['chatgpt', 'claude', 'gemini'];

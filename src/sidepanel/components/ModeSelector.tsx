@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ChatMode } from '../../shared/types';
 import { CHAT_MODES } from '../../shared/constants';
+import { t } from '../../shared/i18n';
 
 interface Props {
   mode: ChatMode;
@@ -25,10 +26,10 @@ export default function ModeSelector({ mode, onModeChange }: Props) {
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
             }`}
-            title={info.description}
+            title={t(`mode.${m}.desc`)}
           >
             <span className="mr-1">{info.icon}</span>
-            {info.name}
+            {t(`mode.${m}`)}
           </button>
         );
       })}

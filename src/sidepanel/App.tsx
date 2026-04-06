@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { AIProvider, AIConnection, ChatMode, ChatMessage, ModeRoles } from '../shared/types';
 import { CHAT_MODES, AI_PROVIDERS, DEFAULT_DEBATE_ROLES, DEFAULT_CONSULT_ROLES, DEFAULT_CODING_ROLES, DEFAULT_ROUNDTABLE_ROLES } from '../shared/constants';
+import { t } from '../shared/i18n';
 import ConnectionBar from './components/ConnectionBar';
 import ModeSelector from './components/ModeSelector';
 import RoleConfig from './components/RoleConfig';
@@ -231,7 +232,7 @@ export default function App() {
       {/* Header */}
       <div className="flex-none border-b border-gray-700 p-3">
         <div className="flex items-center justify-between mb-2">
-          <h1 className="text-lg font-bold">Multi-AI Chat</h1>
+          <h1 className="text-lg font-bold">{t('app.title')}</h1>
           <div className="flex items-center gap-2">
             <button
               onClick={handleExport}
@@ -239,9 +240,9 @@ export default function App() {
               className="text-xs text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
               title="Export as Markdown"
             >
-              📥 Export
+              {'\u{1F4E5} '}{t('app.export')}
             </button>
-            <span className="text-xs text-gray-400">{connectedCount}/3 connected</span>
+            <span className="text-xs text-gray-400">{connectedCount}/3 {t('app.connected')}</span>
           </div>
         </div>
         <ConnectionBar connections={connections} onOpenLogin={handleOpenLogin} />
@@ -255,7 +256,7 @@ export default function App() {
             onClick={() => setShowRoleConfig(!showRoleConfig)}
             className="text-xs text-gray-400 hover:text-white mt-1 ml-1"
           >
-            {showRoleConfig ? '▲ 收起角色設定' : '▼ 角色設定'}
+            {showRoleConfig ? t('roles.toggle.hide') : t('roles.toggle.show')}
           </button>
         )}
         {showRoleConfig && mode !== 'free' && (
