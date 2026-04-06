@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { AIProvider, AIConnection, ChatMode, ChatMessage, ModeRoles } from '../shared/types';
-import { CHAT_MODES, DEFAULT_DEBATE_ROLES, DEFAULT_CONSULT_ROLES, DEFAULT_CODING_ROLES, DEFAULT_ROUNDTABLE_ROLES } from '../shared/constants';
+import { CHAT_MODES, AI_PROVIDERS, DEFAULT_DEBATE_ROLES, DEFAULT_CONSULT_ROLES, DEFAULT_CODING_ROLES, DEFAULT_ROUNDTABLE_ROLES } from '../shared/constants';
 import ConnectionBar from './components/ConnectionBar';
 import ModeSelector from './components/ModeSelector';
 import RoleConfig from './components/RoleConfig';
@@ -179,6 +179,47 @@ export default function App() {
     [mode, roles, isProcessing]
   );
 
+  const handleExport = useCallback(() => {
+    if (messages.length === 0) return;
+
+    const modeInfo = CHAT_MODES[mode];
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+    const filename = `multi-ai-chat-${mode}-${timestamp}.md`;
+
+    const lines: string[] = [
+      `# Multi-AI Chat — ${modeInfo.icon} ${modeInfo.name}`,
+      `> Exported: ${new Date().toLocaleString()}`,
+      '',
+      '---',
+      '',
+    ];
+
+    for (const msg of messages) {
+      if (msg.role === 'user') {
+        lines.push(`## 👤 User`);
+        lines.push('');
+        lines.push(...msg.content.split('\n').map(line => `> ${line}`));
+      } else {
+        const providerName = msg.provider ? (AI_PROVIDERS[msg.provider as keyof typeof AI_PROVIDERS]?.name ?? msg.provider) : 'AI';
+        const roleLabel = msg.modeRole ? ` (${msg.modeRole})` : '';
+        lines.push(`## 🤖 ${providerName}${roleLabel}`);
+        lines.push('');
+        lines.push(msg.content);
+      }
+      lines.push('');
+      lines.push('---');
+      lines.push('');
+    }
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [messages, mode]);
+
   const handleOpenLogin = (provider: AIProvider) => {
     chrome.runtime.sendMessage({ action: 'OPEN_LOGIN', provider });
   };
@@ -191,7 +232,17 @@ export default function App() {
       <div className="flex-none border-b border-gray-700 p-3">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-lg font-bold">Multi-AI Chat</h1>
-          <span className="text-xs text-gray-400">{connectedCount}/3 connected</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              disabled={messages.length === 0}
+              className="text-xs text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Export as Markdown"
+            >
+              📥 Export
+            </button>
+            <span className="text-xs text-gray-400">{connectedCount}/3 connected</span>
+          </div>
         </div>
         <ConnectionBar connections={connections} onOpenLogin={handleOpenLogin} />
       </div>

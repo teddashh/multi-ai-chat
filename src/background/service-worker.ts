@@ -299,28 +299,50 @@ async function handleConsultMode(text: string, roles: ConsultRoles) {
   sendWorkflowStatus('');
 }
 
-// --- Coding Mode: planner → reviewer → coder ---
+// --- Coding Mode: 7-step double-loop forge ---
 async function handleCodingMode(text: string, roles: CodingRoles) {
   const plannerName = AI_PROVIDERS[roles.planner].name;
   const reviewerName = AI_PROVIDERS[roles.reviewer].name;
   const coderName = AI_PROVIDERS[roles.coder].name;
 
+  // === Design Loop ===
   checkAborted();
-  sendWorkflowStatus(`💻 ${plannerName} 規劃架構中...`);
+  sendWorkflowStatus(`💻 Step 1/7 — ${plannerName} 撰寫規格中...`);
   sendRoleAssignment(roles.planner, 'planner', '規劃師');
-  const planResponse = await sendAndWait(roles.planner, PROMPTS.coding.planner(text));
+  const spec = await sendAndWait(roles.planner, PROMPTS.coding.plannerSpec(text));
 
   checkAborted();
-  sendWorkflowStatus(`💻 ${reviewerName} 審查計畫中...`);
+  sendWorkflowStatus(`💻 Step 2/7 — ${reviewerName} 審查規格中...`);
   sendRoleAssignment(roles.reviewer, 'reviewer', '審查者');
-  const reviewPrompt = PROMPTS.coding.reviewer(text, planResponse, plannerName);
-  const reviewResponse = await sendAndWait(roles.reviewer, reviewPrompt);
+  const specReview = await sendAndWait(roles.reviewer, PROMPTS.coding.reviewerSpec(text, spec, plannerName));
+
+  // === Implementation Loop ===
+  checkAborted();
+  sendWorkflowStatus(`💻 Step 3/7 — ${coderName} 撰寫 v1 中...`);
+  sendRoleAssignment(roles.coder, 'coder', 'Coder');
+  const codeV1 = await sendAndWait(roles.coder, PROMPTS.coding.coderV1(text, spec, plannerName, specReview, reviewerName));
 
   checkAborted();
-  sendWorkflowStatus(`💻 ${coderName} 撰寫程式中...`);
-  sendRoleAssignment(roles.coder, 'coder', 'Coder');
-  const coderPrompt = PROMPTS.coding.coder(text, planResponse, plannerName, reviewResponse, reviewerName);
-  await sendAndWait(roles.coder, coderPrompt);
+  sendWorkflowStatus(`💻 Step 4/7 — ${reviewerName} Code Review 中...`);
+  sendRoleAssignment(roles.reviewer, 'reviewer', 'Code Review');
+  const codeReview = await sendAndWait(roles.reviewer, PROMPTS.coding.reviewerCode(text, codeV1, coderName));
+
+  checkAborted();
+  sendWorkflowStatus(`💻 Step 5/7 — ${coderName} 修正 → v2 中...`);
+  sendRoleAssignment(roles.coder, 'coder', 'v2 修正');
+  const codeV2 = await sendAndWait(roles.coder, PROMPTS.coding.coderV2(text, codeV1, codeReview, reviewerName));
+
+  // === Acceptance Loop ===
+  checkAborted();
+  sendWorkflowStatus(`💻 Step 6/7 — ${plannerName} 驗收中...`);
+  sendRoleAssignment(roles.planner, 'planner', '驗收');
+  const acceptance = await sendAndWait(roles.planner, PROMPTS.coding.plannerAcceptance(text, codeV2, coderName, spec));
+
+  checkAborted();
+  sendWorkflowStatus(`💻 Step 7/7 — ${coderName} 最終修正中...`);
+  sendRoleAssignment(roles.coder, 'coder', '最終版');
+  await sendAndWait(roles.coder, PROMPTS.coding.coderFinal(text, codeV2, acceptance, plannerName));
+
   sendWorkflowStatus('');
 }
 

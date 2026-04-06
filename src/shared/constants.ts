@@ -159,11 +159,32 @@ export const PROMPTS = {
     },
   },
   coding: {
-    planner: (question: string) =>
-      `你是一個軟體架構規劃師。請針對以下需求，寫出完整的實作計畫，包含：\n1. 需求分析\n2. 技術選型\n3. 檔案結構\n4. 每個檔案的詳細實作步驟和偽代碼\n5. 可能的 edge cases\n\n計畫要完整到「不需要再問問題就能直接寫 code」。\n\n需求：${question}`,
-    reviewer: (question: string, planResponse: string, plannerName: string) =>
-      `你是一個嚴格的 code reviewer。${plannerName} 針對以下需求寫了一份實作計畫：\n\n需求：${question}\n\n計畫：\n${planResponse}\n\n請嚴格審查這份計畫：\n1. 有沒有邏輯漏洞？\n2. 有沒有 edge cases 沒考慮到？\n3. 有沒有安全性問題？\n4. 架構設計合理嗎？\n5. 有沒有更好的做法？\n\n不要當好人，你的工作就是挑毛病。`,
-    coder: (question: string, planResponse: string, plannerName: string, reviewResponse: string, reviewerName: string) =>
-      `你是一個資深工程師。以下是一個開發任務：\n\n需求：${question}\n\n${plannerName} 的實作計畫：\n${planResponse}\n\n${reviewerName} 的審查意見：\n${reviewResponse}\n\n請根據計畫和審查意見，寫出完整的實作代碼。同時做品質把關：\n1. 確保所有審查意見中提到的問題都已處理\n2. 補上必要的錯誤處理和 edge cases\n3. 如果計畫或審查有矛盾，用你的專業判斷做最好的選擇`,
+    // Step 1: Planner writes spec
+    plannerSpec: (question: string) =>
+      `你是軟體架構規劃師。請針對以下需求，寫出完整的實作計畫：\n1. 需求分析與邊界條件\n2. 技術選型與理由\n3. 檔案結構\n4. 每個模組的職責與介面定義\n5. 關鍵演算法的偽代碼\n6. 可能的 edge cases\n\n計畫要完整到「不需要再問問題就能直接寫 code」。\n\n需求：${question}`,
+
+    // Step 2: Reviewer reviews spec
+    reviewerSpec: (question: string, spec: string, plannerName: string) =>
+      `你是嚴格的技術審查者。${plannerName} 針對以下需求寫了一份實作計畫：\n\n需求：${question}\n\n計畫：\n${spec}\n\n請嚴格審查：\n1. 邏輯漏洞？\n2. 漏掉的 edge cases？\n3. 安全性問題？\n4. 架構設計是否合理？\n5. 有沒有更好的做法？\n\n不要當好人，你的工作就是挑毛病。同時也指出計畫中做得好的部分。`,
+
+    // Step 3: Coder writes v1
+    coderV1: (question: string, spec: string, plannerName: string, specReview: string, reviewerName: string) =>
+      `你是資深工程師。請根據以下規格和審查意見，寫出第一版完整實作代碼。\n\n需求：${question}\n\n${plannerName} 的規格：\n${spec}\n\n${reviewerName} 的審查意見：\n${specReview}\n\n要求：\n1. 處理審查中提到的所有問題\n2. 補上錯誤處理和 edge cases\n3. 如果規格和審查有矛盾，用你的專業判斷選擇\n\n這是第一版，後面還有 code review 機會，所以先完成核心功能。`,
+
+    // Step 4: Reviewer reviews code
+    reviewerCode: (question: string, code: string, coderName: string) =>
+      `你是嚴格的 Code Reviewer。${coderName} 根據規格寫了第一版代碼。\n\n原始需求：${question}\n\n${coderName} 的代碼（v1）：\n${code}\n\n請做完整的 code review：\n1. 有沒有 bug 或邏輯錯誤？\n2. 有沒有漏掉的 edge cases？\n3. 程式碼品質：命名、結構、可讀性\n4. 效能問題？\n5. 安全性問題？\n6. 測試覆蓋建議\n\n列出每個問題的嚴重程度（Critical / Major / Minor）和具體修正建議。`,
+
+    // Step 5: Coder fixes → v2
+    coderV2: (question: string, codeV1: string, codeReview: string, reviewerName: string) =>
+      `你是資深工程師。${reviewerName} 對你的第一版代碼做了 code review。\n\n原始需求：${question}\n\n你的 v1 代碼：\n${codeV1}\n\n${reviewerName} 的 code review：\n${codeReview}\n\n請根據 review 意見修正代碼，產出 v2。要求：\n1. 處理所有 Critical 和 Major 問題\n2. Minor 問題視情況處理\n3. 在修改處加上簡短註解說明為什麼改\n4. 如果你不同意某個 review 意見，說明理由\n\n輸出完整的 v2 代碼。`,
+
+    // Step 6: Planner does acceptance
+    plannerAcceptance: (question: string, codeV2: string, coderName: string, originalSpec: string) =>
+      `你是軟體架構規劃師，同時也是這個需求的提出者。${coderName} 已經根據你的規格和 code review 修正了代碼。\n\n原始需求：${question}\n\n你當初的規格：\n${originalSpec}\n\n${coderName} 的 v2 代碼：\n${codeV2}\n\n請做驗收測試：\n1. v2 是否完整實現了原始需求的每一個功能點？\n2. 是否符合你的架構設計？\n3. 有沒有偏離規格的地方？\n4. 還有什麼需要調整的？\n\n如果都通過，明確說「驗收通過」。如果有問題，列出需要修正的項目。`,
+
+    // Step 7: Coder final fix
+    coderFinal: (question: string, codeV2: string, acceptance: string, plannerName: string) =>
+      `你是資深工程師。${plannerName} 對你的 v2 代碼做了驗收測試。\n\n原始需求：${question}\n\n你的 v2 代碼：\n${codeV2}\n\n${plannerName} 的驗收結果：\n${acceptance}\n\n如果驗收通過，輸出最終版代碼（可做最後的 polish）。\n如果有需要修正的項目，處理後輸出最終版。\n\n這是最終版，請確保：\n1. 所有驗收意見已處理\n2. 代碼可以直接使用\n3. 必要的文件或使用說明已包含`,
   },
 };
