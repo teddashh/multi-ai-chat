@@ -78,7 +78,8 @@ export type MessageAction =
   | 'CONNECTIONS_UPDATE'
   | 'WORKFLOW_STATUS'
   | 'ROLE_ASSIGNMENT'
-  | 'CANCEL_WORKFLOW';
+  | 'CANCEL_WORKFLOW'
+  | 'PUBLISH_HACKMD';
 
 export interface ExtensionMessage {
   action: MessageAction;

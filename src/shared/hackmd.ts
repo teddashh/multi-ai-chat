@@ -18,34 +18,36 @@ export interface HackMDPublishResult {
   editLink: string;
 }
 
+// Routes the actual HTTP request through the service worker because Chrome
+// MV3 extension pages (sidepanel/popup) still hit CORS preflight even with
+// host_permissions, but service workers bypass it.
 export async function publishToHackMD(
   title: string,
   content: string,
   token: string,
 ): Promise<HackMDPublishResult> {
-  const response = await fetch('https://api.hackmd.io/v1/notes', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      title,
-      content,
-      readPermission: 'guest',
-      writePermission: 'owner',
-      commentPermission: 'disabled',
-    }),
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      { action: 'PUBLISH_HACKMD', payload: { token, title, content } },
+      (response: { ok: boolean; result?: HackMDPublishResult; error?: string } | undefined) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        if (!response) {
+          reject(new Error('No response from background'));
+          return;
+        }
+        if (!response.ok) {
+          reject(new Error(response.error || 'Unknown HackMD error'));
+          return;
+        }
+        if (!response.result) {
+          reject(new Error('HackMD response missing result'));
+          return;
+        }
+        resolve(response.result);
+      },
+    );
   });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`HackMD ${response.status}: ${text || response.statusText}`);
-  }
-
-  const data = (await response.json()) as { id?: string; publishLink?: string };
-  const editLink = data.id ? `https://hackmd.io/${data.id}` : '';
-  const publishLink = data.publishLink || (data.id ? `https://hackmd.io/@/${data.id}/publish` : '');
-  if (!publishLink) throw new Error('HackMD response missing publish link');
-  return { publishLink, editLink };
 }

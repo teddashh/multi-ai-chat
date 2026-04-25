@@ -102,6 +102,12 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
       sendWorkflowStatus('');
       return false;
 
+    case 'PUBLISH_HACKMD':
+      handleHackMDPublish(message.payload as { token: string; title: string; content: string })
+        .then((result) => sendResponse({ ok: true, result }))
+        .catch((err) => sendResponse({ ok: false, error: (err as Error).message }));
+      return true; // keep message channel open for async response
+
     case 'SEND_MESSAGE':
       handleSendMessage(message.payload as {
         text: string;
@@ -401,4 +407,33 @@ async function handleRoundtableMode(text: string, roles: RoundtableRoles) {
   }
 
   sendWorkflowStatus('');
+}
+
+// --- HackMD Publish (runs in service worker so host_permissions bypasses CORS) ---
+async function handleHackMDPublish(payload: { token: string; title: string; content: string }) {
+  const response = await fetch('https://api.hackmd.io/v1/notes', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${payload.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      title: payload.title,
+      content: payload.content,
+      readPermission: 'guest',
+      writePermission: 'owner',
+      commentPermission: 'disabled',
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`HackMD ${response.status}: ${text || response.statusText}`);
+  }
+
+  const data = (await response.json()) as { id?: string; publishLink?: string };
+  const editLink = data.id ? `https://hackmd.io/${data.id}` : '';
+  const publishLink = data.publishLink || (data.id ? `https://hackmd.io/@/${data.id}/publish` : '');
+  if (!publishLink) throw new Error('HackMD response missing publish link');
+  return { publishLink, editLink };
 }
