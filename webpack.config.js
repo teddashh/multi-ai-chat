@@ -10,6 +10,7 @@ module.exports = {
     'content/chatgpt': './src/content/chatgpt.ts',
     'content/claude': './src/content/claude.ts',
     'content/gemini': './src/content/gemini.ts',
+    'content/grok': './src/content/grok.ts',
   },
   output: {
     path: path.resolve(__dirname, 'dist'),

@@ -2,8 +2,9 @@
   "manifest_version": 3,
   "name": "Multi-AI Chat",
   "version": "0.1.0",
-  "description": "同時操控 ChatGPT / Claude / Gemini 網頁版的統一聊天介面",
+  "description": "同時操控 ChatGPT / Claude / Gemini / Grok 網頁版的統一聊天介面",
   "permissions": ["sidePanel", "activeTab", "tabs", "storage"],
+  "host_permissions": ["https://api.hackmd.io/*"],
   "side_panel": {
     "default_path": "sidepanel.html"
   },
@@ -25,6 +26,11 @@
     {
       "matches": ["https://gemini.google.com/*"],
       "js": ["content/gemini.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://grok.com/*"],
+      "js": ["content/grok.js"],
       "run_at": "document_idle"
     }
   ],

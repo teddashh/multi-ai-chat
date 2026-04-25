@@ -25,6 +25,7 @@ const connections: Record<AIProvider, AIConnection> = {
   chatgpt: { provider: 'chatgpt', status: 'disconnected' },
   claude: { provider: 'claude', status: 'disconnected' },
   gemini: { provider: 'gemini', status: 'disconnected' },
+  grok: { provider: 'grok', status: 'disconnected' },
 };
 
 // === Side Panel Setup ===
@@ -37,6 +38,7 @@ function getProviderFromUrl(url: string): AIProvider | null {
   if (url.includes('chatgpt.com') || url.includes('chat.openai.com')) return 'chatgpt';
   if (url.includes('claude.ai')) return 'claude';
   if (url.includes('gemini.google.com')) return 'gemini';
+  if (url.includes('grok.com')) return 'grok';
   return null;
 }
 
@@ -248,10 +250,11 @@ async function handleFreeMode(text: string) {
   sendWorkflowStatus('');
 }
 
-// --- Debate Mode: pro → con → summary ---
+// --- Debate Mode: pro → con → judge → summary ---
 async function handleDebateMode(text: string, roles: DebateRoles) {
   const proName = AI_PROVIDERS[roles.pro].name;
   const conName = AI_PROVIDERS[roles.con].name;
+  const judgeName = AI_PROVIDERS[roles.judge].name;
   const sumName = AI_PROVIDERS[roles.summary].name;
 
   checkAborted();
@@ -267,90 +270,118 @@ async function handleDebateMode(text: string, roles: DebateRoles) {
   const conResponse = await sendAndWait(roles.con, conPrompt);
 
   checkAborted();
+  sendWorkflowStatus(`⚔️ 判官 ${judgeName} 評析中...`);
+  sendRoleAssignment(roles.judge, 'judge', '判官');
+  const judgePrompt = PROMPTS.debate.judge(text, proResponse, conResponse);
+  const judgeResponse = await sendAndWait(roles.judge, judgePrompt);
+
+  checkAborted();
   sendWorkflowStatus(`⚔️ ${sumName} 歸納總結中...`);
   sendRoleAssignment(roles.summary, 'summary', '總結');
-  const summaryPrompt = PROMPTS.debate.summary(text, proResponse, conResponse);
+  const summaryPrompt = PROMPTS.debate.summary(text, proResponse, conResponse, judgeResponse);
   await sendAndWait(roles.summary, summaryPrompt);
   sendWorkflowStatus('');
 }
 
-// --- Consult Mode: first → reviewer → summary ---
+// --- Consult Mode: first + second (parallel) → reviewer → summary ---
 async function handleConsultMode(text: string, roles: ConsultRoles) {
   const firstName = AI_PROVIDERS[roles.first].name;
+  const secondName = AI_PROVIDERS[roles.second].name;
   const reviewerName = AI_PROVIDERS[roles.reviewer].name;
   const sumName = AI_PROVIDERS[roles.summary].name;
 
   checkAborted();
-  sendWorkflowStatus(`🔍 ${firstName} 回答中...`);
-  sendRoleAssignment(roles.first, 'first', '先答');
-  const firstResponse = await sendAndWait(roles.first, PROMPTS.consult.first(text));
+  sendWorkflowStatus(`🔍 ${firstName} 與 ${secondName} 同時回答中...`);
+  sendRoleAssignment(roles.first, 'first', '先答 A');
+  sendRoleAssignment(roles.second, 'second', '先答 B');
+  const [firstResponse, secondResponse] = await Promise.all([
+    sendAndWait(roles.first, PROMPTS.consult.first(text)),
+    sendAndWait(roles.second, PROMPTS.consult.second(text)),
+  ]);
 
   checkAborted();
   sendWorkflowStatus(`🔍 ${reviewerName} 審查中...`);
   sendRoleAssignment(roles.reviewer, 'reviewer', '審查');
-  const reviewerPrompt = PROMPTS.consult.reviewer(text, firstResponse, firstName);
+  const reviewerPrompt = PROMPTS.consult.reviewer(text, firstResponse, firstName, secondResponse, secondName);
   const reviewerResponse = await sendAndWait(roles.reviewer, reviewerPrompt);
 
   checkAborted();
   sendWorkflowStatus(`🔍 ${sumName} 總結中...`);
   sendRoleAssignment(roles.summary, 'summary', '總結');
-  const summaryPrompt = PROMPTS.consult.summary(text, firstResponse, firstName, reviewerResponse, reviewerName);
+  const summaryPrompt = PROMPTS.consult.summary(
+    text,
+    firstResponse,
+    firstName,
+    secondResponse,
+    secondName,
+    reviewerResponse,
+    reviewerName,
+  );
   await sendAndWait(roles.summary, summaryPrompt);
   sendWorkflowStatus('');
 }
 
-// --- Coding Mode: 7-step double-loop forge ---
+// --- Coding Mode: 8-step double-loop forge with Tester ---
 async function handleCodingMode(text: string, roles: CodingRoles) {
   const plannerName = AI_PROVIDERS[roles.planner].name;
   const reviewerName = AI_PROVIDERS[roles.reviewer].name;
   const coderName = AI_PROVIDERS[roles.coder].name;
+  const testerName = AI_PROVIDERS[roles.tester].name;
 
   // === Design Loop ===
   checkAborted();
-  sendWorkflowStatus(`💻 Step 1/7 — ${plannerName} 撰寫規格中...`);
+  sendWorkflowStatus(`💻 Step 1/8 — ${plannerName} 撰寫規格中...`);
   sendRoleAssignment(roles.planner, 'planner', '規劃師');
   const spec = await sendAndWait(roles.planner, PROMPTS.coding.plannerSpec(text));
 
   checkAborted();
-  sendWorkflowStatus(`💻 Step 2/7 — ${reviewerName} 審查規格中...`);
+  sendWorkflowStatus(`💻 Step 2/8 — ${reviewerName} 審查規格中...`);
   sendRoleAssignment(roles.reviewer, 'reviewer', '審查者');
   const specReview = await sendAndWait(roles.reviewer, PROMPTS.coding.reviewerSpec(text, spec, plannerName));
 
   // === Implementation Loop ===
   checkAborted();
-  sendWorkflowStatus(`💻 Step 3/7 — ${coderName} 撰寫 v1 中...`);
+  sendWorkflowStatus(`💻 Step 3/8 — ${coderName} 撰寫 v1 中...`);
   sendRoleAssignment(roles.coder, 'coder', 'Coder');
   const codeV1 = await sendAndWait(roles.coder, PROMPTS.coding.coderV1(text, spec, plannerName, specReview, reviewerName));
 
   checkAborted();
-  sendWorkflowStatus(`💻 Step 4/7 — ${reviewerName} Code Review 中...`);
+  sendWorkflowStatus(`💻 Step 4/8 — ${reviewerName} Code Review 中...`);
   sendRoleAssignment(roles.reviewer, 'reviewer', 'Code Review');
   const codeReview = await sendAndWait(roles.reviewer, PROMPTS.coding.reviewerCode(text, codeV1, coderName));
 
   checkAborted();
-  sendWorkflowStatus(`💻 Step 5/7 — ${coderName} 修正 → v2 中...`);
+  sendWorkflowStatus(`💻 Step 5/8 — ${testerName} 測試分析中...`);
+  sendRoleAssignment(roles.tester, 'tester', 'Tester');
+  const testReport = await sendAndWait(roles.tester, PROMPTS.coding.testerCases(text, codeV1, coderName));
+
+  checkAborted();
+  sendWorkflowStatus(`💻 Step 6/8 — ${coderName} 修正 → v2 中...`);
   sendRoleAssignment(roles.coder, 'coder', 'v2 修正');
-  const codeV2 = await sendAndWait(roles.coder, PROMPTS.coding.coderV2(text, codeV1, codeReview, reviewerName));
+  const codeV2 = await sendAndWait(
+    roles.coder,
+    PROMPTS.coding.coderV2(text, codeV1, codeReview, reviewerName, testReport, testerName),
+  );
 
   // === Acceptance Loop ===
   checkAborted();
-  sendWorkflowStatus(`💻 Step 6/7 — ${plannerName} 驗收中...`);
+  sendWorkflowStatus(`💻 Step 7/8 — ${plannerName} 驗收中...`);
   sendRoleAssignment(roles.planner, 'planner', '驗收');
   const acceptance = await sendAndWait(roles.planner, PROMPTS.coding.plannerAcceptance(text, codeV2, coderName, spec));
 
   checkAborted();
-  sendWorkflowStatus(`💻 Step 7/7 — ${coderName} 最終修正中...`);
+  sendWorkflowStatus(`💻 Step 8/8 — ${coderName} 最終修正中...`);
   sendRoleAssignment(roles.coder, 'coder', '最終版');
   await sendAndWait(roles.coder, PROMPTS.coding.coderFinal(text, codeV2, acceptance, plannerName));
 
   sendWorkflowStatus('');
 }
 
-// --- Roundtable Mode: 5 rounds × 3 participants (Dialectical Spiral) ---
+// --- Roundtable Mode: 5 rounds × 4 participants (Dialectical Spiral) ---
 const ROUND_LABELS = ['開場立論', '交叉質疑', '攻防深化', '核心收斂', '真理浮現'];
 
 async function handleRoundtableMode(text: string, roles: RoundtableRoles) {
-  const participants: AIProvider[] = [roles.first, roles.second, roles.third];
+  const participants: AIProvider[] = [roles.first, roles.second, roles.third, roles.fourth];
   const history: { name: string; round: number; text: string }[] = [];
 
   for (let round = 1; round <= 5; round++) {

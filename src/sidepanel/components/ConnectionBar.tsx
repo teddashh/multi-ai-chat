@@ -8,10 +8,10 @@ interface Props {
 }
 
 export default function ConnectionBar({ connections, onOpenLogin }: Props) {
-  const providers: AIProvider[] = ['chatgpt', 'claude', 'gemini'];
+  const providers: AIProvider[] = ['chatgpt', 'claude', 'gemini', 'grok'];
 
   return (
-    <div className="flex gap-2">
+    <div className="grid grid-cols-2 gap-2">
       {providers.map((provider) => {
         const conn = connections[provider];
         const info = AI_PROVIDERS[provider];
@@ -21,7 +21,7 @@ export default function ConnectionBar({ connections, onOpenLogin }: Props) {
           <button
             key={provider}
             onClick={() => !isConnected && onOpenLogin(provider)}
-            className={`flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
               isConnected
                 ? 'bg-gray-800 border border-gray-600 cursor-default'
                 : 'bg-gray-800 border border-gray-700 hover:border-gray-500 cursor-pointer'

@@ -2,11 +2,44 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { AIProvider, AIConnection, ChatMode, ChatMessage, ModeRoles } from '../shared/types';
 import { CHAT_MODES, AI_PROVIDERS, DEFAULT_DEBATE_ROLES, DEFAULT_CONSULT_ROLES, DEFAULT_CODING_ROLES, DEFAULT_ROUNDTABLE_ROLES } from '../shared/constants';
 import { t } from '../shared/i18n';
+import { getHackMDToken, publishToHackMD } from '../shared/hackmd';
 import ConnectionBar from './components/ConnectionBar';
 import ModeSelector from './components/ModeSelector';
 import RoleConfig from './components/RoleConfig';
 import ChatArea from './components/ChatArea';
 import InputBar from './components/InputBar';
+import SettingsModal from './components/SettingsModal';
+
+function buildMarkdown(messages: ChatMessage[], mode: ChatMode): { title: string; content: string } {
+  const modeInfo = CHAT_MODES[mode];
+  const title = `Multi-AI Chat — ${modeInfo.icon} ${modeInfo.name}`;
+  const lines: string[] = [
+    `# ${title}`,
+    `> Exported: ${new Date().toLocaleString()}`,
+    '',
+    '---',
+    '',
+  ];
+  for (const msg of messages) {
+    if (msg.role === 'user') {
+      lines.push(`## 👤 User`);
+      lines.push('');
+      lines.push(...msg.content.split('\n').map((line) => `> ${line}`));
+    } else {
+      const providerName = msg.provider
+        ? (AI_PROVIDERS[msg.provider as keyof typeof AI_PROVIDERS]?.name ?? msg.provider)
+        : 'AI';
+      const roleLabel = msg.modeRole ? ` (${msg.modeRole})` : '';
+      lines.push(`## 🤖 ${providerName}${roleLabel}`);
+      lines.push('');
+      lines.push(msg.content);
+    }
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+  }
+  return { title, content: lines.join('\n') };
+}
 
 const DEFAULT_ROLES: Record<string, ModeRoles> = {
   debate: DEFAULT_DEBATE_ROLES,
@@ -20,6 +53,7 @@ export default function App() {
     chatgpt: { provider: 'chatgpt', status: 'disconnected' },
     claude: { provider: 'claude', status: 'disconnected' },
     gemini: { provider: 'gemini', status: 'disconnected' },
+    grok: { provider: 'grok', status: 'disconnected' },
   });
   const [mode, setMode] = useState<ChatMode>('free');
   const [roles, setRoles] = useState<ModeRoles>(DEFAULT_DEBATE_ROLES);
@@ -27,6 +61,8 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [workflowStatus, setWorkflowStatus] = useState('');
   const [showRoleConfig, setShowRoleConfig] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [pendingRoles, setPendingRoles] = useState<Record<string, string>>({});
   // Keep a ref so the message listener always sees the latest pendingRoles without re-registering
   const pendingRolesRef = useRef<Record<string, string>>({});
@@ -182,43 +218,48 @@ export default function App() {
 
   const handleExport = useCallback(() => {
     if (messages.length === 0) return;
-
-    const modeInfo = CHAT_MODES[mode];
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
     const filename = `multi-ai-chat-${mode}-${timestamp}.md`;
+    const { content } = buildMarkdown(messages, mode);
 
-    const lines: string[] = [
-      `# Multi-AI Chat — ${modeInfo.icon} ${modeInfo.name}`,
-      `> Exported: ${new Date().toLocaleString()}`,
-      '',
-      '---',
-      '',
-    ];
-
-    for (const msg of messages) {
-      if (msg.role === 'user') {
-        lines.push(`## 👤 User`);
-        lines.push('');
-        lines.push(...msg.content.split('\n').map(line => `> ${line}`));
-      } else {
-        const providerName = msg.provider ? (AI_PROVIDERS[msg.provider as keyof typeof AI_PROVIDERS]?.name ?? msg.provider) : 'AI';
-        const roleLabel = msg.modeRole ? ` (${msg.modeRole})` : '';
-        lines.push(`## 🤖 ${providerName}${roleLabel}`);
-        lines.push('');
-        lines.push(msg.content);
-      }
-      lines.push('');
-      lines.push('---');
-      lines.push('');
-    }
-
-    const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+    const blob = new Blob([content], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  }, [messages, mode]);
+
+  const handlePublish = useCallback(async () => {
+    if (messages.length === 0) {
+      alert(t('publish.empty'));
+      return;
+    }
+    const token = await getHackMDToken();
+    if (!token) {
+      alert(t('publish.no_token'));
+      setIsSettingsOpen(true);
+      return;
+    }
+
+    setIsPublishing(true);
+    try {
+      const { title, content } = buildMarkdown(messages, mode);
+      const dated = `${title} — ${new Date().toLocaleString()}`;
+      const { publishLink } = await publishToHackMD(dated, content, token);
+      try {
+        await navigator.clipboard.writeText(publishLink);
+      } catch {
+        // clipboard write may fail silently in some contexts; URL still shown below
+      }
+      alert(`${t('publish.success')}\n\n${publishLink}`);
+      window.open(publishLink, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      alert(`${t('publish.failed')} ${(err as Error).message}`);
+    } finally {
+      setIsPublishing(false);
+    }
   }, [messages, mode]);
 
   const handleOpenLogin = (provider: AIProvider) => {
@@ -238,11 +279,27 @@ export default function App() {
               onClick={handleExport}
               disabled={messages.length === 0}
               className="text-xs text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-              title="Export as Markdown"
+              title={t('app.export')}
             >
               {'\u{1F4E5} '}{t('app.export')}
             </button>
-            <span className="text-xs text-gray-400">{connectedCount}/3 {t('app.connected')}</span>
+            <button
+              onClick={handlePublish}
+              disabled={messages.length === 0 || isPublishing}
+              className="text-xs text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+              title={t('app.publish')}
+            >
+              {isPublishing ? '⏳ ' : '\u{1F4E4} '}
+              {isPublishing ? t('publish.publishing') : t('app.publish')}
+            </button>
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="text-xs text-gray-400 hover:text-white"
+              title={t('app.settings')}
+            >
+              {'\u2699\uFE0F'}
+            </button>
+            <span className="text-xs text-gray-400">{connectedCount}/4 {t('app.connected')}</span>
           </div>
         </div>
         <ConnectionBar connections={connections} onOpenLogin={handleOpenLogin} />
@@ -276,6 +333,8 @@ export default function App() {
 
       {/* Input */}
       <InputBar onSend={handleSend} onCancel={handleCancel} disabled={isProcessing || connectedCount === 0} isProcessing={isProcessing} />
+
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 }
