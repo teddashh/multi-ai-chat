@@ -27,6 +27,13 @@ createContentScript({
     '.message-bubble.assistant',
   ],
 
+  stopButtonSelectors: [
+    'button[data-testid="chat-stop"]',
+    'button[aria-label="Stop"]',
+    'button[aria-label="Stop generating"]',
+    'button[aria-label="Stop response"]',
+  ],
+
   loginDetector: () => {
     return !!(
       document.querySelector('[data-testid="chat-input"] .ProseMirror[contenteditable="true"]') ||
@@ -57,36 +64,36 @@ createContentScript({
   },
 
   // ProseMirror injection — same approach as Claude (Grok also uses tiptap)
-  injectInput: (el: Element, text: string) => {
+  injectInput: async (el: Element, text: string) => {
     const editor = el as HTMLElement;
     editor.focus();
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    const clipboard = new DataTransfer();
+    clipboard.setData('text/plain', text);
+    editor.dispatchEvent(new ClipboardEvent('paste', { clipboardData: clipboard, bubbles: true, cancelable: true }));
+    await Promise.resolve();
 
-    const paragraphs = editor.querySelectorAll('p');
-    paragraphs.forEach(p => p.remove());
-
-    const p = document.createElement('p');
-    p.textContent = text;
-    editor.appendChild(p);
-
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
-
-    setTimeout(() => {
+    if (!matches(editor.textContent ?? '', text)) {
       editor.focus();
-      const selection = window.getSelection();
-      const range = document.createRange();
       range.selectNodeContents(editor);
       selection?.removeAllRanges();
       selection?.addRange(range);
+      document.execCommand('insertText', false, text);
+      editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+      await Promise.resolve();
+    }
 
-      const dt = new DataTransfer();
-      dt.setData('text/plain', text);
-      const pasteEvent = new ClipboardEvent('paste', {
-        clipboardData: dt,
-        bubbles: true,
-        cancelable: true,
-      });
-      editor.dispatchEvent(pasteEvent);
-    }, 100);
+    if (!matches(editor.textContent ?? '', text)) {
+      editor.replaceChildren();
+      const paragraph = document.createElement('p');
+      paragraph.textContent = text;
+      editor.appendChild(paragraph);
+      editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    }
   },
 
   // Round 5 of roundtable carries 4 rounds × 4 speakers of history — generation can
@@ -94,3 +101,7 @@ createContentScript({
   doneDelay: 8000,
   chunkDebounce: 600,
 });
+
+function matches(actual: string, expected: string): boolean {
+  return actual.replace(/\s+/g, '') === expected.replace(/\s+/g, '');
+}

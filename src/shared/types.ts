@@ -1,10 +1,11 @@
 // === AI Providers ===
 
 export type AIProvider = 'chatgpt' | 'claude' | 'gemini' | 'grok';
+export type Locale = 'en' | 'zh-TW' | 'ja' | 'de' | 'ko';
 
 export interface AIConnection {
   provider: AIProvider;
-  status: 'connected' | 'disconnected' | 'checking';
+  status: 'connected' | 'disconnected' | 'checking' | 'login-required';
   tabId?: number;
 }
 
@@ -55,14 +56,28 @@ export interface ChatMessage {
   modeRole?: string; // 'pro' | 'con' | 'summary' | 'first' | 'reviewer' | 'planner' | 'coder' etc.
   content: string;
   timestamp: number;
+  requestId?: string;
 }
 
 export interface Conversation {
   id: string;
+  title: string;
   mode: ChatMode;
   roles?: ModeRoles;
   messages: ChatMessage[];
+  providerUrls?: Partial<Record<AIProvider, string>>;
   createdAt: number;
+  updatedAt: number;
+}
+
+export interface WorkflowStatusPayload {
+  key: string;
+  params?: Record<string, string | number>;
+  workflowId?: string;
+  sessionId?: string;
+  clientId?: string;
+  done?: boolean;
+  cancelled?: boolean;
 }
 
 // === Chrome Message Passing ===
@@ -75,14 +90,20 @@ export type MessageAction =
   | 'RESPONSE_DONE'
   | 'OPEN_LOGIN'
   | 'GET_CONNECTIONS'
+  | 'GET_PROVIDER_URLS'
+  | 'RESET_PROVIDER_SESSIONS'
+  | 'RESTORE_PROVIDER_SESSIONS'
   | 'CONNECTIONS_UPDATE'
   | 'WORKFLOW_STATUS'
   | 'ROLE_ASSIGNMENT'
   | 'CANCEL_WORKFLOW'
+  | 'STOP_GENERATION'
   | 'PUBLISH_HACKMD';
 
 export interface ExtensionMessage {
   action: MessageAction;
   provider?: AIProvider;
+  requestId?: string;
+  workflowId?: string;
   payload?: unknown;
 }

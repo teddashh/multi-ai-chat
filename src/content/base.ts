@@ -2,252 +2,304 @@ import type { AIProvider, ExtensionMessage } from '../shared/types';
 
 export interface ContentScriptConfig {
   provider: AIProvider;
-  // Multiple selectors to try (first match wins)
   inputSelectors: string[];
   sendButtonSelectors: string[];
   responseSelectors: string[];
+  stopButtonSelectors?: string[];
   loginDetector: () => boolean;
-  // Optional: detect if AI is still "thinking" (not yet generating response)
   isThinking?: () => boolean;
-  // Optional: custom input method
-  injectInput?: (el: Element, text: string) => void;
-  // How long after last DOM change to consider response "done" (ms)
+  injectInput?: (element: Element, text: string) => void | Promise<void>;
   doneDelay?: number;
-  // Minimum interval between RESPONSE_CHUNK messages (ms)
   chunkDebounce?: number;
 }
 
-function queryFirst(selectors: string[]): Element | null {
-  for (const sel of selectors) {
-    const el = document.querySelector(sel);
-    if (el) return el;
-  }
-  return null;
+interface SendActivationResult {
+  ok: boolean;
+  path: 'button-click' | 'enter-key';
+  detail?: string;
 }
 
-export function createContentScript(config: ContentScriptConfig) {
+const INPUT_RETRY_MS = 250;
+const INPUT_TIMEOUT_MS = 2500;
+const SEND_BUTTON_TIMEOUT_MS = 800;
+const PRE_SEND_DELAY_MS = 800;
+const SEND_RETRY_DELAY_MS = 1500;
+const SEND_VERIFY_DELAY_MS = 1500;
+
+export function createContentScript(config: ContentScriptConfig): void {
+  const marker = `__multiAiChat_${config.provider}`;
+  const scope = window as unknown as Record<string, unknown>;
+  const existing = scope[marker] as { dispose?: () => void } | undefined;
+  try {
+    existing?.dispose?.();
+  } catch {
+    delete scope[marker];
+  }
+  const runtimeState: { dispose?: () => void } = {};
+  scope[marker] = runtimeState;
+
   const {
     provider,
     inputSelectors,
-    sendButtonSelectors,
     responseSelectors,
     loginDetector,
-    isThinking,
-    injectInput,
+    isThinking = () => false,
+    injectInput = defaultInjectInput,
     doneDelay = 3000,
     chunkDebounce = 500,
   } = config;
 
-  console.log(`[Multi-AI Chat] ${provider} content script loaded`);
+  let statusInterval: ReturnType<typeof setInterval> | undefined;
+  let responseTimeout: ReturnType<typeof setTimeout> | undefined;
+  let checkDoneInterval: ReturnType<typeof setInterval> | undefined;
+  let pollInterval: ReturnType<typeof setInterval> | undefined;
+  let responseBaselineEls = new Set<Element>();
+  let waitingForResponse = false;
+  let lastResponseText = '';
+  let lastChunkTime = 0;
+  let activeRequestId: string | undefined;
+  let activeWorkflowId: string | undefined;
+  let responseObserver: MutationObserver | undefined;
+  let sawGenerationActivity = false;
+  const sendTimeouts = new Set<number>();
 
-  // Guard: check if extension context is still valid before any chrome.runtime call
   function isContextValid(): boolean {
     try {
-      return !!chrome.runtime?.id;
+      return Boolean(chrome.runtime?.id);
     } catch {
       return false;
     }
   }
 
-  function safeSendMessage(msg: object) {
+  function safeSendMessage(message: ExtensionMessage): void {
     if (!isContextValid()) {
       cleanup();
       return;
     }
-    chrome.runtime.sendMessage(msg).catch(() => {});
+    chrome.runtime.sendMessage(message).catch(() => {});
   }
 
-  // Cleanup when extension context is invalidated (extension reloaded)
-  let statusInterval: ReturnType<typeof setInterval> | null = null;
-
-  function clearAllTimers() {
-    if (responseTimeout) { clearTimeout(responseTimeout); responseTimeout = null; }
-    if (checkDoneInterval) { clearInterval(checkDoneInterval); checkDoneInterval = null; }
-    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
-    if (statusInterval) { clearInterval(statusInterval); statusInterval = null; }
+  function cleanup(): void {
+    clearResponseTimers();
+    if (statusInterval !== undefined) clearInterval(statusInterval);
+    statusInterval = undefined;
+    responseObserver?.disconnect();
+    responseObserver = undefined;
+    try {
+      chrome.runtime.onMessage.removeListener(runtimeListener);
+    } catch {}
+    if (scope[marker] === runtimeState) delete scope[marker];
   }
 
-  function cleanup() {
-    clearAllTimers();
-    console.log(`[Multi-AI Chat] ${provider}: context invalidated, stopped polling`);
-  }
-
-  // Report status to background
-  function reportStatus() {
+  function reportStatus(): void {
     if (!isContextValid()) {
       cleanup();
       return;
     }
-    const isLoggedIn = loginDetector();
-    safeSendMessage({
-      action: 'STATUS_REPORT',
-      provider,
-      payload: { loggedIn: isLoggedIn },
-    });
+    safeSendMessage({ action: 'STATUS_REPORT', provider, payload: { loggedIn: loginDetector() } });
   }
 
-  reportStatus();
-  statusInterval = setInterval(reportStatus, 10000);
+  async function sendMessage(text: string, requestId?: string, workflowId?: string): Promise<void> {
+    if (!text.trim()) throw new Error('Message is empty');
+    if (waitingForResponse) throw new Error(`${provider} already has a response in progress`);
 
-  // Track the last response element before sending, so we can detect the NEW response
-  let lastSeenResponseEl: Element | null = null;
-  let waitingForResponse = false;
-
-  // Send message by injecting text into the input field
-  function sendMessage(text: string) {
-    const input = queryFirst(inputSelectors);
+    const input = await retryLookup(() => queryFirst(inputSelectors), INPUT_TIMEOUT_MS);
     if (!input) {
-      console.error(`[Multi-AI Chat] ${provider}: input not found. Tried:`, inputSelectors);
-      // Report error as RESPONSE_DONE so the chain doesn't hang
-      safeSendMessage({
-        action: 'RESPONSE_DONE',
-        provider,
-        payload: `[Error: ${provider} input element not found]`,
-      });
-      return;
+      finishWithError(`${provider} input element not found`, requestId, workflowId);
+      throw new Error(`${provider} input element not found`);
     }
 
-    // Snapshot current last response element BEFORE sending
-    const existingResponses = document.querySelectorAll(responseSelectors.join(', '));
-    lastSeenResponseEl = existingResponses.length > 0 ? existingResponses[existingResponses.length - 1] : null;
+    const existingResponses = Array.from(document.querySelectorAll(responseSelectors.join(', ')));
+    responseBaselineEls = new Set(existingResponses);
     waitingForResponse = true;
+    activeRequestId = requestId;
+    activeWorkflowId = workflowId;
     lastResponseText = '';
+    sawGenerationActivity = false;
     startResponsePolling();
 
-    console.log(`[Multi-AI Chat] ${provider}: injecting message, last seen response el:`, lastSeenResponseEl);
-
-    // Inject text
-    if (injectInput) {
-      injectInput(input, text);
-    } else {
-      defaultInjectInput(input, text);
+    const injectionStartedAt = Date.now();
+    try {
+      await injectInput(input, text);
+      await Promise.resolve();
+      assertInputLanded(input, text);
+    } catch (error) {
+      finishWithError(`${provider} input injection failed: ${errorMessage(error)}`, requestId, workflowId);
+      throw error;
     }
 
-    // Click send button after short delay (longer for rich editors to register the input)
-    setTimeout(() => {
-      const sendBtn = queryFirst(sendButtonSelectors);
-      if (sendBtn) {
-        console.log(`[Multi-AI Chat] ${provider}: clicking send button`);
-        (sendBtn as HTMLElement).click();
-      } else {
-        console.log(`[Multi-AI Chat] ${provider}: no send button found, trying Enter key`);
-        const target = document.activeElement || input as HTMLElement;
-        // Try keydown + keypress + keyup sequence (some frameworks need all three)
-        const enterOpts = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };
-        target.dispatchEvent(new KeyboardEvent('keydown', enterOpts));
-        target.dispatchEvent(new KeyboardEvent('keypress', enterOpts));
-        target.dispatchEvent(new KeyboardEvent('keyup', enterOpts));
-      }
-
-      // Retry only if input still has text (empty input = send already succeeded)
-      setTimeout(() => {
-        if (!waitingForResponse) return;
-        const currentResponses = document.querySelectorAll(responseSelectors.join(', '));
-        const currentLastEl = currentResponses.length > 0 ? currentResponses[currentResponses.length - 1] : null;
-        if (currentLastEl && currentLastEl !== lastSeenResponseEl) return; // new response appeared
-
-        // If input was cleared, send worked — just waiting for response DOM
-        const currentInput = queryFirst(inputSelectors);
-        const inputText = currentInput?.textContent?.trim() ?? '';
-        if (!inputText) {
-          console.log(`[Multi-AI Chat] ${provider}: input cleared, send succeeded, skipping retry`);
-          return;
-        }
-
-        const retryBtn = queryFirst(sendButtonSelectors);
-        if (retryBtn) {
-          console.log(`[Multi-AI Chat] ${provider}: retry - clicking send button`);
-          (retryBtn as HTMLElement).click();
-        } else {
-          console.log(`[Multi-AI Chat] ${provider}: retry - Enter key`);
-          const retryTarget = currentInput || document.activeElement;
-          if (retryTarget) {
-            (retryTarget as HTMLElement).focus();
-            const opts = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };
-            retryTarget.dispatchEvent(new KeyboardEvent('keydown', opts));
-            retryTarget.dispatchEvent(new KeyboardEvent('keypress', opts));
-            retryTarget.dispatchEvent(new KeyboardEvent('keyup', opts));
-          }
-        }
-      }, 1500);
-    }, 800);
+    const delay = Math.max(0, PRE_SEND_DELAY_MS - (Date.now() - injectionStartedAt));
+    scheduleForRequest(() => {
+      void (async () => {
+        const firstAttempt = await activateSend(input, requestId);
+        scheduleForRequest(() => void retrySendIfStillPending(input, firstAttempt, requestId), SEND_RETRY_DELAY_MS, requestId);
+      })();
+    }, delay, requestId);
   }
 
-  function defaultInjectInput(input: Element, text: string) {
-    const el = input as HTMLElement;
-    el.focus();
-
-    if (input instanceof HTMLTextAreaElement) {
-      // Native textarea value setter (React-compatible)
-      const setter = Object.getOwnPropertyDescriptor(
-        window.HTMLTextAreaElement.prototype, 'value'
-      )?.set;
-      setter?.call(input, text);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    } else {
-      // contenteditable div — clear then insert via execCommand
-      el.focus();
-
-      // Clear existing content
-      const sel = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-
-      // Insert text (triggers React/framework change detection)
-      document.execCommand('insertText', false, text);
-
-      // Fire input event
-      el.dispatchEvent(new Event('input', { bubbles: true }));
+  async function retrySendIfStillPending(originalInput: Element, firstAttempt: SendActivationResult, requestId?: string): Promise<void> {
+    if (!isActiveRequest(requestId) || sendStarted()) return;
+    const currentInput = queryFirst(inputSelectors);
+    if (!currentInput) {
+      if (!firstAttempt.ok) finishWithError(`${provider} input disappeared before send was confirmed`);
+      return;
     }
+    if (!getInputText(currentInput).trim()) return;
+
+    if (firstAttempt.ok && firstAttempt.path === 'button-click') {
+      const firstButton = querySendButton(currentInput);
+      if (!firstButton || isDisabled(firstButton)) return;
+    }
+
+    const retryAttempt = await activateSend(currentInput ?? originalInput, requestId);
+    if (!isActiveRequest(requestId)) return;
+    if (!retryAttempt.ok) {
+      finishWithError(`${provider} send activation failed: ${retryAttempt.detail ?? firstAttempt.detail ?? retryAttempt.path}`);
+      return;
+    }
+    scheduleForRequest(() => verifySendAfterRetry(retryAttempt, requestId), SEND_VERIFY_DELAY_MS, requestId);
   }
 
-  // === Response observation ===
-  let lastResponseText = '';
-  let responseTimeout: ReturnType<typeof setTimeout> | null = null;
-  let lastChunkTime = 0;
+  function verifySendAfterRetry(retryAttempt: SendActivationResult, requestId?: string): void {
+    if (!isActiveRequest(requestId) || sendStarted()) return;
+    const currentInput = queryFirst(inputSelectors);
+    if (!currentInput) return;
+    const sendButton = querySendButton(currentInput);
+    if (retryAttempt.path === 'button-click' && (!sendButton || isDisabled(sendButton))) return;
+    const hadSendButton = Boolean(sendButton);
+    const enterOk = dispatchEnter(currentInput);
+    if (!enterOk) {
+      finishWithError(`${provider} send activation failed: Enter dispatch failed`);
+      return;
+    }
+    scheduleForRequest(() => {
+      if (!isActiveRequest(requestId) || sendStarted()) return;
+      const finalInput = queryFirst(inputSelectors);
+      const finalButton = finalInput ? querySendButton(finalInput) : null;
+      if (!finalInput || !getInputText(finalInput).trim()) return;
+      if (hadSendButton && (!finalButton || isDisabled(finalButton))) return;
+      finishWithError(`${provider} send was not accepted; the draft is still in the composer`);
+    }, SEND_VERIFY_DELAY_MS, requestId);
+  }
+
+  async function activateSend(input: Element, requestId?: string): Promise<SendActivationResult> {
+    const sendButton = await retryLookup(() => querySendButton(input), SEND_BUTTON_TIMEOUT_MS);
+    if (!isActiveRequest(requestId)) return { ok: false, path: 'enter-key', detail: 'request cancelled' };
+    if (sendButton && !isDisabled(sendButton) && clickElement(sendButton)) return { ok: true, path: 'button-click' };
+    const ok = dispatchEnter(input);
+    return { ok, path: 'enter-key', detail: ok ? undefined : 'Enter dispatch failed' };
+  }
+
+  function querySendButton(input: Element): Element | null {
+    const container = input.closest?.('form, fieldset, [data-testid*="composer"], [class*="composer"], [class*="input-area"]');
+    if (container) {
+      const local = queryFirst(config.sendButtonSelectors, container, true);
+      if (local) return local;
+    }
+    return queryFirst(config.sendButtonSelectors, document, true);
+  }
+
+  function sendStarted(): boolean {
+    if (!waitingForResponse) return true;
+    if (isThinking()) {
+      sawGenerationActivity = true;
+      return true;
+    }
+    const responses = Array.from(document.querySelectorAll(responseSelectors.join(', ')));
+    if (responses.some((element) => !responseBaselineEls.has(element))) {
+      sawGenerationActivity = true;
+      return true;
+    }
+    const input = queryFirst(inputSelectors);
+    const cleared = Boolean(input && !getInputText(input).trim());
+    if (cleared) sawGenerationActivity = true;
+    return cleared;
+  }
 
   function getLatestResponseText(): string | null {
-    // Try all response selectors
-    const selector = responseSelectors.join(', ');
-    const responseEls = document.querySelectorAll(selector);
-    if (responseEls.length === 0) return null;
-
-    // Find the last element in DOM order
-    const lastEl = responseEls[responseEls.length - 1];
-
-    // If we're waiting and the last element is the same as before sending, no new response yet
-    if (waitingForResponse && lastSeenResponseEl && lastEl === lastSeenResponseEl) {
-      return null;
+    const responses = Array.from(document.querySelectorAll(responseSelectors.join(', ')));
+    for (let index = responses.length - 1; index >= 0; index -= 1) {
+      const response = responses[index];
+      if (waitingForResponse && responseBaselineEls.has(response)) continue;
+      const text = extractResponseText(response);
+      if (text) return text;
     }
-
-    const text = lastEl.textContent?.trim() ?? '';
-    return text || null;
+    return null;
   }
 
-  // Check if response is truly done (not still thinking)
-  // If still thinking, poll every second until done
-  let checkDoneInterval: ReturnType<typeof setInterval> | null = null;
+  function extractResponseText(response: Element): string | null {
+    const text = response.textContent?.trim() ?? '';
+    if (text) return text;
+    const asset = response.matches('img, canvas, video') ? response : response.querySelector('img, canvas, video');
+    if (!asset) return null;
+    const alt = asset instanceof HTMLImageElement ? asset.alt.trim() : '';
+    return alt ? `[Image generated: ${alt}]` : '[Image generated]';
+  }
 
-  function checkIfDone() {
+  function observeResponses(): void {
+    responseObserver = new MutationObserver(() => {
+      if (!waitingForResponse || isThinking()) return;
+      updateResponse();
+    });
+    responseObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+
+  function updateResponse(): void {
+    const currentText = getLatestResponseText();
+    if (!currentText || currentText === lastResponseText) return;
+    sawGenerationActivity = true;
+    lastResponseText = currentText;
+    const now = Date.now();
+    if (now - lastChunkTime >= chunkDebounce) {
+      lastChunkTime = now;
+      safeSendMessage({
+        action: 'RESPONSE_CHUNK',
+        provider,
+        requestId: activeRequestId,
+        workflowId: activeWorkflowId,
+        payload: currentText,
+      });
+    }
+    if (responseTimeout !== undefined) clearTimeout(responseTimeout);
+    responseTimeout = setTimeout(checkIfDone, doneDelay);
+  }
+
+  function startResponsePolling(): void {
+    if (pollInterval !== undefined) return;
+    pollInterval = setInterval(() => {
+      if (!waitingForResponse) {
+        if (pollInterval !== undefined) clearInterval(pollInterval);
+        pollInterval = undefined;
+        return;
+      }
+      if (isThinking()) {
+        sawGenerationActivity = true;
+        return;
+      }
+      const currentText = getLatestResponseText();
+      if (currentText) {
+        updateResponse();
+        return;
+      }
+      if (sawGenerationActivity && responseTimeout === undefined) {
+        responseTimeout = setTimeout(() => {
+          const finalText = getLatestResponseText();
+          lastResponseText = finalText || '[No text response detected]';
+          finishResponse();
+        }, doneDelay);
+      }
+    }, 3000);
+  }
+
+  function checkIfDone(): void {
     if (!waitingForResponse) return;
-
-    // If still thinking, keep polling
-    if (isThinking?.()) {
-      if (!checkDoneInterval) {
-        console.log(`[Multi-AI Chat] ${provider}: DOM stable but still thinking, polling...`);
+    if (isThinking()) {
+      if (checkDoneInterval === undefined) {
         checkDoneInterval = setInterval(() => {
-          if (!waitingForResponse) {
-            if (checkDoneInterval) { clearInterval(checkDoneInterval); checkDoneInterval = null; }
-            return;
-          }
-          if (!isThinking?.()) {
-            // Stopped thinking — grab the final text and wait one more doneDelay
-            if (checkDoneInterval) { clearInterval(checkDoneInterval); checkDoneInterval = null; }
-            console.log(`[Multi-AI Chat] ${provider}: thinking done, waiting for final text...`);
-            // Wait for final text to settle
-            setTimeout(() => {
+          if (!waitingForResponse) return clearDoneCheck();
+          if (!isThinking()) {
+            clearDoneCheck();
+            responseTimeout = setTimeout(() => {
               const finalText = getLatestResponseText();
               if (finalText) lastResponseText = finalText;
               finishResponse();
@@ -257,101 +309,190 @@ export function createContentScript(config: ContentScriptConfig) {
       }
       return;
     }
-
     finishResponse();
   }
 
-  function finishResponse() {
+  function finishResponse(): void {
     if (!waitingForResponse) return;
+    const requestId = activeRequestId;
+    const workflowId = activeWorkflowId;
+    resetResponseState();
+    safeSendMessage({ action: 'RESPONSE_DONE', provider, requestId, workflowId, payload: lastResponseText });
+  }
+
+  function finishWithError(reason: string, requestId = activeRequestId, workflowId = activeWorkflowId): void {
+    resetResponseState();
+    safeSendMessage({ action: 'RESPONSE_DONE', provider, requestId, workflowId, payload: `[Error: ${reason}]` });
+  }
+
+  function stopGeneration(): void {
+    const stopButton = queryFirst(config.stopButtonSelectors ?? [], document, true);
+    if (stopButton) clickElement(stopButton);
+    resetResponseState();
+  }
+
+  function resetResponseState(): void {
     waitingForResponse = false;
-    if (responseTimeout) { clearTimeout(responseTimeout); responseTimeout = null; }
-    if (checkDoneInterval) { clearInterval(checkDoneInterval); checkDoneInterval = null; }
-    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
-    console.log(`[Multi-AI Chat] ${provider}: response done (${lastResponseText.length} chars)`);
-    safeSendMessage({
-      action: 'RESPONSE_DONE',
-      provider,
-      payload: lastResponseText,
-    });
+    clearResponseTimers();
+    responseBaselineEls.clear();
+    activeRequestId = undefined;
+    activeWorkflowId = undefined;
+    sawGenerationActivity = false;
   }
 
-  function observeResponses() {
-    const observer = new MutationObserver(() => {
-      if (!waitingForResponse) return;
-
-      // Skip if AI is in "thinking" state (e.g., ChatGPT searching)
-      if (isThinking?.()) return;
-
-      const currentText = getLatestResponseText();
-      if (!currentText || currentText === lastResponseText) return;
-
-      lastResponseText = currentText;
-
-      // Debounce RESPONSE_CHUNK — don't spam the side panel
-      const now = Date.now();
-      if (now - lastChunkTime >= chunkDebounce) {
-        lastChunkTime = now;
-        safeSendMessage({
-          action: 'RESPONSE_CHUNK',
-          provider,
-          payload: currentText,
-        });
-      }
-
-      // Reset "done" timer — response is done when DOM stops changing AND not thinking
-      if (responseTimeout) clearTimeout(responseTimeout);
-      responseTimeout = setTimeout(() => {
-        checkIfDone();
-      }, doneDelay);
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
+  function isActiveRequest(requestId?: string): boolean {
+    return waitingForResponse && activeRequestId === requestId;
   }
 
-  observeResponses();
-
-  // Backup polling: if MutationObserver misses response changes, poll every 3s
-  let pollInterval: ReturnType<typeof setInterval> | null = null;
-
-  function startResponsePolling() {
-    if (pollInterval) return;
-    pollInterval = setInterval(() => {
-      if (!waitingForResponse) {
-        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
-        return;
-      }
-      const currentText = getLatestResponseText();
-      if (!currentText || currentText === lastResponseText) return;
-
-      console.log(`[Multi-AI Chat] ${provider}: poll detected response change (${currentText.length} chars)`);
-      lastResponseText = currentText;
-
-      safeSendMessage({
-        action: 'RESPONSE_CHUNK',
-        provider,
-        payload: currentText,
-      });
-
-      // Reset done timer
-      if (responseTimeout) clearTimeout(responseTimeout);
-      responseTimeout = setTimeout(() => {
-        checkIfDone();
-      }, doneDelay);
-    }, 3000);
+  function scheduleForRequest(callback: () => void, delay: number, requestId = activeRequestId): void {
+    const timer = window.setTimeout(() => {
+      sendTimeouts.delete(timer);
+      if (isActiveRequest(requestId)) callback();
+    }, delay);
+    sendTimeouts.add(timer);
   }
 
-  // Listen for messages from background
-  chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
+  function clearDoneCheck(): void {
+    if (checkDoneInterval !== undefined) clearInterval(checkDoneInterval);
+    checkDoneInterval = undefined;
+  }
+
+  function clearResponseTimers(): void {
+    if (responseTimeout !== undefined) clearTimeout(responseTimeout);
+    if (pollInterval !== undefined) clearInterval(pollInterval);
+    clearDoneCheck();
+    responseTimeout = undefined;
+    pollInterval = undefined;
+    for (const timer of sendTimeouts) window.clearTimeout(timer);
+    sendTimeouts.clear();
+  }
+
+  const runtimeListener = (message: ExtensionMessage, _sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void) => {
     if (message.action === 'SEND_MESSAGE' && message.provider === provider) {
-      const { text } = message.payload as { text: string };
-      sendMessage(text);
+      const { text = '' } = (message.payload as { text?: string } | undefined) ?? {};
+      void sendMessage(text, message.requestId, message.workflowId)
+        .then(() => sendResponse({ ok: true }))
+        .catch((error) => sendResponse({ ok: false, error: errorMessage(error) }));
+      return true;
     }
     if (message.action === 'CHECK_STATUS') {
       reportStatus();
+      sendResponse({ ok: true });
+      return true;
     }
-  });
+    if (message.action === 'STOP_GENERATION' && (!message.provider || message.provider === provider)) {
+      stopGeneration();
+      sendResponse({ ok: true });
+      return true;
+    }
+    return false;
+  };
+
+  runtimeState.dispose = cleanup;
+  chrome.runtime.onMessage.addListener(runtimeListener);
+
+  reportStatus();
+  statusInterval = setInterval(reportStatus, 10_000);
+  observeResponses();
+}
+
+async function retryLookup<T>(lookup: () => T | null | undefined, timeoutMs: number): Promise<T | null> {
+  const startedAt = Date.now();
+  while (true) {
+    const value = lookup();
+    if (value) return value;
+    const elapsed = Date.now() - startedAt;
+    if (elapsed >= timeoutMs) return null;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(INPUT_RETRY_MS, timeoutMs - elapsed)));
+  }
+}
+
+function queryFirst(selectors: string[], root: ParentNode = document, requireVisible = false): Element | null {
+  for (const selector of selectors) {
+    const candidates = root.querySelectorAll(selector);
+    for (const candidate of candidates) {
+      if (!requireVisible || isVisible(candidate)) return candidate;
+    }
+  }
+  return null;
+}
+
+function isVisible(element: Element): boolean {
+  if (!(element instanceof HTMLElement)) return true;
+  const style = window.getComputedStyle(element);
+  return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
+}
+
+function getInputText(input: Element): string {
+  return input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement ? input.value : input.textContent ?? '';
+}
+
+function assertInputLanded(input: Element, expected: string): void {
+  const compact = (value: string) => value.replace(/\s+/g, '');
+  const actual = getInputText(input);
+  if (!actual.trim()) throw new Error('editor remained empty');
+  if (compact(actual) !== compact(expected)) throw new Error('editor text did not match the requested prompt');
+}
+
+function defaultInjectInput(input: Element, text: string): void {
+  const element = input as HTMLElement;
+  element.focus();
+  if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) {
+    const prototype = input instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+    setter?.call(input, text);
+    input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    return;
+  }
+
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+  const inserted = typeof document.execCommand === 'function' && document.execCommand('insertText', false, text);
+  if (!inserted || !element.textContent?.trim()) {
+    element.replaceChildren();
+    for (const line of text.split('\n')) {
+      const paragraph = document.createElement('p');
+      paragraph.textContent = line || '\u00A0';
+      element.appendChild(paragraph);
+    }
+  }
+  element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+}
+
+function clickElement(element: Element): boolean {
+  if (isDisabled(element)) return false;
+  const target = element as HTMLElement;
+  try {
+    target.focus();
+    target.click();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isDisabled(element: Element): boolean {
+  const target = element as HTMLElement & { disabled?: boolean };
+  return Boolean(target.disabled || target.hasAttribute('disabled') || target.getAttribute('aria-disabled') === 'true' || target.getAttribute('data-disabled') === 'true');
+}
+
+function dispatchEnter(input: Element): boolean {
+  (input as HTMLElement).focus?.();
+  const target = document.activeElement ?? input;
+  const options = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };
+  try {
+    target.dispatchEvent(new KeyboardEvent('keydown', options));
+    target.dispatchEvent(new KeyboardEvent('keypress', options));
+    target.dispatchEvent(new KeyboardEvent('keyup', options));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

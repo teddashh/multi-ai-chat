@@ -1,119 +1,80 @@
-[English](README.md) | [繁體中文](README.zh-TW.md) | **日本語** | [한국어](README.ko.md)
+# Multi-AI Chat — Chrome Side Panel
 
----
+[English](./README.md) · [繁體中文](./README.zh-TW.md) · **日本語** · [Deutsch](./README.de.md) · [한국어](./README.ko.md)
 
-# 🤖 Multi-AI Chat（日本語）
+ログイン済みの **ChatGPT、Claude、Gemini、Grok** タブを、1つの軽量な Chrome Side Panel から複数AI workflow として操作します。モデルAPIキーも独自の会話backendも必要ありません。
 
-> **ひとつの入力。3つの知性。無限の可能性。**
+**現在のソース：v0.2.0** · Chrome 114+ · Manifest V3 · MIT
 
-**ChatGPT・Claude・Gemini** を1つのSide Panelから同時に操作できる Chrome Extension。1回入力するだけで3つのAIが一斉に回答 — あるいは構造化されたワークフローで互いに議論・レビューさせることができます。
+> 第三者のWeb UIを自動操作するため、providerの変更でselectorが一時的に壊れることがあります。各サービスの利用規約と、利用権限のあるアカウント・コンテンツを使用してください。
 
-![Screenshot](screenshot.png)
+## Desktop と Browser
 
----
+| エディション | 選ぶ基準 |
+|---|---|
+| **Browser extension（このrepo）** | 普段使っているChromeタブを小さなSide Panelから操作したい |
+| [Desktop app](https://github.com/teddashh/multi-ai-chat-desktop) | 独立profile、ライブWebView、replay、snapshot、ローカルファイルが必要 |
 
-## ✨ 主な機能
+## v0.2.0
 
-- **統合入力** — 1回の入力で3つのAI全てに送信
-- **5つのチャットモード** — 自由並列チャットから高度な多ラウンドディベートまで
-- **リアルタイムストリーミング** — 生成されながらリアルタイムで表示
-- **ワークフローステータスバー** — シリアルモードで現在のステップを表示
-- **ロールラベル** — 各回答に役割を表示（正方 / レビュアー / Coder など）
-- **ロール設定** — モードごとにどのAIがどの役割を担うか設定可能
-- **いつでもキャンセル** — 実行中のワークフローをワンクリックで中断
-- **Markdownエクスポート** — 会話全体を `.md` ファイルとしてダウンロード
-- **接続管理** — 各AIのログイン状態を検出、ワンクリックでログイン
+- Selector再試行、rich editor検証、composer内のsend button、Enter fallbackによる安定送信。
+- Service worker再起動後のタブ再検出と、既存タブへのcontent script再注入。
+- request IDで遅延回答を分離し、Stopでwaiterとprovider生成を実際に停止。
+- 画像のみのChatGPT回答と、Gemini Trusted Types問題を修正。
+- composer確認後だけ「準備完了」と表示。
+- 最大30件のローカル会話、新しい会話、workflow後の継続質問。
+- 安全なMarkdown表示、5言語UI、新しいコンパクトSide Panel。
 
----
+## モード
 
-## 🎮 5つのチャットモード
+| モード | 流れ |
+|---|---|
+| 自由送信 | 選択済みで準備完了のAIへ並列送信 |
+| 四者討論 | 賛成 → 反対 → 判定 → 統合 |
+| 多角相談 | 独立回答2件 → Review → 最終回答 |
+| Coding | 仕様、Review、実装、Test、修正、受入の8ステップ |
+| 円卓討論 | 5ラウンド × 4 AI = 20発言 |
 
-### ⚡ フリーモード
-3つのAIに並列送信。それぞれが独立して回答。
-```
-ユーザー → ChatGPT
-        → Claude
-        → Gemini
-```
+## ソースからインストール
 
-### ⚔️ ディベートモード（3ステップ）
-構造化された賛否・統合のディベート。
-```
-ユーザー → 肯定側の立論（1）→ 否定側の反論（2）→ 総括・統合（3）
-```
+Chrome 114+、Node.js 20+、npm が必要です。
 
-### 🔍 コンサルトモード（3ステップ）
-クロスレビューを含む多角的リサーチ。
-```
-ユーザー → 最初の回答 → レビュアーが検証・補足 → 総括（3）
-```
-
-### 💻 コーディングモード（7ステップ）
-仕様 → レビュー → 実装 → コードレビュー → 修正 → 受け入れテスト → 完成版。
-```
-プランナーが仕様を作成（1）
-  → レビュアーが仕様を検証（2）
-    → コーダーがv1を実装（3）
-      → レビュアーがコードレビュー（4）
-        → コーダーが修正 → v2（5）
-          → プランナーが受け入れテスト（6）
-            → コーダーが最終版を納品（7）
-```
-
-### 🔄 ラウンドテーブルモード（15ステップ）
-5ラウンドの弁証法的スパイラル。議論によって真実が浮かび上がる。
-```
-第1ラウンド：開幕立論（3 AI × それぞれの立場）
-第2ラウンド：交差尋問（弱点を攻撃、良い点は認める）
-第3ラウンド：攻防の深化（反論に応答、説得された点は修正）
-第4ラウンド：核心の収束（合意点 vs 真の意見対立を整理）
-第5ラウンド：真実の浮上（最終結論、立場の変化を率直に）
-```
-各ラウンド3 AI × 5ラウンド = **合計15ステップ**。
-
----
-
-## 🚀 インストール方法
-
-```bash
-# 1. リポジトリをクローン
+```sh
 git clone https://github.com/teddashh/multi-ai-chat.git
 cd multi-ai-chat
-
-# 2. 依存関係をインストールしてビルド
-npm install && npm run build
+npm ci
+npm run verify
 ```
 
-3. Chromeを開き、`chrome://extensions` へ移動
-4. 右上の**デベロッパーモード**を有効化
-5. **パッケージ化されていない拡張機能を読み込む**をクリックし、`dist/` フォルダを選択
-6. **ChatGPT**・**Claude**・**Gemini** をそれぞれ別のタブで開く
-7. 拡張機能アイコンをクリック → **サイドパネルを開く**
+1. `chrome://extensions` を開き、**デベロッパーモード**を有効化。
+2. **パッケージ化されていない拡張機能を読み込む**で `dist/` を選択。
+3. Multi-AI Chat を固定し、iconからSide Panelを開く。
+4. 各providerを一度開いてログイン。「準備完了」になれば利用できます。
 
-> **ヒント：** メッセージ送信前に、3つのAIサービス全てにログインしておいてください。
+開発時は `npm run dev` を実行し、拡張機能を再読み込みしてSide Panelを開き直します。
 
----
+## 使い方
 
-## 🛠 技術スタック
+1. workflowモードを選択。
+2. 自由モードでは初期状態で4つすべてが選択されます。
+3. **AI 接続**で不足するproviderを開く／ログイン。
+4. 質問を入力して Enter または **送信**。
+5. 状態を確認し、必要ならいつでも **停止**。
+6. 完了後も質問を続けるか、メニューから **新しい会話**。
 
-| レイヤー | 技術 |
-|---|---|
-| 拡張機能 | Chrome Manifest V3、Service Worker |
-| UI | React 18、TypeScript、Tailwind CSS |
-| ビルド | Webpack 5 |
-| 入力注入 | ProseMirror (Claude)、Quill (Gemini)、React textarea (ChatGPT) |
-| レスポンスキャプチャ | MutationObserver + 要素参照追跡 |
+直列workflowの実行中はSide Panelを開いたままにしてください。
 
----
+## 権限とプライバシー
 
-## ⚠️ 免責事項
+`sidePanel` はUI、`tabs` はproviderタブ検出、`scripting` とhost権限は既存タブへの再注入、`storage` は設定・30会話・任意のHackMD Tokenに使用します。HackMD公開は明示操作時だけで、ノートはguest-readableです。
 
-これは**個人の趣味プロジェクト**です。ChatGPT・Claude・GeminiのWebインターフェースにContent Scriptを注入することで動作しており、各プラットフォームの利用規約に違反する可能性があります。
+`chrome.storage.local` はtrusted extension contextに制限され、provider content scriptはHackMD Tokenを読めません。Promptはproviderページへ直接送信され、Multi-AI Chat server、telemetry、モデルAPI資格情報はありません。
 
-**自己責任でご利用ください。** 著者はアカウント制限その他いかなる結果に対しても責任を負いません。本プロジェクトはOpenAI・Anthropic・Googleとは一切関係ありません。
+```sh
+npm run typecheck
+npm run build
+npm run verify
+npm audit
+```
 
----
-
-## 📄 ライセンス
-
-MIT — ご自由にどうぞ。ただし責任は負いません。
+Sponsored by [AI-Sister.com](https://ai-sister.com)。作者 Ted Huang（[TED@TED-H.com](mailto:TED@TED-H.com)、[ted-h.com](https://ted-h.com)）。MIT License。

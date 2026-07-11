@@ -42,6 +42,12 @@ createContentScript({
     '.message-content[data-message-id]',
   ],
 
+  stopButtonSelectors: [
+    'button[aria-label="Stop response"]',
+    'button[aria-label="Stop"]',
+    'button[aria-label="停止回應"]',
+  ],
+
   loginDetector: () => {
     return !!(
       document.querySelector('.ql-editor[contenteditable="true"]') ||
@@ -67,12 +73,12 @@ createContentScript({
   },
 
   // Gemini rich text editor injection — must trigger Angular change detection
-  injectInput: (el: Element, text: string) => {
+  injectInput: async (el: Element, text: string) => {
     const editor = el as HTMLElement;
     editor.focus();
 
     // Clear existing content
-    editor.innerHTML = '';
+    editor.replaceChildren();
 
     // Convert text to paragraphs (Quill/rich editor needs block elements)
     const lines = text.split('\n');
@@ -88,16 +94,12 @@ createContentScript({
     editor.dispatchEvent(new Event('input', { bubbles: true }));
     editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
 
-    // Also try execCommand approach for frameworks that need it
-    setTimeout(() => {
-      // Verify text was injected — if not, try execCommand
-      if (!editor.textContent?.trim()) {
-        console.log('[Multi-AI Chat] gemini: innerHTML failed, trying execCommand');
-        editor.focus();
-        document.execCommand('insertText', false, text);
-        editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
-      }
-    }, 150);
+    await Promise.resolve();
+    if (!editor.textContent?.trim()) {
+      editor.focus();
+      document.execCommand('insertText', false, text);
+      editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    }
   },
 
   doneDelay: 4000,

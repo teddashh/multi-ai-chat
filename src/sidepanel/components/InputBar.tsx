@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { t } from '../../shared/i18n';
 
 interface Props {
@@ -13,53 +13,40 @@ export default function InputBar({ onSend, onCancel, disabled, isProcessing }: P
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
-    }
+    if (!textareaRef.current) return;
+    textareaRef.current.style.height = 'auto';
+    textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 140)}px`;
   }, [text]);
 
-  const handleSubmit = () => {
-    if (!text.trim() || disabled) return;
-    onSend(text.trim());
+  const submit = () => {
+    const trimmed = text.trim();
+    if (!trimmed || disabled) return;
+    onSend(trimmed);
     setText('');
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  };
-
   return (
-    <div className="flex-none border-t border-gray-700 p-3">
-      <div className="flex gap-2 items-end">
+    <div className="flex-none border-t border-slate-200 bg-white p-3">
+      <div className="rounded-2xl border border-slate-300 bg-white p-2 shadow-sm focus-within:border-sky-400 focus-within:ring-2 focus-within:ring-sky-100">
         <textarea
           ref={textareaRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              submit();
+            }
+          }}
           placeholder={disabled ? (isProcessing ? t('input.placeholder.processing') : t('input.placeholder.connect')) : t('input.placeholder')}
           disabled={disabled}
-          rows={1}
-          className="flex-1 bg-gray-800 border border-gray-600 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-blue-500 disabled:opacity-50"
+          rows={2}
+          className="block max-h-[140px] min-h-[52px] w-full resize-none bg-transparent px-2 py-1 text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed"
         />
-        {isProcessing && (
-          <button
-            onClick={onCancel}
-            className="px-3 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xs rounded-xl font-medium transition-colors"
-          >
-            {t('input.stop')}
-          </button>
-        )}
-        <button
-          onClick={handleSubmit}
-          disabled={disabled || !text.trim()}
-          className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
-        >
-          {isProcessing ? '⏳' : t('input.send')}
-        </button>
+        <div className="mt-1 flex items-center justify-end gap-2">
+          {isProcessing && <button type="button" onClick={onCancel} className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100">{t('input.stop')}</button>}
+          <button type="button" onClick={submit} disabled={disabled || !text.trim()} className="rounded-lg bg-sky-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400">{t('input.send')}</button>
+        </div>
       </div>
     </div>
   );

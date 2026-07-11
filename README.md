@@ -1,119 +1,103 @@
-# 🤖 Multi-AI Chat
+# Multi-AI Chat — Chrome Side Panel
 
-[English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+**English** · [繁體中文](./README.zh-TW.md) · [日本語](./README.ja.md) · [Deutsch](./README.de.md) · [한국어](./README.ko.md)
 
----
+A lightweight Chrome extension that turns your existing **ChatGPT, Claude, Gemini, and Grok** tabs into one multi-AI workflow. It uses the provider pages you are already logged into—no model API keys and no separate chat backend.
 
-> **One input. Three minds. Infinite perspectives.**
+**Current source: v0.2.0** · Chrome 114+ · Manifest V3 · MIT
 
-A Chrome Extension that lets you control **ChatGPT, Claude, and Gemini simultaneously** through a single Side Panel UI — send one message and watch three AI giants respond in real time, or orchestrate them in structured multi-step workflows.
+> This extension automates third-party web interfaces. A provider redesign can temporarily break selectors, and automated use may be governed by each provider’s terms. Use accounts and content you are authorized to use.
 
-![Screenshot](screenshot.png)
+## Desktop or browser?
 
----
+| Edition | Choose it when… |
+|---|---|
+| **Browser extension (this repo)** | You want a small Chrome Side Panel that controls tabs you already use |
+| [Desktop app](https://github.com/teddashh/multi-ai-chat-desktop) | You want isolated profiles, focused live WebViews, replay, snapshots, and local-file workflows |
 
-## ✨ Features
+## What changed in v0.2.0
 
-- **Unified input** — type once, broadcast to all three AIs
-- **5 chat modes** — from free-form parallel chat to sophisticated multi-round debates
-- **Real-time streaming** — responses appear as they're generated
-- **Workflow status bar** — tracks current step in serial modes with live progress
-- **Role labels** — each AI response tagged with its role (正方 / Reviewer / Coder, etc.)
-- **Role assignment** — customize which AI plays which role per mode
-- **Cancel anytime** — abort in-progress workflows with one click
-- **Markdown export** — download the full conversation as a `.md` file
-- **Connection management** — detects login status per AI, one-click quick login buttons
+- **Reliable sends.** Input selectors retry, rich editors are verified, send buttons are scoped to the composer, and Enter is used as a verified fallback.
+- **No manual tab detour.** Existing provider tabs are rediscovered when the service worker restarts; missing content scripts are reinjected automatically.
+- **Request isolation.** Every provider request has an ID, so late responses cannot complete the wrong workflow.
+- **Real cancellation.** Stop rejects active waiters and asks each provider page to stop generating.
+- **Fixed image and Gemini workflows.** Image-only ChatGPT replies finish correctly; Gemini no longer violates Trusted Types by assigning `innerHTML`.
+- **Honest connection state.** A tab is “Ready” only after its composer confirms that the user is logged in.
+- **Conversation history.** Up to 30 sessions are stored locally, with a New chat action and continued follow-up after any workflow.
+- **Readable transcript.** Responses use a safe React Markdown renderer instead of raw plain text.
+- **Five UI languages.** English, Traditional Chinese, Japanese, German, and Korean.
+- **Modern Side Panel.** Compact mode cards, descriptions, selected free-mode targets, connection setup, and a small workflow trace.
 
----
+## Modes
 
-## 🎮 5 Chat Modes
+| Mode | Workflow |
+|---|---|
+| **Free** | Send to all selected ready providers in parallel |
+| **Debate** | Pro → Con → Judge → Synthesis |
+| **Consult** | Two independent answers → Review → Final answer |
+| **Coding** | Eight-step specification, review, implementation, test, revision, and acceptance loop |
+| **Roundtable** | Five rounds × four AIs = twenty turns |
 
-### ⚡ Free Mode
-Send to all 3 AIs in parallel. Independent answers, no coordination.
-```
-User → ChatGPT
-     → Claude
-     → Gemini
-```
+## Install from source
 
-### ⚔️ Debate Mode (3 steps)
-Structured pro/con/summary dialectic.
-```
-User → Pro (step 1) → Con rebuts Pro (step 2) → Summarizer concludes (step 3)
-```
+Requirements: Chrome 114+, Node.js 20+, and npm.
 
-### 🔍 Consult Mode (3 steps)
-Multi-perspective research with cross-review.
-```
-User → First Answer → Reviewer checks + adds → Summarizer synthesizes (step 3)
-```
-
-### 💻 Coding Mode (7 steps)
-A full software engineering double-loop: spec → review → implement → review → fix → acceptance → final.
-```
-Planner writes spec (1)
-  → Reviewer challenges spec (2)
-    → Coder writes v1 (3)
-      → Reviewer does code review (4)
-        → Coder fixes → v2 (5)
-          → Planner does acceptance test (6)
-            → Coder delivers final (7)
-```
-
-### 🔄 Roundtable Mode (15 steps)
-A 5-round dialectical spiral. Truth through adversarial discussion.
-```
-Round 1: Opening statements (3 AIs × position)
-Round 2: Cross-examination (attack weaknesses, acknowledge strengths)
-Round 3: Defense + refinement (respond to challenges, update positions)
-Round 4: Core convergence (map consensus vs. genuine disagreement)
-Round 5: Truth emerges (final conclusions, honest position changes)
-```
-Each round: 3 AIs × 5 rounds = **15 total steps**.
-
----
-
-## 🚀 Installation
-
-```bash
-# 1. Clone the repo
+```sh
 git clone https://github.com/teddashh/multi-ai-chat.git
 cd multi-ai-chat
-
-# 2. Install dependencies and build
-npm install && npm run build
+npm ci
+npm run verify
 ```
 
-3. Open Chrome and go to `chrome://extensions`
-4. Enable **Developer mode** (top-right toggle)
-5. Click **Load unpacked** and select the `dist/` folder
-6. Open **ChatGPT**, **Claude**, and **Gemini** in separate tabs
-7. Click the extension icon → **Open Side Panel**
+Then:
 
-> **Tip:** Make sure you're logged into all three AI services before sending messages.
+1. Open `chrome://extensions`.
+2. Enable **Developer mode**.
+3. Select **Load unpacked** and choose the generated `dist/` folder.
+4. Pin **Multi-AI Chat**, then click its icon to open the Side Panel.
+5. Open each provider once and sign in. The connection card changes to **Ready** after the composer is detected.
 
----
+During development, use `npm run dev`, reload the extension from `chrome://extensions`, and reopen the Side Panel.
 
-## 🛠 Tech Stack
+## Use
 
-| Layer | Technology |
-|---|---|
-| Extension | Chrome Manifest V3, Service Worker |
-| UI | React 18, TypeScript, Tailwind CSS |
-| Build | Webpack 5 |
-| Input injection | ProseMirror (Claude), Quill (Gemini), React textarea (ChatGPT) |
-| Response capture | MutationObserver + element reference tracking |
+1. Choose a workflow card.
+2. In Free mode, leave all four selected or turn off providers you do not need.
+3. Expand **AI connections** and open/sign in to any missing provider.
+4. Enter one question and press Enter or **Send**.
+5. Follow the compact workflow status. Press **Stop** at any time.
+6. Continue the conversation after completion, or open the menu and choose **New chat**.
 
----
+Keep the Side Panel open while a serial workflow is running.
 
-## ⚠️ Disclaimer
+## Permissions and privacy
 
-This is a **personal side project** built for exploration and fun. It works by injecting content scripts into ChatGPT, Claude, and Gemini's web interfaces — which may violate each platform's Terms of Service.
+- `sidePanel`: displays the control UI.
+- `tabs`: finds and focuses provider tabs.
+- `scripting` plus provider host permissions: repairs/reinjects the packaged content script when an existing tab predates an extension reload.
+- `storage`: keeps settings, up to 30 local conversations, and the optional HackMD token.
+- `https://api.hackmd.io/*`: used only when the user explicitly publishes. Published notes are guest-readable; the Settings screen warns about this.
 
-**Use at your own risk.** The author is not responsible for any account restrictions or other consequences. This project is not affiliated with OpenAI, Anthropic, or Google.
+The extension sets `chrome.storage.local` to trusted extension contexts so provider content scripts cannot read the HackMD token. Prompts travel directly to provider pages; there is no Multi-AI Chat server, telemetry, or model API credential.
 
----
+## Development
 
-## 📄 License
+```sh
+npm run typecheck
+npm run build
+npm run verify
+npm audit
+```
 
-MIT — do whatever you want, just don't blame me.
+Main modules:
+
+- `src/background/service-worker.ts` — workflow orchestration, request IDs, cancellation, tab recovery
+- `src/content/base.ts` — verified input/send/response engine
+- `src/content/*.ts` — provider-specific selectors and editor strategies
+- `src/sidepanel/` — React UI, sessions, Markdown, i18n
+
+## Project
+
+Sponsored by [AI-Sister.com](https://ai-sister.com). Created by Ted Huang ([TED@TED-H.com](mailto:TED@TED-H.com), [ted-h.com](https://ted-h.com)).
+
+MIT License.

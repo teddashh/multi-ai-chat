@@ -1,10 +1,18 @@
 {
   "manifest_version": 3,
   "name": "Multi-AI Chat",
-  "version": "0.1.0",
-  "description": "同時操控 ChatGPT / Claude / Gemini / Grok 網頁版的統一聊天介面",
-  "permissions": ["sidePanel", "activeTab", "tabs", "storage"],
-  "host_permissions": ["https://api.hackmd.io/*"],
+  "version": "0.2.0",
+  "description": "Run reliable multi-AI workflows across ChatGPT, Claude, Gemini, and Grok from one side panel.",
+  "minimum_chrome_version": "114",
+  "permissions": ["sidePanel", "tabs", "storage", "scripting"],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://grok.com/*",
+    "https://api.hackmd.io/*"
+  ],
   "side_panel": {
     "default_path": "sidepanel.html"
   },

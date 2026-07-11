@@ -28,6 +28,12 @@ createContentScript({
     '.font-claude-message',
   ],
 
+  stopButtonSelectors: [
+    'button[aria-label="Stop Response"]',
+    'button[aria-label="Stop response"]',
+    'button[aria-label="Stop"]',
+  ],
+
   loginDetector: () => {
     return !!(
       document.querySelector('.ProseMirror[contenteditable="true"]') ||
@@ -47,44 +53,42 @@ createContentScript({
   },
 
   // Custom input for ProseMirror — it needs special handling
-  injectInput: (el: Element, text: string) => {
+  injectInput: async (el: Element, text: string) => {
     const editor = el as HTMLElement;
     editor.focus();
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    const clipboard = new DataTransfer();
+    clipboard.setData('text/plain', text);
+    editor.dispatchEvent(new ClipboardEvent('paste', { clipboardData: clipboard, bubbles: true, cancelable: true }));
+    await Promise.resolve();
 
-    // Clear existing content
-    const paragraphs = editor.querySelectorAll('p');
-    paragraphs.forEach(p => p.remove());
-
-    // Create a new paragraph with the text
-    const p = document.createElement('p');
-    p.textContent = text;
-    editor.appendChild(p);
-
-    // Trigger input event for ProseMirror to pick up
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
-
-    // Also try the clipboard approach for better ProseMirror compatibility
-    // Focus and select all, then paste
-    setTimeout(() => {
+    if (!matches(editor.textContent ?? '', text)) {
       editor.focus();
-      const selection = window.getSelection();
-      const range = document.createRange();
       range.selectNodeContents(editor);
       selection?.removeAllRanges();
       selection?.addRange(range);
+      document.execCommand('insertText', false, text);
+      editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+      await Promise.resolve();
+    }
 
-      // Use DataTransfer to simulate paste
-      const dt = new DataTransfer();
-      dt.setData('text/plain', text);
-      const pasteEvent = new ClipboardEvent('paste', {
-        clipboardData: dt,
-        bubbles: true,
-        cancelable: true,
-      });
-      editor.dispatchEvent(pasteEvent);
-    }, 100);
+    if (!matches(editor.textContent ?? '', text)) {
+      editor.replaceChildren();
+      const paragraph = document.createElement('p');
+      paragraph.textContent = text;
+      editor.appendChild(paragraph);
+      editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    }
   },
 
   doneDelay: 5000,
   chunkDebounce: 500,
 });
+
+function matches(actual: string, expected: string): boolean {
+  return actual.replace(/\s+/g, '') === expected.replace(/\s+/g, '');
+}

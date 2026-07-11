@@ -1,119 +1,80 @@
-[English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | **한국어**
+# Multi-AI Chat — Chrome Side Panel
 
----
+[English](./README.md) · [繁體中文](./README.zh-TW.md) · [日本語](./README.ja.md) · [Deutsch](./README.de.md) · **한국어**
 
-# 🤖 Multi-AI Chat（한국어）
+로그인된 **ChatGPT, Claude, Gemini, Grok** 탭을 하나의 가벼운 Chrome Side Panel에서 다중 AI workflow로 제어합니다. 모델 API 키나 별도의 대화 서버가 필요하지 않습니다.
 
-> **하나의 입력. 세 가지 지성. 무한한 가능성.**
+**현재 소스: v0.2.0** · Chrome 114+ · Manifest V3 · MIT
 
-**ChatGPT, Claude, Gemini**를 단일 Side Panel로 동시에 제어할 수 있는 Chrome Extension — 한 번 입력하면 세 AI가 동시에 응답하거나, 구조화된 워크플로우로 서로 토론하고 검토하게 만들 수 있습니다.
+> 제3자 웹 UI를 자동화하므로 provider 화면 변경으로 selector가 일시적으로 깨질 수 있습니다. 각 서비스 약관을 확인하고 사용 권한이 있는 계정과 콘텐츠만 이용하세요.
 
-![Screenshot](screenshot.png)
+## Desktop 또는 Browser
 
----
+| 버전 | 선택 기준 |
+|---|---|
+| **Browser extension (이 repo)** | 평소 사용하는 Chrome 탭을 작은 Side Panel에서 제어 |
+| [Desktop app](https://github.com/teddashh/multi-ai-chat-desktop) | 독립 profile, live WebView, replay, snapshot, 로컬 파일이 필요 |
 
-## ✨ 주요 기능
+## v0.2.0
 
-- **통합 입력** — 한 번 입력으로 세 AI 전체에 전송
-- **5가지 채팅 모드** — 자유 병렬 채팅부터 정교한 다중 라운드 토론까지
-- **실시간 스트리밍** — 생성되는 동안 실시간으로 표시
-- **워크플로우 상태 바** — 직렬 모드에서 현재 단계를 실시간 표시
-- **역할 레이블** — 각 응답에 역할 표시 (정방 / 리뷰어 / Coder 등)
-- **역할 설정** — 모드별로 어떤 AI가 어떤 역할을 맡을지 커스터마이징
-- **언제든 취소** — 진행 중인 워크플로우를 한 클릭으로 중단
-- **Markdown 내보내기** — 전체 대화를 `.md` 파일로 다운로드
-- **연결 관리** — 각 AI의 로그인 상태 감지, 빠른 로그인 버튼
+- selector 재시도, rich editor 검증, composer 내부 send button, Enter fallback으로 안정적인 전송.
+- service worker 재시작 후 탭 재검색과 기존 탭 content script 자동 재주입.
+- request ID로 늦은 응답을 격리하고 Stop으로 waiter와 provider 생성을 실제 중단.
+- 이미지 전용 ChatGPT 응답 및 Gemini Trusted Types 문제 수정.
+- composer가 로그인 상태를 확인한 경우에만 ‘준비됨’ 표시.
+- 최대 30개 로컬 대화, 새 대화, workflow 완료 후 이어서 질문.
+- 안전한 Markdown, 5개 언어 UI, 간결한 새 Side Panel.
 
----
+## 모드
 
-## 🎮 5가지 채팅 모드
+| 모드 | 흐름 |
+|---|---|
+| 자유 전송 | 선택되고 준비된 AI에 병렬 전송 |
+| 사자 토론 | 찬성 → 반대 → 판정 → 종합 |
+| 다자 자문 | 독립 답변 2개 → 검토 → 최종 답변 |
+| Coding | 명세, 검토, 구현, 테스트, 수정, 인수의 8단계 |
+| 원탁 토론 | 5라운드 × 4 AI = 20번 발언 |
 
-### ⚡ 자유 모드
-세 AI에 병렬로 전송. 각자 독립적으로 응답.
-```
-사용자 → ChatGPT
-       → Claude
-       → Gemini
-```
+## 소스에서 설치
 
-### ⚔️ 토론 모드 (3단계)
-구조화된 찬반 변증 토론.
-```
-사용자 → 찬성 입론(1) → 반대 측 반박(2) → 종합 정리(3)
-```
+Chrome 114+, Node.js 20+, npm이 필요합니다.
 
-### 🔍 컨설트 모드 (3단계)
-교차 검토를 포함한 다각도 리서치.
-```
-사용자 → 첫 번째 답변 → 리뷰어가 검증·보완 → 종합 정리(3)
-```
-
-### 💻 코딩 모드 (7단계)
-완전한 소프트웨어 엔지니어링 더블 루프: 명세 → 검토 → 구현 → 코드 리뷰 → 수정 → 인수 테스트 → 최종본.
-```
-플래너가 명세 작성(1)
-  → 리뷰어가 명세 검토(2)
-    → 코더가 v1 구현(3)
-      → 리뷰어가 코드 리뷰(4)
-        → 코더가 수정 → v2(5)
-          → 플래너가 인수 테스트(6)
-            → 코더가 최종본 납품(7)
-```
-
-### 🔄 원탁 모드 (15단계)
-5라운드 변증법적 나선. 토론을 통해 진리가 드러남.
-```
-1라운드: 개막 입론 (3 AI × 각자의 입장)
-2라운드: 교차 질의 (약점 공격, 좋은 점은 인정)
-3라운드: 공방 심화 (반론에 응답, 설득된 부분 수정)
-4라운드: 핵심 수렴 (공감대 vs 진짜 의견 대립 정리)
-5라운드: 진리 부상 (최종 결론, 입장 변화를 솔직하게)
-```
-각 라운드 3 AI × 5라운드 = **총 15단계**.
-
----
-
-## 🚀 설치 방법
-
-```bash
-# 1. 레포지토리 클론
+```sh
 git clone https://github.com/teddashh/multi-ai-chat.git
 cd multi-ai-chat
-
-# 2. 의존성 설치 및 빌드
-npm install && npm run build
+npm ci
+npm run verify
 ```
 
-3. Chrome에서 `chrome://extensions` 열기
-4. 우측 상단 **개발자 모드** 활성화
-5. **압축 해제된 확장 프로그램 로드** 클릭 후 `dist/` 폴더 선택
-6. **ChatGPT**, **Claude**, **Gemini**를 각각 별도 탭에서 열기
-7. 확장 프로그램 아이콘 클릭 → **사이드 패널 열기**
+1. `chrome://extensions`에서 **개발자 모드**를 켭니다.
+2. **압축해제된 확장 프로그램을 로드합니다**에서 `dist/`를 선택합니다.
+3. Multi-AI Chat을 고정하고 icon으로 Side Panel을 엽니다.
+4. 각 provider를 한 번 열고 로그인합니다. 연결 카드가 ‘준비됨’이면 사용할 수 있습니다.
 
-> **팁:** 메시지를 보내기 전에 세 AI 서비스 모두에 로그인되어 있는지 확인하세요.
+개발 중에는 `npm run dev`를 실행하고 확장 프로그램을 다시 로드한 뒤 Side Panel을 다시 여세요.
 
----
+## 사용법
 
-## 🛠 기술 스택
+1. workflow 모드를 선택합니다.
+2. 자유 모드는 기본적으로 네 provider가 모두 선택됩니다.
+3. **AI 연결**에서 누락된 provider를 열거나 로그인합니다.
+4. 질문을 입력하고 Enter 또는 **전송**을 누릅니다.
+5. 진행 상태를 확인하고 언제든 **중지**할 수 있습니다.
+6. 완료 후 계속 질문하거나 메뉴에서 **새 대화**를 선택합니다.
 
-| 레이어 | 기술 |
-|---|---|
-| 익스텐션 | Chrome Manifest V3, Service Worker |
-| UI | React 18, TypeScript, Tailwind CSS |
-| 빌드 | Webpack 5 |
-| 입력 주입 | ProseMirror (Claude), Quill (Gemini), React textarea (ChatGPT) |
-| 응답 캡처 | MutationObserver + 엘리먼트 참조 추적 |
+직렬 workflow가 실행되는 동안 Side Panel을 열어 두세요.
 
----
+## 권한과 개인정보
 
-## ⚠️ 면책 조항
+`sidePanel`은 UI, `tabs`는 provider 탭 검색, `scripting`과 host 권한은 기존 탭 재주입, `storage`는 설정·30개 대화·선택적 HackMD Token에 사용됩니다. HackMD 게시는 명시적으로 실행할 때만 동작하며 게시된 노트는 guest-readable입니다.
 
-이것은 **개인 사이드 프로젝트**로, 순수한 탐구와 재미를 위해 만들어졌습니다. ChatGPT, Claude, Gemini의 웹 인터페이스에 Content Script를 주입하는 방식으로 동작하며, 각 플랫폼의 서비스 약관을 위반할 수 있습니다.
+`chrome.storage.local`은 trusted extension context로 제한되어 provider content script가 HackMD Token을 읽을 수 없습니다. Prompt는 provider 페이지로 직접 전송되며 Multi-AI Chat 서버, telemetry, 모델 API credential은 없습니다.
 
-**사용에 따른 책임은 본인에게 있습니다.** 계정 제한이나 기타 결과에 대해 작성자는 일절 책임지지 않습니다. 이 프로젝트는 OpenAI, Anthropic, Google과 무관합니다.
+```sh
+npm run typecheck
+npm run build
+npm run verify
+npm audit
+```
 
----
-
-## 📄 라이선스
-
-MIT — 마음껏 사용하세요. 단, 책임은 묻지 마세요.
+Sponsored by [AI-Sister.com](https://ai-sister.com). 제작자 Ted Huang ([TED@TED-H.com](mailto:TED@TED-H.com), [ted-h.com](https://ted-h.com)). MIT License.

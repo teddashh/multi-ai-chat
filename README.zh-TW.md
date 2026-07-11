@@ -1,119 +1,94 @@
-[English](README.md) | **繁體中文** | [日本語](README.ja.md) | [한국어](README.ko.md)
+# Multi-AI Chat — Chrome Side Panel
 
----
+[English](./README.md) · **繁體中文** · [日本語](./README.ja.md) · [Deutsch](./README.de.md) · [한국어](./README.ko.md)
 
-# 🤖 Multi-AI Chat（繁體中文）
+用一個輕量 Chrome 外掛，把你原本已登入的 **ChatGPT、Claude、Gemini、Grok** 分頁組成多 AI workflow。它直接操作 provider 網頁，不需模型 API Key，也沒有額外的對話後端。
 
-> **一個輸入框。三個大腦。無限可能。**
+**目前原始碼：v0.2.0** · Chrome 114+ · Manifest V3 · MIT
 
-一款 Chrome Extension，讓你透過統一的 Side Panel 同時操控 **ChatGPT、Claude、Gemini** — 打一次字，三家 AI 同時回應；或者讓它們按照結構化流程互相辯論、互相審查。
+> 外掛會自動操作第三方網頁介面。Provider 改版可能暫時使 selector 失效；自動化也可能受各服務條款約束。請只使用你有權使用的帳號與內容。
 
-![Screenshot](screenshot.png)
+## Desktop 還是瀏覽器版？
 
----
+| 版本 | 適合情境 |
+|---|---|
+| **瀏覽器外掛（本 repo）** | 想用小巧 Side Panel 控制平常就在使用的 Chrome 分頁 |
+| [Desktop app](https://github.com/teddashh/multi-ai-chat-desktop) | 需要獨立 profile、聚焦 WebView、replay、snapshot 與本機檔案 workflow |
 
-## ✨ 功能特色
+## v0.2.0 更新
 
-- **統一輸入** — 打一次，廣播給三家 AI
-- **5 種聊天模式** — 從自由平行聊天到複雜的多輪辯論
-- **即時串流** — 回應邊生成邊顯示
-- **工作流程狀態列** — 串行模式顯示目前執行到第幾步
-- **角色標籤** — 每則回應標示角色（正方 / 審查者 / Coder 等）
-- **角色配置** — 自訂每個模式由哪家 AI 扮演哪個角色
-- **隨時取消** — 一鍵中止進行中的工作流程
-- **Markdown 匯出** — 將整段對話下載為 `.md` 檔案
-- **連線管理** — 偵測各 AI 登入狀態，快速登入按鈕
+- **可靠送出。** Selector 會重試、rich editor 會驗證文字、送出按鈕優先限制在 composer，並用 Enter 做最後驗證 fallback。
+- **不必手動點進分頁。** Service worker 重啟後會重新尋找 provider tab；舊分頁缺 content script 時會自動補注入。
+- **Request 隔離。** 每次 provider 呼叫都有 ID，晚到的舊回答不會完成錯誤流程。
+- **真正停止。** Stop 會拒絕 waiter，並要求 provider 頁面停止生成。
+- **修好圖片與 Gemini。** ChatGPT 只有圖片也會完成；Gemini 不再用 `innerHTML` 觸發 Trusted Types 錯誤。
+- **真實連線狀態。** 只有 composer 確認已登入時才顯示「就緒」。
+- **本機對話記錄。** 最多保存 30 個 session，可新對話，也可在 workflow 後繼續追問。
+- **Markdown transcript。** 使用安全 React renderer，不再只是整片純文字。
+- **五種 UI 語言。** English、繁體中文、日本語、Deutsch、한국어。
+- **新版 Side Panel。** 精簡模式卡、模式說明、自由模式目標、連線引導與小型流程追蹤。
 
----
+## 模式
 
-## 🎮 5 種聊天模式
+| 模式 | 流程 |
+|---|---|
+| **自由分送** | 所有已勾選且就緒的 provider 平行回答 |
+| **四方辯證** | 正方 → 反方 → 判官 → 綜合 |
+| **多方諮詢** | 兩份獨立回答 → 審查 → 最終答案 |
+| **Coding** | 八步規格、review、實作、測試、修正與驗收 |
+| **道理辯證** | 五輪 × 四家 = 二十次發言 |
 
-### ⚡ 自由模式
-同時發給三家 AI，各自獨立回答，無協作。
-```
-用戶 → ChatGPT
-     → Claude
-     → Gemini
-```
+## 從原始碼安裝
 
-### ⚔️ 三方辯證（3 步驟）
-結構化正反合辯論。
-```
-用戶 → 正方立論（第1步）→ 反方反駁（第2步）→ 總結綜合（第3步）
-```
+需要 Chrome 114+、Node.js 20+ 與 npm。
 
-### 🔍 多方諮詢（3 步驟）
-多角度研究，含交叉審查。
-```
-用戶 → 先答 → 審查者補充審查 → 總結統整（第3步）
-```
-
-### 💻 Coding 模式（7 步驟）
-完整軟體工程雙迴圈：規格 → 審查 → 實作 → 審查 → 修正 → 驗收 → 完稿。
-```
-規劃師寫規格（1）
-  → 審查者挑戰規格（2）
-    → Coder 寫 v1（3）
-      → 審查者做 Code Review（4）
-        → Coder 修正 → v2（5）
-          → 規劃師驗收（6）
-            → Coder 交付最終版（7）
-```
-
-### 🔄 道理辯證（15 步驟）
-五輪辯證螺旋，真理越辯越明。
-```
-第1輪：開場立論（3 AI × 各自表態）
-第2輪：交叉質疑（攻擊弱點，但承認對方好的地方）
-第3輪：攻防深化（回應質疑，修正被說服的點）
-第4輪：核心收斂（整理共識 vs 真正的核心分歧）
-第5輪：真理浮現（最終結論，坦承立場變化）
-```
-每輪 3 位 AI × 5 輪 = **共 15 步驟**。
-
----
-
-## 🚀 安裝方式
-
-```bash
-# 1. 複製 repo
+```sh
 git clone https://github.com/teddashh/multi-ai-chat.git
 cd multi-ai-chat
-
-# 2. 安裝套件並建置
-npm install && npm run build
+npm ci
+npm run verify
 ```
 
-3. 開啟 Chrome，前往 `chrome://extensions`
-4. 開啟右上角的**開發人員模式**
-5. 點擊**載入未封裝項目**，選擇 `dist/` 資料夾
-6. 分別在不同分頁開啟 **ChatGPT**、**Claude**、**Gemini**
-7. 點擊擴充功能圖示 → **開啟側面板**
+接著：
 
-> **提示：** 發送訊息前，請先確保三家 AI 都已登入。
+1. 開啟 `chrome://extensions`。
+2. 打開「開發人員模式」。
+3. 選「載入未封裝項目」，指定產生的 `dist/`。
+4. 固定 Multi-AI Chat，點 icon 開啟 Side Panel。
+5. 每家 provider 開啟並登入一次；偵測到 composer 後連線卡會變成「就緒」。
 
----
+開發時執行 `npm run dev`，在 `chrome://extensions` 重新載入，再重開 Side Panel。
 
-## 🛠 技術架構
+## 使用方式
 
-| 層次 | 技術 |
-|---|---|
-| 擴充功能 | Chrome Manifest V3、Service Worker |
-| 介面 | React 18、TypeScript、Tailwind CSS |
-| 建置工具 | Webpack 5 |
-| 輸入注入 | ProseMirror (Claude)、Quill (Gemini)、React textarea (ChatGPT) |
-| 回應擷取 | MutationObserver + 元素引用追蹤 |
+1. 選擇 workflow 模式。
+2. 自由模式預設四家全選，也可以關掉不需要的 provider。
+3. 展開「AI 連線」，開啟／登入缺少的服務。
+4. 輸入問題，按 Enter 或「送出」。
+5. 看精簡流程狀態；任何時候都能按「停止」。
+6. 結束後直接接著追問，或從選單選「新對話」。
 
----
+串行 workflow 執行期間請保持 Side Panel 開啟。
 
-## ⚠️ 免責聲明
+## 權限與隱私
 
-這是一個**個人 side project**，純粹出於興趣與探索。它透過向 ChatGPT、Claude、Gemini 的網頁介面注入 Content Script 運作，這可能違反各平台的服務條款。
+- `sidePanel`：顯示控制介面。
+- `tabs`：尋找與聚焦 provider 分頁。
+- `scripting` 與 provider host 權限：外掛重載後，必要時把已打包 content script 補注入舊分頁。
+- `storage`：設定、最多 30 個本機對話與可選的 HackMD Token。
+- `https://api.hackmd.io/*`：只有使用者明確發佈時使用；發佈筆記可由訪客閱讀，設定畫面會提醒。
 
-**風險自負。** 作者對任何帳號限制或其他後果不負責任。本專案與 OpenAI、Anthropic、Google 無任何關聯。
+外掛把 `chrome.storage.local` 限制在受信任 extension context，provider content script 讀不到 HackMD Token。Prompt 直接送到 provider 頁面；沒有 Multi-AI Chat server、telemetry 或模型 API credential。
 
----
+## 開發
 
-## 📄 授權條款
+```sh
+npm run typecheck
+npm run build
+npm run verify
+npm audit
+```
 
-MIT — 隨便用，但別來找我負責。
+核心模組：`src/background/service-worker.ts`（編排）、`src/content/base.ts`（可靠注入）、`src/content/*.ts`（provider adapter）、`src/sidepanel/`（React UI、session、Markdown、i18n）。
+
+Sponsored by [AI-Sister.com](https://ai-sister.com)。作者 Ted Huang（[TED@TED-H.com](mailto:TED@TED-H.com)、[ted-h.com](https://ted-h.com)）。MIT License。

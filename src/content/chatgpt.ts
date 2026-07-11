@@ -20,6 +20,14 @@ createContentScript({
   // (thinking messages + final response all share the same structure)
   responseSelectors: [
     '[data-message-author-role="assistant"] .markdown',
+    '[data-message-author-role="assistant"]',
+  ],
+
+  stopButtonSelectors: [
+    '[data-testid="stop-button"]',
+    'button[aria-label="Stop generating"]',
+    'button[aria-label="Stop streaming"]',
+    'button[aria-label="Stop"]',
   ],
 
   loginDetector: () => {

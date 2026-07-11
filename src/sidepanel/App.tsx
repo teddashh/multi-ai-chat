@@ -1,7 +1,23 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import type { AIProvider, AIConnection, ChatMode, ChatMessage, ModeRoles } from '../shared/types';
-import { CHAT_MODES, AI_PROVIDERS, DEFAULT_DEBATE_ROLES, DEFAULT_CONSULT_ROLES, DEFAULT_CODING_ROLES, DEFAULT_ROUNDTABLE_ROLES } from '../shared/constants';
-import { t } from '../shared/i18n';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import type {
+  AIProvider,
+  AIConnection,
+  ChatMode,
+  ChatMessage,
+  Conversation,
+  Locale,
+  ModeRoles,
+  WorkflowStatusPayload,
+} from '../shared/types';
+import {
+  AI_PROVIDERS,
+  CHAT_MODES,
+  DEFAULT_DEBATE_ROLES,
+  DEFAULT_CONSULT_ROLES,
+  DEFAULT_CODING_ROLES,
+  DEFAULT_ROUNDTABLE_ROLES,
+} from '../shared/constants';
+import { getLocale, setLocale as setActiveLocale, SUPPORTED_LOCALES, t } from '../shared/i18n';
 import { getHackMDToken, publishToHackMD } from '../shared/hackmd';
 import ConnectionBar from './components/ConnectionBar';
 import ModeSelector from './components/ModeSelector';
@@ -10,331 +26,567 @@ import ChatArea from './components/ChatArea';
 import InputBar from './components/InputBar';
 import SettingsModal from './components/SettingsModal';
 
-function buildMarkdown(messages: ChatMessage[], mode: ChatMode): { title: string; content: string } {
-  const modeInfo = CHAT_MODES[mode];
-  const title = `Multi-AI Chat — ${modeInfo.icon} ${modeInfo.name}`;
-  const lines: string[] = [
-    `# ${title}`,
-    `> Exported: ${new Date().toLocaleString()}`,
-    '',
-    '---',
-    '',
-  ];
-  for (const msg of messages) {
-    if (msg.role === 'user') {
-      lines.push(`## 👤 User`);
-      lines.push('');
-      lines.push(...msg.content.split('\n').map((line) => `> ${line}`));
-    } else {
-      const providerName = msg.provider
-        ? (AI_PROVIDERS[msg.provider as keyof typeof AI_PROVIDERS]?.name ?? msg.provider)
-        : 'AI';
-      const roleLabel = msg.modeRole ? ` (${msg.modeRole})` : '';
-      lines.push(`## 🤖 ${providerName}${roleLabel}`);
-      lines.push('');
-      lines.push(msg.content);
-    }
-    lines.push('');
-    lines.push('---');
-    lines.push('');
-  }
-  return { title, content: lines.join('\n') };
-}
-
-const DEFAULT_ROLES: Record<string, ModeRoles> = {
+const PROVIDERS: AIProvider[] = ['chatgpt', 'claude', 'gemini', 'grok'];
+const MAX_CONVERSATIONS = 30;
+const DEFAULT_ROLES: Record<Exclude<ChatMode, 'free'>, ModeRoles> = {
   debate: DEFAULT_DEBATE_ROLES,
   consult: DEFAULT_CONSULT_ROLES,
   coding: DEFAULT_CODING_ROLES,
   roundtable: DEFAULT_ROUNDTABLE_ROLES,
 };
 
+interface TraceEntry {
+  id: string;
+  text: string;
+  timestamp: number;
+}
+
+function emptyConnections(): Record<AIProvider, AIConnection> {
+  return Object.fromEntries(PROVIDERS.map((provider) => [provider, { provider, status: 'disconnected' }])) as Record<AIProvider, AIConnection>;
+}
+
+function newConversation(): Conversation {
+  const now = Date.now();
+  return {
+    id: crypto.randomUUID(),
+    title: t('session.untitled'),
+    mode: 'free',
+    roles: undefined,
+    messages: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function conversationTitle(messages: ChatMessage[]): string {
+  const firstQuestion = messages.find((message) => message.role === 'user')?.content.trim();
+  if (!firstQuestion) return t('session.untitled');
+  return firstQuestion.length > 46 ? `${firstQuestion.slice(0, 46)}…` : firstQuestion;
+}
+
+function fitConversationsForStorage(conversations: Conversation[]): Conversation[] {
+  const maxBytes = 7_500_000;
+  const persisted = [...conversations];
+  const size = () => new TextEncoder().encode(JSON.stringify(persisted)).byteLength;
+  while (persisted.length > 1 && size() > maxBytes) persisted.pop();
+  if (persisted.length === 1 && size() > maxBytes) {
+    const conversation = { ...persisted[0], messages: [...persisted[0].messages] };
+    while (conversation.messages.length > 2 && new TextEncoder().encode(JSON.stringify(conversation)).byteLength > maxBytes) {
+      conversation.messages.shift();
+    }
+    persisted[0] = conversation;
+  }
+  return persisted;
+}
+
+function buildReplayContext(messages: ChatMessage[]): string {
+  const transcript = messages.slice(-16).map((message) => {
+    const author = message.role === 'user'
+      ? 'User'
+      : message.provider && message.provider in AI_PROVIDERS
+        ? AI_PROVIDERS[message.provider].name
+        : 'System';
+    return `${author}: ${message.content}`;
+  }).join('\n\n');
+  return transcript.length > 12_000 ? transcript.slice(-12_000) : transcript;
+}
+
+function buildMarkdown(messages: ChatMessage[], mode: ChatMode): { title: string; content: string } {
+  const title = `Multi-AI Chat — ${CHAT_MODES[mode].icon} ${t(`mode.${mode}`)}`;
+  const lines = [`# ${title}`, `> Exported: ${new Date().toLocaleString()}`, '', '---', ''];
+  for (const message of messages) {
+    if (message.role === 'user') {
+      lines.push('## 👤 User', '', ...message.content.split('\n').map((line) => `> ${line}`));
+    } else {
+      const provider = message.provider as string | undefined;
+      const providerName = provider && provider in AI_PROVIDERS ? AI_PROVIDERS[provider as AIProvider].name : t('chat.system');
+      const role = message.modeRole ? ` (${t(message.modeRole)})` : '';
+      lines.push(`## 🤖 ${providerName}${role}`, '', message.content);
+    }
+    lines.push('', '---', '');
+  }
+  return { title, content: lines.join('\n') };
+}
+
+function formatWorkflowStatus(status: WorkflowStatusPayload): string {
+  const params = { ...(status.params ?? {}) };
+  if (typeof params.actionKey === 'string') params.action = t(params.actionKey);
+  if (typeof params.labelKey === 'string') params.label = t(params.labelKey);
+  return t(status.key, params);
+}
+
 export default function App() {
-  const [connections, setConnections] = useState<Record<AIProvider, AIConnection>>({
-    chatgpt: { provider: 'chatgpt', status: 'disconnected' },
-    claude: { provider: 'claude', status: 'disconnected' },
-    gemini: { provider: 'gemini', status: 'disconnected' },
-    grok: { provider: 'grok', status: 'disconnected' },
-  });
+  const [connections, setConnections] = useState<Record<AIProvider, AIConnection>>(emptyConnections);
   const [mode, setMode] = useState<ChatMode>('free');
   const [roles, setRoles] = useState<ModeRoles>(DEFAULT_DEBATE_ROLES);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [freeTargets, setFreeTargets] = useState<AIProvider[]>(PROVIDERS);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [workflowStatus, setWorkflowStatus] = useState('');
+  const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatusPayload | null>(null);
+  const [trace, setTrace] = useState<TraceEntry[]>([]);
   const [showRoleConfig, setShowRoleConfig] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [pendingRoles, setPendingRoles] = useState<Record<string, string>>({});
-  // Keep a ref so the message listener always sees the latest pendingRoles without re-registering
+  const [locale, setLocale] = useState<Locale>(getLocale());
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState('');
+  const [providerUrls, setProviderUrls] = useState<Partial<Record<AIProvider, string>>>({});
+  const [contextNeedsReplay, setContextNeedsReplay] = useState(false);
+  const [conversationDrawerOpen, setConversationDrawerOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const pendingRolesRef = useRef<Record<string, string>>({});
+  const clientIdRef = useRef(crypto.randomUUID());
+  const activeConversationIdRef = useRef('');
+  const activeWorkflowIdRef = useRef<string>();
+  const ignoredWorkflowIdsRef = useRef(new Set<string>());
+
   useEffect(() => {
     pendingRolesRef.current = pendingRoles;
   }, [pendingRoles]);
 
-  // Fetch initial connections
   useEffect(() => {
-    chrome.runtime.sendMessage({ action: 'GET_CONNECTIONS' }, (res) => {
-      if (res) setConnections(res);
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+
+  useEffect(() => {
+    chrome.storage.local.get(['language', 'conversations', 'activeConversationId', 'freeTargets'], (stored) => {
+      const savedLocale = stored.language as Locale | undefined;
+      if (savedLocale && SUPPORTED_LOCALES.includes(savedLocale)) {
+        setActiveLocale(savedLocale);
+        setLocale(savedLocale);
+      }
+
+      const savedTargets = Array.isArray(stored.freeTargets)
+        ? stored.freeTargets.filter((provider): provider is AIProvider => PROVIDERS.includes(provider as AIProvider))
+        : PROVIDERS;
+      setFreeTargets(savedTargets.length ? savedTargets : PROVIDERS);
+
+      const savedConversations = Array.isArray(stored.conversations) ? stored.conversations as Conversation[] : [];
+      const selected = savedConversations.find((conversation) => conversation.id === stored.activeConversationId) ?? savedConversations[0] ?? newConversation();
+      const initial = savedConversations.length ? savedConversations : [selected];
+      setConversations(initial);
+      setActiveConversationId(selected.id);
+      setMode(selected.mode);
+      setRoles(selected.roles ?? (selected.mode === 'free' ? DEFAULT_DEBATE_ROLES : DEFAULT_ROLES[selected.mode]));
+      setMessages(selected.messages ?? []);
+      setProviderUrls(selected.providerUrls ?? {});
+      setContextNeedsReplay(Boolean(selected.messages?.length));
+      setHydrated(true);
     });
   }, []);
 
-  // Listen for connection updates and responses
   useEffect(() => {
-    const listener = (message: { action: string; provider?: AIProvider; payload?: unknown }) => {
+    if (!hydrated || !activeConversationId) return;
+    chrome.runtime.sendMessage({ action: 'GET_CONNECTIONS', payload: { clientId: clientIdRef.current, sessionId: activeConversationId } }, (response) => {
+      if (response) setConnections(response as Record<AIProvider, AIConnection>);
+    });
+  }, [activeConversationId, hydrated]);
+
+  useEffect(() => {
+    let stopped = false;
+    let port: chrome.runtime.Port | undefined;
+    let reconnectTimer: number | undefined;
+    const connect = () => {
+      if (stopped) return;
+      port = chrome.runtime.connect({ name: 'multi-ai-sidepanel' });
+      port.onDisconnect.addListener(() => {
+        port = undefined;
+        if (!stopped) reconnectTimer = window.setTimeout(connect, 1000);
+      });
+    };
+    connect();
+    const heartbeat = window.setInterval(() => {
+      try {
+        port?.postMessage({ type: 'heartbeat' });
+      } catch {
+        port = undefined;
+      }
+    }, 20_000);
+    return () => {
+      stopped = true;
+      window.clearInterval(heartbeat);
+      if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
+      port?.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    const listener = (message: { action: string; provider?: AIProvider; requestId?: string; workflowId?: string; payload?: unknown }) => {
       switch (message.action) {
         case 'CONNECTIONS_UPDATE':
           setConnections(message.payload as Record<AIProvider, AIConnection>);
           break;
         case 'ROLE_ASSIGNMENT': {
-          const { label } = message.payload as { role: string; label: string };
+          const { labelKey, sessionId, clientId } = message.payload as { labelKey: string; sessionId?: string; clientId?: string };
+          if (clientId !== clientIdRef.current || sessionId !== activeConversationIdRef.current || message.workflowId !== activeWorkflowIdRef.current) break;
           if (message.provider) {
-            setPendingRoles((prev) => ({ ...prev, [message.provider as string]: label }));
+            setPendingRoles((current) => {
+              const next = { ...current, [message.provider as string]: labelKey };
+              pendingRolesRef.current = next;
+              return next;
+            });
           }
           break;
         }
         case 'RESPONSE_CHUNK':
-          // Real-time streaming update
-          setMessages((prev) => {
-            const existing = prev.find(
-              (m) => m.provider === message.provider && m.role === 'ai' && m.id.endsWith('-streaming')
-            );
-            if (existing) {
-              return prev.map((m) =>
-                m.id === existing.id ? { ...m, content: message.payload as string } : m
-              );
-            }
-            // New streaming message — consume the pending role for this provider
-            const modeRole = message.provider ? pendingRolesRef.current[message.provider] : undefined;
-            if (modeRole && message.provider) {
-              setPendingRoles((prev) => {
-                const next = { ...prev };
-                delete next[message.provider as string];
-                return next;
-              });
-            }
-            return [
-              ...prev,
-              {
-                id: `${message.provider}-${Date.now()}-streaming`,
-                role: 'ai',
-                provider: message.provider,
-                modeRole,
-                content: message.payload as string,
-                timestamp: Date.now(),
-              },
-            ];
-          });
+          if (!message.provider || !acceptWorkflowMessage(message.workflowId, activeWorkflowIdRef, ignoredWorkflowIdsRef)) break;
+          setMessages((current) => upsertStreamingMessage(current, message.provider!, message.requestId, String(message.payload ?? ''), pendingRolesRef, setPendingRoles));
           break;
         case 'RESPONSE_DONE':
-          setMessages((prev) => {
-            // Replace streaming message with final
-            const streamingMsg = prev.find(
-              (m) => m.provider === message.provider && m.id.endsWith('-streaming')
-            );
-            if (streamingMsg) {
-              // Preserve modeRole already set on the streaming message
-              return prev.map((m) =>
-                m.id === streamingMsg.id
-                  ? { ...m, id: m.id.replace('-streaming', ''), content: message.payload as string }
-                  : m
-              );
-            }
-            // No streaming message found — consume the pending role for this provider
-            const modeRole = message.provider ? pendingRolesRef.current[message.provider] : undefined;
-            if (modeRole && message.provider) {
-              setPendingRoles((prev) => {
-                const next = { ...prev };
-                delete next[message.provider as string];
-                return next;
-              });
-            }
-            return [
-              ...prev,
-              {
-                id: `${message.provider}-${Date.now()}`,
-                role: 'ai',
-                provider: message.provider,
-                modeRole,
-                content: message.payload as string,
-                timestamp: Date.now(),
-              },
-            ];
-          });
-          // Don't clear isProcessing/workflowStatus here — let WORKFLOW_STATUS('') handle it
-          // This prevents flicker between serial steps
+          if (!message.provider || !acceptWorkflowMessage(message.workflowId, activeWorkflowIdRef, ignoredWorkflowIdsRef)) break;
+          setMessages((current) => finalizeMessage(current, message.provider!, message.requestId, String(message.payload ?? ''), pendingRolesRef, setPendingRoles));
           break;
         case 'WORKFLOW_STATUS': {
-          const status = message.payload as string;
-          setWorkflowStatus(status);
-          if (!status) {
-            // Empty status = workflow complete
+          const status = message.payload as WorkflowStatusPayload;
+          if (!status || status.clientId !== clientIdRef.current || status.sessionId !== activeConversationIdRef.current || !status.workflowId) break;
+          if (ignoredWorkflowIdsRef.current.has(status.workflowId)) break;
+          if (status.done) {
+            if (status.cancelled) {
+              ignoreWorkflow(status.workflowId, ignoredWorkflowIdsRef);
+              if (activeWorkflowIdRef.current === status.workflowId) activeWorkflowIdRef.current = undefined;
+            }
+            setWorkflowStatus(null);
             setIsProcessing(false);
+            if (!status.cancelled) {
+              chrome.runtime.sendMessage({ action: 'GET_PROVIDER_URLS' })
+                .then((urls) => setProviderUrls((urls as Partial<Record<AIProvider, string>>) ?? {}))
+                .catch(() => {});
+            }
+            break;
           }
+          activeWorkflowIdRef.current = status.workflowId;
+          setWorkflowStatus(status);
+          const text = formatWorkflowStatus(status);
+          setTrace((current) => current[current.length - 1]?.text === text ? current : [...current, { id: crypto.randomUUID(), text, timestamp: Date.now() }].slice(-25));
           break;
         }
       }
     };
-
     chrome.runtime.onMessage.addListener(listener);
     return () => chrome.runtime.onMessage.removeListener(listener);
   }, []);
 
-  // Update roles when mode changes
   useEffect(() => {
-    if (mode !== 'free') {
-      setRoles(DEFAULT_ROLES[mode]);
-    }
-  }, [mode]);
+    if (!hydrated || !activeConversationId) return;
+    let snapshot: Conversation[] | undefined;
+    setConversations((current) => {
+      const existing = current.find((conversation) => conversation.id === activeConversationId);
+      const updated: Conversation = {
+        id: activeConversationId,
+        title: conversationTitle(messages),
+        mode,
+        roles: mode === 'free' ? undefined : roles,
+        messages,
+        providerUrls,
+        createdAt: existing?.createdAt ?? Date.now(),
+        updatedAt: Date.now(),
+      };
+      const next = [updated, ...current.filter((conversation) => conversation.id !== activeConversationId)]
+        .sort((first, second) => second.updatedAt - first.updatedAt)
+        .slice(0, MAX_CONVERSATIONS);
+      snapshot = fitConversationsForStorage(next);
+      return next;
+    });
+    const persist = () => {
+      if (snapshot) void chrome.storage.local.set({ conversations: snapshot, activeConversationId }).catch(() => {});
+    };
+    const timer = window.setTimeout(persist, 350);
+    return () => {
+      window.clearTimeout(timer);
+      persist();
+    };
+  }, [activeConversationId, hydrated, messages, mode, providerUrls, roles]);
 
-  const handleCancel = useCallback(() => {
-    chrome.runtime.sendMessage({ action: 'CANCEL_WORKFLOW' });
+  const changeMode = (nextMode: ChatMode) => {
+    if (isProcessing) return;
+    setMode(nextMode);
+    setShowRoleConfig(false);
+    if (nextMode !== 'free') setRoles(DEFAULT_ROLES[nextMode]);
+  };
+
+  const handleSend = useCallback((text: string) => {
+    if (!text.trim() || isProcessing) return;
+    if (activeWorkflowIdRef.current) ignoreWorkflow(activeWorkflowIdRef.current, ignoredWorkflowIdsRef);
+    activeWorkflowIdRef.current = undefined;
+    const context = contextNeedsReplay ? buildReplayContext(messages) : undefined;
+    setMessages((current) => [...current, { id: `user-${crypto.randomUUID()}`, role: 'user', content: text, timestamp: Date.now() }]);
+    setIsProcessing(true);
+    setWorkflowStatus(null);
+    setContextNeedsReplay(false);
+    chrome.runtime.sendMessage({
+      action: 'SEND_MESSAGE',
+      payload: {
+        text,
+        context,
+        mode,
+        roles: mode === 'free' ? undefined : roles,
+        targets: mode === 'free' ? freeTargets : undefined,
+        sessionId: activeConversationId,
+        clientId: clientIdRef.current,
+      },
+    }).catch((error) => {
+      setMessages((current) => [...current, { id: `system-${crypto.randomUUID()}`, role: 'ai', provider: 'system' as AIProvider, content: `Error: ${String(error)}`, timestamp: Date.now() }]);
+      setIsProcessing(false);
+    });
+  }, [activeConversationId, contextNeedsReplay, freeTargets, isProcessing, messages, mode, roles]);
+
+  const stopWorkflow = useCallback(() => {
+    if (activeWorkflowIdRef.current) ignoreWorkflow(activeWorkflowIdRef.current, ignoredWorkflowIdsRef);
+    activeWorkflowIdRef.current = undefined;
+    chrome.runtime.sendMessage({ action: 'CANCEL_WORKFLOW', payload: { clientId: clientIdRef.current } }).catch(() => {});
+    setWorkflowStatus(null);
     setIsProcessing(false);
-    setWorkflowStatus('');
   }, []);
 
-  const handleSend = useCallback(
-    (text: string) => {
-      if (!text.trim() || isProcessing) return;
+  const startNewConversation = () => {
+    if (isProcessing) return;
+    if (activeWorkflowIdRef.current) ignoreWorkflow(activeWorkflowIdRef.current, ignoredWorkflowIdsRef);
+    activeWorkflowIdRef.current = undefined;
+    const conversation = newConversation();
+    setConversations((current) => [conversation, ...current].slice(0, MAX_CONVERSATIONS));
+    setActiveConversationId(conversation.id);
+    activeConversationIdRef.current = conversation.id;
+    setMessages([]);
+    setProviderUrls({});
+    setContextNeedsReplay(false);
+    setMode('free');
+    setRoles(DEFAULT_DEBATE_ROLES);
+    setTrace([]);
+    setWorkflowStatus(null);
+    setConversationDrawerOpen(false);
+    chrome.runtime.sendMessage({ action: 'RESET_PROVIDER_SESSIONS' }).catch(() => {});
+  };
 
-      const userMessage: ChatMessage = {
-        id: `user-${Date.now()}`,
-        role: 'user',
-        content: text,
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, userMessage]);
-      setIsProcessing(true);
+  const selectConversation = (conversation: Conversation) => {
+    if (isProcessing) return;
+    if (activeWorkflowIdRef.current) ignoreWorkflow(activeWorkflowIdRef.current, ignoredWorkflowIdsRef);
+    activeWorkflowIdRef.current = undefined;
+    setActiveConversationId(conversation.id);
+    activeConversationIdRef.current = conversation.id;
+    setMessages(conversation.messages ?? []);
+    setProviderUrls(conversation.providerUrls ?? {});
+    setContextNeedsReplay(Boolean(conversation.messages?.length));
+    setMode(conversation.mode);
+    setRoles(conversation.roles ?? (conversation.mode === 'free' ? DEFAULT_DEBATE_ROLES : DEFAULT_ROLES[conversation.mode]));
+    setTrace([]);
+    setConversationDrawerOpen(false);
+    const action = conversation.providerUrls && Object.keys(conversation.providerUrls).length
+      ? { action: 'RESTORE_PROVIDER_SESSIONS', payload: { urls: conversation.providerUrls } }
+      : { action: 'RESET_PROVIDER_SESSIONS' };
+    chrome.runtime.sendMessage(action).catch(() => {});
+  };
 
-      chrome.runtime.sendMessage({
-        action: 'SEND_MESSAGE',
-        payload: {
-          text,
-          mode,
-          roles: mode !== 'free' ? roles : undefined,
-        },
-      });
-    },
-    [mode, roles, isProcessing]
-  );
+  const changeLocale = (nextLocale: Locale) => {
+    setActiveLocale(nextLocale);
+    setLocale(nextLocale);
+    void chrome.storage.local.set({ language: nextLocale });
+  };
 
-  const handleExport = useCallback(() => {
-    if (messages.length === 0) return;
-    const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
-    const filename = `multi-ai-chat-${mode}-${timestamp}.md`;
+  const toggleTarget = (provider: AIProvider) => {
+    if (isProcessing) return;
+    setFreeTargets((current) => {
+      const next = current.includes(provider) ? current.filter((candidate) => candidate !== provider) : [...current, provider];
+      const safeNext = next.length ? next : [provider];
+      void chrome.storage.local.set({ freeTargets: safeNext });
+      return safeNext;
+    });
+  };
+
+  const exportConversation = () => {
+    if (!messages.length) return;
     const { content } = buildMarkdown(messages, mode);
+    const blobUrl = URL.createObjectURL(new Blob([content], { type: 'text/markdown' }));
+    const anchor = document.createElement('a');
+    anchor.href = blobUrl;
+    anchor.download = `multi-ai-chat-${mode}-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.md`;
+    anchor.click();
+    URL.revokeObjectURL(blobUrl);
+  };
 
-    const blob = new Blob([content], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [messages, mode]);
-
-  const handlePublish = useCallback(async () => {
-    if (messages.length === 0) {
-      alert(t('publish.empty'));
-      return;
-    }
+  const publishConversation = async () => {
+    if (!messages.length) return alert(t('publish.empty'));
     const token = await getHackMDToken();
     if (!token) {
       alert(t('publish.no_token'));
       setIsSettingsOpen(true);
       return;
     }
-
     setIsPublishing(true);
     try {
       const { title, content } = buildMarkdown(messages, mode);
-      const dated = `${title} — ${new Date().toLocaleString()}`;
-      const { publishLink } = await publishToHackMD(dated, content, token);
-      try {
-        await navigator.clipboard.writeText(publishLink);
-      } catch {
-        // clipboard write may fail silently in some contexts; URL still shown below
-      }
+      const { publishLink } = await publishToHackMD(`${title} — ${new Date().toLocaleString()}`, content, token);
+      await navigator.clipboard.writeText(publishLink).catch(() => {});
       alert(`${t('publish.success')}\n\n${publishLink}`);
       window.open(publishLink, '_blank', 'noopener,noreferrer');
-    } catch (err) {
-      alert(`${t('publish.failed')} ${(err as Error).message}`);
+    } catch (error) {
+      alert(`${t('publish.failed')} ${String(error)}`);
     } finally {
       setIsPublishing(false);
     }
-  }, [messages, mode]);
-
-  const handleOpenLogin = (provider: AIProvider) => {
-    chrome.runtime.sendMessage({ action: 'OPEN_LOGIN', provider });
   };
 
-  const connectedCount = Object.values(connections).filter((c) => c.status === 'connected').length;
+  const connectedCount = PROVIDERS.filter((provider) => connections[provider].status === 'connected').length;
+  const noReadyProvider = connectedCount === 0;
+  const serialModeReady = mode === 'free' || Object.values(roles as unknown as Record<string, AIProvider>)
+    .every((provider) => connections[provider]?.status === 'connected');
+  const currentStatus = workflowStatus ? formatWorkflowStatus(workflowStatus) : t('trace.idle');
 
   return (
-    <div className="flex flex-col h-screen">
-      {/* Header */}
-      <div className="flex-none border-b border-gray-700 p-3">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-lg font-bold">{t('app.title')}</h1>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleExport}
-              disabled={messages.length === 0}
-              className="text-xs text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-              title={t('app.export')}
-            >
-              {'\u{1F4E5} '}{t('app.export')}
-            </button>
-            <button
-              onClick={handlePublish}
-              disabled={messages.length === 0 || isPublishing}
-              className="text-xs text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-              title={t('app.publish')}
-            >
-              {isPublishing ? '⏳ ' : '\u{1F4E4} '}
-              {isPublishing ? t('publish.publishing') : t('app.publish')}
-            </button>
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="text-xs text-gray-400 hover:text-white"
-              title={t('app.settings')}
-            >
-              {'\u2699\uFE0F'}
-            </button>
-            <span className="text-xs text-gray-400">{connectedCount}/4 {t('app.connected')}</span>
+    <div className="relative flex h-screen flex-col overflow-hidden bg-slate-50 text-slate-900">
+      <header className="flex-none border-b border-slate-200 bg-white px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setConversationDrawerOpen(true)} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" title={t('app.menu')} aria-label={t('app.menu')}>☰</button>
+          <BrandMark />
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-sm font-bold text-slate-900">{t('app.title')}</h1>
+            <p className="truncate text-[10px] text-slate-500">{t('app.subtitle')}</p>
           </div>
+          <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">{connectedCount}/4 {t('app.connected')}</span>
+          <button type="button" onClick={() => setIsSettingsOpen(true)} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" title={t('app.settings')}>⚙</button>
         </div>
-        <ConnectionBar connections={connections} onOpenLogin={handleOpenLogin} />
-      </div>
+      </header>
 
-      {/* Mode Selector */}
-      <div className="flex-none border-b border-gray-700 p-2">
-        <ModeSelector mode={mode} onModeChange={setMode} />
+      <section className="max-h-[46vh] flex-none overflow-y-auto border-b border-slate-200 bg-white px-3 py-3">
+        <ModeSelector mode={mode} onModeChange={changeMode} disabled={isProcessing} />
+
+        {mode === 'free' && (
+          <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('targets.title')}</div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {PROVIDERS.map((provider) => {
+                const selected = freeTargets.includes(provider);
+                const ready = connections[provider].status === 'connected';
+                return <button key={provider} type="button" disabled={isProcessing} onClick={() => toggleTarget(provider)} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${selected ? 'border-sky-300 bg-sky-50 text-sky-800' : 'border-slate-200 bg-white text-slate-400'}`}><span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${ready ? 'bg-emerald-500' : 'bg-slate-300'}`} />{AI_PROVIDERS[provider].name}</button>;
+              })}
+            </div>
+          </div>
+        )}
+
         {mode !== 'free' && (
-          <button
-            onClick={() => setShowRoleConfig(!showRoleConfig)}
-            className="text-xs text-gray-400 hover:text-white mt-1 ml-1"
-          >
-            {showRoleConfig ? t('roles.toggle.hide') : t('roles.toggle.show')}
-          </button>
+          <div className="mt-2">
+            <button type="button" onClick={() => setShowRoleConfig((current) => !current)} className="text-xs font-medium text-sky-700 hover:text-sky-900">{showRoleConfig ? t('roles.toggle.hide') : t('roles.toggle.show')}</button>
+            {showRoleConfig && <RoleConfig mode={mode} roles={roles} onRolesChange={setRoles} />}
+          </div>
         )}
-        {showRoleConfig && mode !== 'free' && (
-          <RoleConfig mode={mode} roles={roles} onRolesChange={setRoles} />
-        )}
-      </div>
 
-      {/* Chat Area */}
+        <details className="mt-2 rounded-lg border border-slate-200 bg-slate-50" open={connectedCount < 4}>
+          <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-700">{t('connection.title')}</summary>
+          <div className="border-t border-slate-200 p-2.5">
+            <ConnectionBar connections={connections} onOpenLogin={(provider) => chrome.runtime.sendMessage({ action: 'OPEN_LOGIN', provider })} />
+            <p className="mt-2 text-[10px] leading-relaxed text-slate-500">{t('connection.help')}</p>
+          </div>
+        </details>
+
+        <details className="mt-2 rounded-lg border border-slate-200 bg-white" open={isProcessing}>
+          <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-700"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${isProcessing ? 'animate-pulse bg-sky-500' : 'bg-emerald-500'}`} />{t('trace.title')} · <span className="font-normal text-slate-500">{currentStatus}</span></summary>
+          {trace.length > 0 && <div className="max-h-28 space-y-1 overflow-y-auto border-t border-slate-200 p-2.5">{trace.slice(-8).map((entry) => <div key={entry.id} className="truncate text-[10px] text-slate-600">{new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {entry.text}</div>)}</div>}
+        </details>
+      </section>
+
       <ChatArea messages={messages} mode={mode} />
 
-      {/* Workflow Status */}
-      {workflowStatus && (
-        <div className="flex-none border-t border-gray-700 px-3 py-1.5 bg-gray-800/80 text-center">
-          <span className="text-xs text-yellow-300 animate-pulse">{workflowStatus}</span>
+      <div className="flex-none border-t border-slate-200 bg-white px-3 py-1.5">
+        <div className="flex justify-end gap-3 text-[10px] text-slate-500">
+          <button type="button" onClick={exportConversation} disabled={!messages.length} className="hover:text-sky-700 disabled:opacity-30">{t('app.export')}</button>
+          <button type="button" onClick={() => void publishConversation()} disabled={!messages.length || isPublishing} className="hover:text-sky-700 disabled:opacity-30">{isPublishing ? t('publish.publishing') : t('app.publish')}</button>
+        </div>
+      </div>
+      <InputBar onSend={handleSend} onCancel={stopWorkflow} disabled={isProcessing || noReadyProvider || !serialModeReady} isProcessing={isProcessing} />
+
+      {conversationDrawerOpen && (
+        <div className="absolute inset-0 z-40 bg-slate-950/30" onClick={() => setConversationDrawerOpen(false)}>
+          <aside className="flex h-full w-[86%] max-w-sm flex-col border-r border-slate-200 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center gap-2 border-b border-slate-200 p-3">
+              <BrandMark />
+              <h2 className="flex-1 text-sm font-semibold">{t('session.history')}</h2>
+              <button type="button" onClick={() => setConversationDrawerOpen(false)} className="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100">{t('app.close')}</button>
+            </div>
+            <div className="p-3"><button type="button" disabled={isProcessing} onClick={startNewConversation} className="w-full rounded-xl border border-sky-300 bg-sky-50 px-3 py-2 text-left text-sm font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-50">＋ {t('app.new')}</button></div>
+            <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-3">
+              {conversations.length === 0 && <p className="p-3 text-xs text-slate-500">{t('session.empty')}</p>}
+              {conversations.map((conversation) => (
+                <button key={conversation.id} type="button" disabled={isProcessing} onClick={() => selectConversation(conversation)} className={`w-full rounded-lg px-3 py-2 text-left ${conversation.id === activeConversationId ? 'bg-sky-50 text-sky-900' : 'text-slate-700 hover:bg-slate-50'}`}>
+                  <span className="block truncate text-xs font-medium">{conversation.title || t('session.untitled')}</span>
+                  <span className="mt-0.5 block text-[10px] text-slate-400">{new Date(conversation.updatedAt || conversation.createdAt).toLocaleString()}</span>
+                </button>
+              ))}
+            </div>
+          </aside>
         </div>
       )}
 
-      {/* Input */}
-      <InputBar onSend={handleSend} onCancel={handleCancel} disabled={isProcessing || connectedCount === 0} isProcessing={isProcessing} />
-
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal isOpen={isSettingsOpen} locale={locale} onLocaleChange={changeLocale} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
+}
+
+function BrandMark() {
+  return <span className="grid h-8 w-8 shrink-0 grid-cols-2 gap-0.5 rounded-lg bg-slate-50 p-1.5" aria-hidden="true"><span className="rounded-full bg-sky-500" /><span className="rounded-full bg-rose-500" /><span className="rounded-full bg-amber-400" /><span className="rounded-full bg-emerald-500" /></span>;
+}
+
+function upsertStreamingMessage(
+  messages: ChatMessage[],
+  provider: AIProvider,
+  requestId: string | undefined,
+  content: string,
+  pendingRolesRef: React.MutableRefObject<Record<string, string>>,
+  setPendingRoles: React.Dispatch<React.SetStateAction<Record<string, string>>>,
+): ChatMessage[] {
+  const existing = messages.find((message) => message.requestId === requestId && message.id.endsWith('-streaming'));
+  if (existing) return messages.map((message) => message.id === existing.id ? { ...message, content } : message);
+  const modeRole = consumePendingRole(provider, pendingRolesRef, setPendingRoles);
+  return [...messages, { id: `${requestId ?? crypto.randomUUID()}-streaming`, role: 'ai', provider, modeRole, content, timestamp: Date.now(), requestId }];
+}
+
+function finalizeMessage(
+  messages: ChatMessage[],
+  provider: AIProvider,
+  requestId: string | undefined,
+  content: string,
+  pendingRolesRef: React.MutableRefObject<Record<string, string>>,
+  setPendingRoles: React.Dispatch<React.SetStateAction<Record<string, string>>>,
+): ChatMessage[] {
+  const existing = messages.find((message) => message.requestId === requestId && message.id.endsWith('-streaming'));
+  if (existing) return messages.map((message) => message.id === existing.id ? { ...message, id: message.id.replace(/-streaming$/, ''), content } : message);
+  const modeRole = consumePendingRole(provider, pendingRolesRef, setPendingRoles);
+  return [...messages, { id: requestId ?? crypto.randomUUID(), role: 'ai', provider, modeRole, content, timestamp: Date.now(), requestId }];
+}
+
+function consumePendingRole(
+  provider: AIProvider,
+  pendingRolesRef: React.MutableRefObject<Record<string, string>>,
+  setPendingRoles: React.Dispatch<React.SetStateAction<Record<string, string>>>,
+): string | undefined {
+  const role = pendingRolesRef.current[provider];
+  if (!role) return undefined;
+  setPendingRoles((current) => {
+    const next = { ...current };
+    delete next[provider];
+    pendingRolesRef.current = next;
+    return next;
+  });
+  return role;
+}
+
+function acceptWorkflowMessage(
+  workflowId: string | undefined,
+  activeWorkflowIdRef: React.MutableRefObject<string | undefined>,
+  ignoredWorkflowIdsRef: React.MutableRefObject<Set<string>>,
+): boolean {
+  return Boolean(workflowId && workflowId === activeWorkflowIdRef.current && !ignoredWorkflowIdsRef.current.has(workflowId));
+}
+
+function ignoreWorkflow(workflowId: string, ignoredWorkflowIdsRef: React.MutableRefObject<Set<string>>): void {
+  const ignored = ignoredWorkflowIdsRef.current;
+  ignored.add(workflowId);
+  while (ignored.size > 100) {
+    const oldest = ignored.values().next().value as string | undefined;
+    if (!oldest) break;
+    ignored.delete(oldest);
+  }
 }
