@@ -1,4 +1,5 @@
 import type { AIProvider, ExtensionMessage } from '../shared/types';
+import { serializeResponseText } from './responseSerializer';
 
 export interface ContentScriptConfig {
   provider: AIProvider;
@@ -228,9 +229,12 @@ export function createContentScript(config: ContentScriptConfig): void {
   }
 
   function extractResponseText(response: Element): string | null {
-    const text = response.textContent?.trim() ?? '';
+    const text = serializeResponseText(response);
     if (text) return text;
-    const asset = response.matches('img, canvas, video') ? response : response.querySelector('img, canvas, video');
+    const responseTag = typeof response.tagName === 'string' ? response.tagName.toUpperCase() : '';
+    const asset = ['IMG', 'CANVAS', 'VIDEO'].includes(responseTag)
+      ? response
+      : response.querySelector?.('img, canvas, video') ?? null;
     if (!asset) return null;
     const alt = asset instanceof HTMLImageElement ? asset.alt.trim() : '';
     return alt ? `[Image generated: ${alt}]` : '[Image generated]';

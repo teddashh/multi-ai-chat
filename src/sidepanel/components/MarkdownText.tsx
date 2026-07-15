@@ -4,6 +4,12 @@ interface Props {
   text: string;
 }
 
+interface MarkdownTableMatch {
+  header: string[];
+  rows: string[][];
+  nextCursor: number;
+}
+
 function safeUrl(value: string): string | null {
   try {
     const url = new URL(value.trim());
@@ -61,6 +67,53 @@ function startsBlock(line: string): boolean {
   return /^(#{1,6})\s+/.test(line) || /^\s*(```|~~~)/.test(line) || /^\s*([-*_])(?:\s*\1){2,}\s*$/.test(line) || /^\s*>/.test(line) || /^\s*(?:[-+*]|\d+[.)])\s+/.test(line);
 }
 
+function isEscapedAt(text: string, index: number): boolean {
+  let backslashes = 0;
+  for (let cursor = index - 1; cursor >= 0 && text[cursor] === '\\'; cursor -= 1) backslashes += 1;
+  return backslashes % 2 === 1;
+}
+
+function splitTableRow(line: string): string[] | null {
+  let source = line.trim();
+  if (!source.includes('|')) return null;
+  if (source.startsWith('|')) source = source.slice(1);
+  if (source.endsWith('|') && !isEscapedAt(source, source.length - 1)) source = source.slice(0, -1);
+
+  const cells: string[] = [];
+  let cell = '';
+  for (let index = 0; index < source.length; index += 1) {
+    if (source[index] === '\\' && source[index + 1] === '|') {
+      cell += '|';
+      index += 1;
+    } else if (source[index] === '|') {
+      cells.push(cell.trim());
+      cell = '';
+    } else {
+      cell += source[index];
+    }
+  }
+  cells.push(cell.trim());
+  return cells.length >= 2 ? cells : null;
+}
+
+function matchTable(lines: readonly string[], cursor: number): MarkdownTableMatch | null {
+  if (cursor + 1 >= lines.length) return null;
+  const header = splitTableRow(lines[cursor]);
+  const delimiter = splitTableRow(lines[cursor + 1]);
+  if (!header || !delimiter || delimiter.length !== header.length) return null;
+  if (!delimiter.every((cell) => /^:?-{3,}:?$/.test(cell))) return null;
+
+  const rows: string[][] = [];
+  let nextCursor = cursor + 2;
+  while (nextCursor < lines.length && lines[nextCursor].trim()) {
+    const row = splitTableRow(lines[nextCursor]);
+    if (!row) break;
+    rows.push([...row, ...Array.from({ length: Math.max(0, header.length - row.length) }, () => '')].slice(0, header.length));
+    nextCursor += 1;
+  }
+  return { header, rows, nextCursor };
+}
+
 function renderBlocks(text: string): ReactNode[] {
   const lines = text.replace(/\r\n?/g, '\n').split('\n');
   const blocks: ReactNode[] = [];
@@ -102,6 +155,38 @@ function renderBlocks(text: string): ReactNode[] {
     if (/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(lines[cursor])) {
       blocks.push(<hr key={key} className="my-4 border-slate-200" />);
       cursor += 1;
+      continue;
+    }
+
+    const table = matchTable(lines, cursor);
+    if (table) {
+      blocks.push(
+        <div key={key} className="my-3 overflow-x-auto rounded-lg border border-slate-200">
+          <table className="min-w-full border-collapse text-left text-xs">
+            <thead className="bg-slate-50 text-slate-900">
+              <tr>
+                {table.header.map((cell, index) => (
+                  <th key={`${key}-head-${index}`} className="border-b border-slate-200 px-3 py-2 font-semibold">
+                    {renderInline(cell, `${key}-head-${index}`)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {table.rows.map((row, rowIndex) => (
+                <tr key={`${key}-row-${rowIndex}`} className="border-b border-slate-100 last:border-b-0">
+                  {row.map((cell, cellIndex) => (
+                    <td key={`${key}-cell-${rowIndex}-${cellIndex}`} className="px-3 py-2 align-top">
+                      {renderInline(cell, `${key}-cell-${rowIndex}-${cellIndex}`)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
+      cursor = table.nextCursor;
       continue;
     }
 
