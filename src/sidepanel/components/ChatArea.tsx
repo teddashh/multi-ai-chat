@@ -3,15 +3,31 @@ import type { ChatMessage, ChatMode } from '../../shared/types';
 import { AI_PROVIDERS } from '../../shared/constants';
 import { t } from '../../shared/i18n';
 import MarkdownText from './MarkdownText';
+import { isTranscriptNearEnd, scrollTranscriptToEnd } from '../transcriptScroll';
 
 interface Props {
   messages: ChatMessage[];
   mode: ChatMode;
+  conversationId: string;
 }
 
-export default function ChatArea({ messages, mode }: Props) {
-  const bottomRef = useRef<HTMLDivElement>(null);
-  useEffect(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
+export default function ChatArea({ messages, mode, conversationId }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const stickToEndRef = useRef(true);
+  const previousConversationIdRef = useRef<string>();
+  const previousMessageIdRef = useRef<string>();
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const conversationChanged = previousConversationIdRef.current !== conversationId;
+    const latestMessage = messages[messages.length - 1];
+    const userSentMessage = latestMessage?.role === 'user' && previousMessageIdRef.current !== latestMessage.id;
+    previousConversationIdRef.current = conversationId;
+    previousMessageIdRef.current = latestMessage?.id;
+    if (conversationChanged || userSentMessage) stickToEndRef.current = true;
+    if (stickToEndRef.current) scrollTranscriptToEnd(container);
+  }, [conversationId, messages]);
 
   if (messages.length === 0) {
     return (
@@ -26,9 +42,14 @@ export default function ChatArea({ messages, mode }: Props) {
   }
 
   return (
-    <div className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
+    <div
+      ref={containerRef}
+      className="flex-1 space-y-3 overflow-y-auto px-3 py-4"
+      onScroll={(event) => {
+        stickToEndRef.current = isTranscriptNearEnd(event.currentTarget);
+      }}
+    >
       {messages.map((message) => <MessageCard key={message.id} message={message} />)}
-      <div ref={bottomRef} />
     </div>
   );
 }

@@ -17,6 +17,7 @@ import {
   DEFAULT_CODING_ROLES,
   DEFAULT_ROUNDTABLE_ROLES,
 } from '../shared/constants';
+import { questionWithConversationContext } from '../shared/conversationContinuity';
 
 interface ResponseWaiter {
   provider: AIProvider;
@@ -370,9 +371,7 @@ async function handleSendMessage(params: SendParams): Promise<void> {
       startedAt: Date.now(),
     },
   });
-  const question = params.context?.trim()
-    ? `Prior multi-AI conversation context:\n\n${params.context.trim()}\n\nNew user question:\n${params.text}`
-    : params.text;
+  const question = questionWithConversationContext(params.text, params.context);
   sendWorkflowStatus({ key: 'workflow.starting' }, workflowId, params.sessionId, params.clientId);
 
   try {

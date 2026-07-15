@@ -19,6 +19,7 @@ import {
 } from '../shared/constants';
 import { getLocale, setLocale as setActiveLocale, SUPPORTED_LOCALES, t } from '../shared/i18n';
 import { getHackMDToken, publishToHackMD } from '../shared/hackmd';
+import { buildConversationReplayContext } from '../shared/conversationContinuity';
 import ConnectionBar from './components/ConnectionBar';
 import ModeSelector from './components/ModeSelector';
 import RoleConfig from './components/RoleConfig';
@@ -77,18 +78,6 @@ function fitConversationsForStorage(conversations: Conversation[]): Conversation
     persisted[0] = conversation;
   }
   return persisted;
-}
-
-function buildReplayContext(messages: ChatMessage[]): string {
-  const transcript = messages.slice(-16).map((message) => {
-    const author = message.role === 'user'
-      ? 'User'
-      : message.provider && message.provider in AI_PROVIDERS
-        ? AI_PROVIDERS[message.provider].name
-        : 'System';
-    return `${author}: ${message.content}`;
-  }).join('\n\n');
-  return transcript.length > 12_000 ? transcript.slice(-12_000) : transcript;
 }
 
 function buildMarkdown(messages: ChatMessage[], mode: ChatMode): { title: string; content: string } {
@@ -313,7 +302,7 @@ export default function App() {
     if (!text.trim() || isProcessing) return;
     if (activeWorkflowIdRef.current) ignoreWorkflow(activeWorkflowIdRef.current, ignoredWorkflowIdsRef);
     activeWorkflowIdRef.current = undefined;
-    const context = contextNeedsReplay ? buildReplayContext(messages) : undefined;
+    const context = contextNeedsReplay ? buildConversationReplayContext(messages) : undefined;
     setMessages((current) => [...current, { id: `user-${crypto.randomUUID()}`, role: 'user', content: text, timestamp: Date.now() }]);
     setIsProcessing(true);
     setWorkflowStatus(null);
@@ -488,7 +477,7 @@ export default function App() {
         </details>
       </section>
 
-      <ChatArea messages={messages} mode={mode} />
+      <ChatArea messages={messages} mode={mode} conversationId={activeConversationId} />
 
       <div className="flex-none border-t border-slate-200 bg-white px-3 py-1.5">
         <div className="flex justify-end gap-3 text-[10px] text-slate-500">
