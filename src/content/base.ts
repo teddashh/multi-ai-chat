@@ -432,10 +432,14 @@ function getInputText(input: Element): string {
 }
 
 function assertInputLanded(input: Element, expected: string): void {
-  const compact = (value: string) => value.replace(/\s+/g, '');
   const actual = getInputText(input);
   if (!actual.trim()) throw new Error('editor remained empty');
-  if (compact(actual) !== compact(expected)) throw new Error('editor text did not match the requested prompt');
+  if (!composerTextMatches(input, expected)) throw new Error('editor text did not match the requested prompt');
+}
+
+function composerTextMatches(input: Element, expected: string): boolean {
+  const compact = (value: string) => value.replace(/\s+/g, '');
+  return compact(getInputText(input)) === compact(expected);
 }
 
 function defaultInjectInput(input: Element, text: string): void {
@@ -455,13 +459,14 @@ function defaultInjectInput(input: Element, text: string): void {
   selection?.removeAllRanges();
   selection?.addRange(range);
   const inserted = typeof document.execCommand === 'function' && document.execCommand('insertText', false, text);
-  if (!inserted || !element.textContent?.trim()) {
-    element.replaceChildren();
-    for (const line of text.split('\n')) {
-      const paragraph = document.createElement('p');
-      paragraph.textContent = line || '\u00A0';
-      element.appendChild(paragraph);
-    }
+  element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+  if (inserted && composerTextMatches(input, text)) return;
+
+  element.replaceChildren();
+  for (const line of text.split('\n')) {
+    const paragraph = document.createElement('p');
+    paragraph.textContent = line || '\u00A0';
+    element.appendChild(paragraph);
   }
   element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
 }
