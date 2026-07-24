@@ -81,12 +81,16 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changed) broadcastConnections();
     return;
   }
+  // onUpdated 也會因為標題、favicon 等變化觸發，此時 changeInfo 沒有 status 或 url。
+  // 那類事件不該影響連線狀態，否則已就緒的連線會被打回 checking 且不再重新查詢。
+  if (changeInfo.status === undefined && changeInfo.url === undefined) return;
   if (changeInfo.status === 'loading' && !changeInfo.url && connections[provider].tabId === tabId) {
     rejectWaitersForProvider(provider, new Error(`${AI_PROVIDERS[provider].name} reloaded during the workflow`));
   }
-  connections[provider] = { provider, status: changeInfo.status === 'complete' ? 'checking' : 'checking', tabId };
+  connections[provider] = { provider, status: 'checking', tabId };
   broadcastConnections();
-  if (changeInfo.status === 'complete') void requestTabStatus(provider, tabId);
+  // url 變化涵蓋 SPA 內部導覽，那時不會有 status: 'complete' 可等
+  if (changeInfo.status === 'complete' || changeInfo.url) void requestTabStatus(provider, tabId);
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
