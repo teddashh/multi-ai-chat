@@ -488,7 +488,7 @@ export default function App() {
       <InputBar onSend={handleSend} onCancel={stopWorkflow} disabled={isProcessing || noReadyProvider || !serialModeReady} isProcessing={isProcessing} />
 
       {conversationDrawerOpen && (
-        <div className="absolute inset-0 z-40 bg-slate-950/30" onClick={() => setConversationDrawerOpen(false)}>
+        <div className="absolute inset-0 z-40 bg-black/30" onClick={() => setConversationDrawerOpen(false)}>
           <aside className="flex h-full w-[86%] max-w-sm flex-col border-r border-slate-200 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center gap-2 border-b border-slate-200 p-3">
               <BrandMark />

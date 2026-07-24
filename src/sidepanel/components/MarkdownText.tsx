@@ -135,7 +135,7 @@ function renderBlocks(text: string): ReactNode[] {
       while (cursor < lines.length && !lines[cursor].trimStart().startsWith(marker)) code.push(lines[cursor++]);
       if (cursor < lines.length) cursor += 1;
       blocks.push(
-        <div key={key} className="my-3 overflow-hidden rounded-lg border border-slate-700 bg-slate-950 text-slate-100">
+        <div key={key} className="my-3 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950 text-zinc-100">
           {language && <div className="border-b border-slate-800 px-3 py-1 text-[10px] uppercase tracking-wide text-slate-400">{language}</div>}
           <pre className="overflow-x-auto p-3 text-xs leading-relaxed"><code>{code.join('\n')}</code></pre>
         </div>,
