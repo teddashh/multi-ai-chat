@@ -12,6 +12,9 @@ module.exports = {
       colors: {
         slate: scale('slate'),
         sky: scale('sky'),
+        emerald: scale('emerald'),
+        amber: scale('amber'),
+        red: scale('red'),
         white: 'rgb(var(--surface) / <alpha-value>)',
       },
     },
