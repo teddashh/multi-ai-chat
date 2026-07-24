@@ -107,6 +107,9 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
   switch (message.action) {
     case 'GET_CONNECTIONS':
       sendResponse(connections);
+      // 先回快取讓側邊欄立即有內容，再重新探測一次；結果會透過 broadcastConnections 送達。
+      // 沒有這一步的話，快取一旦是 disconnected 就只能等下一次分頁載入事件才會更新。
+      void refreshConnections();
       void notifyInterruptedWorkflow(message.payload as { clientId?: string; sessionId?: string } | undefined);
       return true;
 
@@ -238,6 +241,9 @@ async function focusOrOpenProvider(provider: AIProvider): Promise<void> {
     try {
       const tab = await chrome.tabs.update(connection.tabId, { active: true });
       if (tab?.windowId !== undefined) await chrome.windows.update(tab.windowId, { focused: true });
+      // 分頁已經載入完成時不會再有載入事件，必須主動重新查詢；
+      // deliverToTab 在訊息送不到時會用 chrome.scripting 重新注入 content script。
+      await requestTabStatus(provider, connection.tabId);
       return;
     } catch {
       connections[provider] = { provider, status: 'disconnected' };
