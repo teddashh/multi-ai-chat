@@ -660,6 +660,9 @@ video {
 .h-8 {
   height: 2rem;
 }
+.h-9 {
+  height: 2.25rem;
+}
 .h-full {
   height: 100%;
 }
@@ -695,6 +698,9 @@ video {
 }
 .w-8 {
   width: 2rem;
+}
+.w-9 {
+  width: 2.25rem;
 }
 .w-\[86\%\] {
   width: 86%;

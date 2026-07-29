@@ -504,7 +504,7 @@ export default function App() {
             <p className="truncate text-xs text-slate-500">{t('app.subtitle')}</p>
           </div>
           <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">{connectedCount}/4 {t('app.connected')}</span>
-          <button type="button" onClick={() => setIsSettingsOpen(true)} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" title={t('app.settings')}>⚙</button>
+          <button type="button" onClick={() => setIsSettingsOpen(true)} className="grid h-9 w-9 place-items-center rounded-lg border border-slate-300 text-xl leading-none text-slate-700 hover:bg-slate-100" title={t('app.settings')} aria-label={t('app.settings')}>⚙</button>
         </div>
       </header>
 
