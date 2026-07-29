@@ -45,7 +45,7 @@ export default function InputBar({ onSend, onCancel, disabled, isProcessing }: P
         />
         <div className="mt-1 flex items-center justify-end gap-2">
           {isProcessing && <button type="button" onClick={onCancel} className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100">{t('input.stop')}</button>}
-          <button type="button" onClick={submit} disabled={disabled || !text.trim()} className="rounded-lg bg-sky-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400">{t('input.send')}</button>
+          <button type="button" onClick={submit} disabled={disabled || !text.trim()} className="rounded-lg bg-sky-700 px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500">{t('input.send')}</button>
         </div>
       </div>
     </div>

@@ -123,6 +123,8 @@ export default function App() {
   const [providerUrls, setProviderUrls] = useState<Partial<Record<AIProvider, string>>>({});
   const [contextNeedsReplay, setContextNeedsReplay] = useState(false);
   const [conversationDrawerOpen, setConversationDrawerOpen] = useState(false);
+  const [connectionsOpen, setConnectionsOpen] = useState(true);
+  const [deleteTargetId, setDeleteTargetId] = useState('');
   const [hydrated, setHydrated] = useState(false);
   const pendingRolesRef = useRef<Record<string, string>>({});
   const clientIdRef = useRef(crypto.randomUUID());
@@ -243,7 +245,8 @@ export default function App() {
             setIsProcessing(false);
             if (!status.cancelled) {
               chrome.runtime.sendMessage({ action: 'GET_PROVIDER_URLS' })
-                .then((urls) => setProviderUrls((urls as Partial<Record<AIProvider, string>>) ?? {}))
+                // 背景只回這輪用過的 provider，要疊加而不是覆蓋，否則同一個對話先前記過的網址會掉
+                .then((urls) => setProviderUrls((current) => ({ ...current, ...(urls as Partial<Record<AIProvider, string>>) })))
                 .catch(() => {});
             }
             break;
@@ -332,12 +335,26 @@ export default function App() {
     setIsProcessing(false);
   }, []);
 
+  // notes: 只有真的回答過的 AI 需要重設分頁；沒用到的分頁不去動它，使用者可能正在上面看別的東西
+  const answeredProviders = (): AIProvider[] => [...new Set(
+    messages.map((message) => message.provider).filter((provider): provider is AIProvider => Boolean(provider) && (provider as string) !== 'system'),
+  )];
+
+  const closeDrawer = () => {
+    setConversationDrawerOpen(false);
+    setDeleteTargetId('');
+  };
+
   const startNewConversation = () => {
     if (isProcessing) return;
     if (activeWorkflowIdRef.current) ignoreWorkflow(activeWorkflowIdRef.current, ignoredWorkflowIdsRef);
     activeWorkflowIdRef.current = undefined;
-    const conversation = newConversation();
-    setConversations((current) => [conversation, ...current].slice(0, MAX_CONVERSATIONS));
+    // notes: 已經有空對話就重用它，只更新時間，避免堆出一串重複的「新對話」
+    const reusable = conversations.find((candidate) => !candidate.messages?.length);
+    const conversation = reusable ?? newConversation();
+    setConversations((current) => reusable
+      ? current.map((candidate) => candidate.id === reusable.id ? { ...candidate, updatedAt: Date.now() } : candidate)
+      : [conversation, ...current].slice(0, MAX_CONVERSATIONS));
     setActiveConversationId(conversation.id);
     activeConversationIdRef.current = conversation.id;
     setMessages([]);
@@ -347,8 +364,9 @@ export default function App() {
     setRoles(DEFAULT_DEBATE_ROLES);
     setTrace([]);
     setWorkflowStatus(null);
-    setConversationDrawerOpen(false);
-    chrome.runtime.sendMessage({ action: 'RESET_PROVIDER_SESSIONS' }).catch(() => {});
+    closeDrawer();
+    setConnectionsOpen(true);
+    chrome.runtime.sendMessage({ action: 'RESET_PROVIDER_SESSIONS', payload: { providers: answeredProviders() } }).catch(() => {});
   };
 
   const selectConversation = (conversation: Conversation) => {
@@ -363,11 +381,21 @@ export default function App() {
     setMode(conversation.mode);
     setRoles(conversation.roles ?? (conversation.mode === 'free' ? DEFAULT_DEBATE_ROLES : DEFAULT_ROLES[conversation.mode]));
     setTrace([]);
-    setConversationDrawerOpen(false);
     const action = conversation.providerUrls && Object.keys(conversation.providerUrls).length
       ? { action: 'RESTORE_PROVIDER_SESSIONS', payload: { urls: conversation.providerUrls } }
-      : { action: 'RESET_PROVIDER_SESSIONS' };
+      : { action: 'RESET_PROVIDER_SESSIONS', payload: { providers: answeredProviders() } };
     chrome.runtime.sendMessage(action).catch(() => {});
+  };
+
+  const deleteConversation = (id: string) => {
+    if (isProcessing) return;
+    const remaining = conversations.filter((conversation) => conversation.id !== id);
+    setConversations(remaining);
+    setDeleteTargetId('');
+    void chrome.storage.local.set({ conversations: fitConversationsForStorage(remaining) }).catch(() => {});
+    if (id !== activeConversationId) return;
+    if (remaining.length) selectConversation(remaining[0]);
+    else startNewConversation();
   };
 
   const changeLocale = (nextLocale: Locale) => {
@@ -384,6 +412,18 @@ export default function App() {
       void chrome.storage.local.set({ freeTargets: safeNext });
       return safeNext;
     });
+  };
+
+  const openLogin = async (provider: AIProvider): Promise<void> => {
+    const response = await chrome.runtime.sendMessage({ action: 'OPEN_LOGIN', provider }) as { ok?: boolean; error?: string } | undefined;
+    if (response && response.ok === false) throw new Error(response.error ?? provider);
+  };
+
+  const connectAll = () => {
+    const pending = PROVIDERS.filter((provider) => connections[provider].status !== 'connected');
+    Promise.all(pending.map(openLogin))
+      .then(() => setConnectionsOpen(false))
+      .catch(() => {});
   };
 
   const exportConversation = () => {
@@ -429,13 +469,12 @@ export default function App() {
     <div className="relative flex h-screen flex-col overflow-hidden bg-slate-50 text-slate-900">
       <header className="flex-none border-b border-slate-200 bg-white px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setConversationDrawerOpen(true)} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" title={t('app.menu')} aria-label={t('app.menu')}>☰</button>
-          <BrandMark />
+          <button type="button" onClick={() => conversationDrawerOpen ? closeDrawer() : setConversationDrawerOpen(true)} className="rounded-lg hover:bg-slate-100" title={t('app.menu')} aria-label={t('app.menu')} aria-expanded={conversationDrawerOpen}><BrandMark /></button>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-sm font-bold text-slate-900">{t('app.title')}</h1>
-            <p className="truncate text-[10px] text-slate-500">{t('app.subtitle')}</p>
+            <p className="truncate text-xs text-slate-500">{t('app.subtitle')}</p>
           </div>
-          <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">{connectedCount}/4 {t('app.connected')}</span>
+          <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">{connectedCount}/4 {t('app.connected')}</span>
           <button type="button" onClick={() => setIsSettingsOpen(true)} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" title={t('app.settings')}>⚙</button>
         </div>
       </header>
@@ -445,7 +484,7 @@ export default function App() {
 
         {mode === 'free' && (
           <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('targets.title')}</div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t('targets.title')}</div>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {PROVIDERS.map((provider) => {
                 const selected = freeTargets.includes(provider);
@@ -463,24 +502,28 @@ export default function App() {
           </div>
         )}
 
-        <details className="mt-2 rounded-lg border border-slate-200 bg-slate-50" open={connectedCount < 4}>
-          <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-700">{t('connection.title')}</summary>
+        <details className="mt-2 rounded-lg border border-slate-200 bg-slate-50" open={connectionsOpen} onToggle={(event) => setConnectionsOpen(event.currentTarget.open)}>
+          <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-700">
+            {t('connection.title')}
+            {/* notes: float keeps the native ▸ marker; display:flex on summary would drop it */}
+            <button type="button" onClick={(event) => { event.preventDefault(); connectAll(); }} disabled={connectedCount === 4} className="float-right rounded-lg bg-sky-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-800 disabled:bg-slate-300 disabled:text-slate-500">{t('connection.connect_all')}</button>
+          </summary>
           <div className="border-t border-slate-200 p-2.5">
-            <ConnectionBar connections={connections} onOpenLogin={(provider) => chrome.runtime.sendMessage({ action: 'OPEN_LOGIN', provider })} />
-            <p className="mt-2 text-[10px] leading-relaxed text-slate-500">{t('connection.help')}</p>
+            <ConnectionBar connections={connections} onOpenLogin={(provider) => { void openLogin(provider).catch(() => {}); }} />
+            <p className="mt-2 text-xs leading-relaxed text-slate-500">{t('connection.help')}</p>
           </div>
         </details>
 
         <details className="mt-2 rounded-lg border border-slate-200 bg-white" open={isProcessing}>
           <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-700"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${isProcessing ? 'animate-pulse bg-sky-500' : 'bg-emerald-500'}`} />{t('trace.title')} · <span className="font-normal text-slate-500">{currentStatus}</span></summary>
-          {trace.length > 0 && <div className="max-h-28 space-y-1 overflow-y-auto border-t border-slate-200 p-2.5">{trace.slice(-8).map((entry) => <div key={entry.id} className="truncate text-[10px] text-slate-600">{new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {entry.text}</div>)}</div>}
+          {trace.length > 0 && <div className="max-h-28 space-y-1 overflow-y-auto border-t border-slate-200 p-2.5">{trace.slice(-8).map((entry) => <div key={entry.id} className="truncate text-[11px] text-slate-600">{new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {entry.text}</div>)}</div>}
         </details>
       </section>
 
       <ChatArea messages={messages} mode={mode} conversationId={activeConversationId} />
 
       <div className="flex-none border-t border-slate-200 bg-white px-3 py-1.5">
-        <div className="flex justify-end gap-3 text-[10px] text-slate-500">
+        <div className="flex justify-end gap-3 text-xs text-slate-500">
           <button type="button" onClick={exportConversation} disabled={!messages.length} className="hover:text-sky-700 disabled:opacity-30">{t('app.export')}</button>
           <button type="button" onClick={() => void publishConversation()} disabled={!messages.length || isPublishing} className="hover:text-sky-700 disabled:opacity-30">{isPublishing ? t('publish.publishing') : t('app.publish')}</button>
         </div>
@@ -488,21 +531,24 @@ export default function App() {
       <InputBar onSend={handleSend} onCancel={stopWorkflow} disabled={isProcessing || noReadyProvider || !serialModeReady} isProcessing={isProcessing} />
 
       {conversationDrawerOpen && (
-        <div className="absolute inset-0 z-40 bg-slate-950/30" onClick={() => setConversationDrawerOpen(false)}>
+        <div className="absolute inset-0 z-40 bg-slate-950/30" onClick={closeDrawer}>
           <aside className="flex h-full w-[86%] max-w-sm flex-col border-r border-slate-200 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center gap-2 border-b border-slate-200 p-3">
               <BrandMark />
               <h2 className="flex-1 text-sm font-semibold">{t('session.history')}</h2>
-              <button type="button" onClick={() => setConversationDrawerOpen(false)} className="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100">{t('app.close')}</button>
+              <button type="button" onClick={closeDrawer} className="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100">{t('app.close')}</button>
             </div>
             <div className="p-3"><button type="button" disabled={isProcessing} onClick={startNewConversation} className="w-full rounded-xl border border-sky-300 bg-sky-50 px-3 py-2 text-left text-sm font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-50">＋ {t('app.new')}</button></div>
             <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-3">
               {conversations.length === 0 && <p className="p-3 text-xs text-slate-500">{t('session.empty')}</p>}
               {conversations.map((conversation) => (
-                <button key={conversation.id} type="button" disabled={isProcessing} onClick={() => selectConversation(conversation)} className={`w-full rounded-lg px-3 py-2 text-left ${conversation.id === activeConversationId ? 'bg-sky-50 text-sky-900' : 'text-slate-700 hover:bg-slate-50'}`}>
-                  <span className="block truncate text-xs font-medium">{conversation.title || t('session.untitled')}</span>
-                  <span className="mt-0.5 block text-[10px] text-slate-400">{new Date(conversation.updatedAt || conversation.createdAt).toLocaleString()}</span>
-                </button>
+                <div key={conversation.id} className="flex items-center gap-1">
+                  <button type="button" disabled={isProcessing} onClick={() => { selectConversation(conversation); setDeleteTargetId(conversation.id); }} className={`min-w-0 flex-1 rounded-lg px-3 py-2 text-left ${conversation.id === activeConversationId ? 'bg-sky-50 text-sky-900' : 'text-slate-700 hover:bg-slate-50'}`}>
+                    <span className="block truncate text-xs font-medium">{conversation.title || t('session.untitled')}</span>
+                    <span className="mt-0.5 block text-[11px] text-slate-400">{new Date(conversation.updatedAt || conversation.createdAt).toLocaleString()}</span>
+                  </button>
+                  {deleteTargetId === conversation.id && <button type="button" disabled={isProcessing} onClick={() => deleteConversation(conversation.id)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-red-300 bg-red-50 text-sm font-bold text-red-700 hover:bg-red-100 disabled:opacity-40" title={t('session.delete')} aria-label={t('session.delete')}>✕</button>}
+                </div>
               ))}
             </div>
           </aside>

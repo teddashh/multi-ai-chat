@@ -36,8 +36,8 @@ export default function ModeSelector({ mode, onModeChange, disabled = false }: P
         })}
       </div>
       <div className="mt-2 rounded-lg border border-sky-100 bg-sky-50/70 px-3 py-2">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">{t('mode.details')}</div>
-        <p className="mt-0.5 text-xs leading-relaxed text-slate-600">{t(`mode.${mode}.desc`)}</p>
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">{t('mode.details')}</div>
+        <p className="mt-1 text-sm leading-relaxed text-slate-700">{t(`mode.${mode}.desc`)}</p>
       </div>
     </div>
   );
