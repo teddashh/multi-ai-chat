@@ -41,7 +41,7 @@ export default function InputBar({ onSend, onCancel, disabled, isProcessing }: P
           placeholder={disabled ? (isProcessing ? t('input.placeholder.processing') : t('input.placeholder.connect')) : t('input.placeholder')}
           disabled={disabled}
           rows={2}
-          className="block max-h-[140px] min-h-[52px] w-full resize-none bg-transparent px-2 py-1 text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed"
+          className="block max-h-[140px] min-h-[52px] w-full resize-none bg-transparent px-2 py-1 text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-500 disabled:cursor-not-allowed"
         />
         <div className="mt-1 flex items-center justify-end gap-2">
           {isProcessing && <button type="button" onClick={onCancel} className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100">{t('input.stop')}</button>}

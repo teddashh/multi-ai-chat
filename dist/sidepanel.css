@@ -1446,14 +1446,14 @@ summary {
   background: transparent;
 }
 
-.placeholder\:text-slate-400::-moz-placeholder {
+.placeholder\:text-slate-500::-moz-placeholder {
   --tw-text-opacity: 1;
-  color: rgb(var(--slate-400) / var(--tw-text-opacity, 1));
+  color: rgb(var(--slate-500) / var(--tw-text-opacity, 1));
 }
 
-.placeholder\:text-slate-400::placeholder {
+.placeholder\:text-slate-500::placeholder {
   --tw-text-opacity: 1;
-  color: rgb(var(--slate-400) / var(--tw-text-opacity, 1));
+  color: rgb(var(--slate-500) / var(--tw-text-opacity, 1));
 }
 
 .first\:mt-0:first-child {
