@@ -32,6 +32,8 @@ createContentScript({
     'button[aria-label="Stop Response"]',
     'button[aria-label="Stop response"]',
     'button[aria-label="Stop"]',
+    'button[aria-label="停止回應"]',
+    'button[aria-label="停止"]',
   ],
 
   loginDetector: () => {
@@ -49,6 +51,9 @@ createContentScript({
     if (document.querySelector('button[aria-label="Stop Response"]')) return true;
     if (document.querySelector('button[aria-label="Stop response"]')) return true;
     if (document.querySelector('button[aria-label="Stop"]')) return true;
+    // 中文介面的 aria-label 不是英文，少了這兩行等於整個串流偵測只剩 data-is-streaming
+    if (document.querySelector('button[aria-label="停止回應"]')) return true;
+    if (document.querySelector('button[aria-label="停止"]')) return true;
     return false;
   },
 

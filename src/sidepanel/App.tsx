@@ -20,6 +20,7 @@ import {
 import { getLocale, setLocale as setActiveLocale, SUPPORTED_LOCALES, t } from '../shared/i18n';
 import { getHackMDToken, publishToHackMD } from '../shared/hackmd';
 import { buildConversationReplayContext } from '../shared/conversationContinuity';
+import { decodeError, ERROR_MARKER } from '../shared/errors';
 import ConnectionBar from './components/ConnectionBar';
 import ModeSelector from './components/ModeSelector';
 import RoleConfig from './components/RoleConfig';
@@ -78,6 +79,18 @@ function fitConversationsForStorage(conversations: Conversation[]): Conversation
     persisted[0] = conversation;
   }
   return persisted;
+}
+
+// 錯誤在背景與 content script 只帶鍵值，這裡是唯一翻譯成使用者語言的地方。
+// 沒帶鍵值的（原生例外、HackMD 伺服器回應）原樣顯示。
+function humanizeError(text: string): string {
+  const info = decodeError(text);
+  if (!info) return text;
+  const params: Record<string, string | number> = { ...info.params };
+  if (typeof params.provider === 'string' && params.provider in AI_PROVIDERS) {
+    params.provider = AI_PROVIDERS[params.provider as AIProvider].name;
+  }
+  return `${ERROR_MARKER} ${t(info.key, params)}`;
 }
 
 function buildMarkdown(messages: ChatMessage[], mode: ChatMode): { title: string; content: string } {
@@ -228,7 +241,7 @@ export default function App() {
           break;
         case 'RESPONSE_DONE':
           if (!message.provider || !acceptWorkflowMessage(message.workflowId, activeWorkflowIdRef, ignoredWorkflowIdsRef)) break;
-          setMessages((current) => finalizeMessage(current, message.provider!, message.requestId, String(message.payload ?? ''), pendingRolesRef, setPendingRoles));
+          setMessages((current) => finalizeMessage(current, message.provider!, message.requestId, humanizeError(String(message.payload ?? '')), pendingRolesRef, setPendingRoles));
           break;
         case 'WORKFLOW_STATUS': {
           const status = message.payload as WorkflowStatusPayload;
@@ -319,7 +332,7 @@ export default function App() {
         clientId: clientIdRef.current,
       },
     }).catch((error) => {
-      setMessages((current) => [...current, { id: `system-${crypto.randomUUID()}`, role: 'ai', provider: 'system' as AIProvider, content: `Error: ${String(error)}`, timestamp: Date.now() }]);
+      setMessages((current) => [...current, { id: `system-${crypto.randomUUID()}`, role: 'ai', provider: 'system' as AIProvider, content: `${ERROR_MARKER} ${String(error)}`, timestamp: Date.now() }]);
       setIsProcessing(false);
     });
   }, [activeConversationId, contextNeedsReplay, freeTargets, isProcessing, messages, mode, roles]);
@@ -413,7 +426,7 @@ export default function App() {
       alert(`${t('publish.success')}\n\n${publishLink}`);
       window.open(publishLink, '_blank', 'noopener,noreferrer');
     } catch (error) {
-      alert(`${t('publish.failed')} ${String(error)}`);
+      alert(`${t('publish.failed')} ${humanizeError(String(error))}`);
     } finally {
       setIsPublishing(false);
     }

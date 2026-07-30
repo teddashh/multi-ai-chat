@@ -18,6 +18,7 @@ import {
   DEFAULT_ROUNDTABLE_ROLES,
 } from '../shared/constants';
 import { questionWithConversationContext } from '../shared/conversationContinuity';
+import { encodeError } from '../shared/errors';
 
 interface ResponseWaiter {
   provider: AIProvider;
@@ -74,7 +75,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     let changed = false;
     for (const candidate of PROVIDERS) {
       if (connections[candidate].tabId !== tabId) continue;
-      rejectWaitersForProvider(candidate, new Error(`${AI_PROVIDERS[candidate].name} navigated away during the workflow`));
+      rejectWaitersForProvider(candidate, new Error(encodeError('error.navigated_away', { provider: candidate })));
       connections[candidate] = { provider: candidate, status: 'disconnected' };
       changed = true;
     }
@@ -82,7 +83,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     return;
   }
   if (changeInfo.status === 'loading' && !changeInfo.url && connections[provider].tabId === tabId) {
-    rejectWaitersForProvider(provider, new Error(`${AI_PROVIDERS[provider].name} reloaded during the workflow`));
+    rejectWaitersForProvider(provider, new Error(encodeError('error.reloaded', { provider })));
   }
   connections[provider] = { provider, status: changeInfo.status === 'complete' ? 'checking' : 'checking', tabId };
   broadcastConnections();
@@ -92,7 +93,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.tabs.onRemoved.addListener((tabId) => {
   for (const provider of PROVIDERS) {
     if (connections[provider].tabId === tabId) {
-      rejectWaitersForProvider(provider, new Error(`${AI_PROVIDERS[provider].name} tab was closed during the workflow`));
+      rejectWaitersForProvider(provider, new Error(encodeError('error.tab_closed', { provider })));
       connections[provider] = { provider, status: 'disconnected' };
     }
   }
@@ -279,7 +280,7 @@ async function restoreProviderSessions(urls: Partial<Record<AIProvider, string>>
 async function sendToProvider(provider: AIProvider, text: string, requestId: string, workflowId: string): Promise<void> {
   const connection = connections[provider];
   if (connection.status !== 'connected' || !connection.tabId) {
-    throw new Error(`${AI_PROVIDERS[provider].name} is not ready`);
+    throw new Error(encodeError('error.not_ready', { provider }));
   }
   await deliverToTab(provider, connection.tabId, {
     action: 'SEND_MESSAGE',
@@ -312,7 +313,7 @@ function waitForResponse(provider: AIProvider, requestId: string, timeoutMs = 60
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       responseWaiters.delete(requestId);
-      reject(new Error(`${AI_PROVIDERS[provider].name} timed out after ${Math.round(timeoutMs / 1000)} seconds`));
+      reject(new Error(encodeError('error.timeout', { provider, seconds: Math.round(timeoutMs / 1000) })));
     }, timeoutMs);
     responseWaiters.set(requestId, { provider, resolve, reject, timer });
   });
@@ -417,7 +418,7 @@ async function notifyInterruptedWorkflow(target?: { clientId?: string; sessionId
     interrupted.sessionId,
     target.clientId,
   );
-  sendSystemError('The browser stopped the extension worker during this workflow. Please run the step again.', interrupted.workflowId);
+  sendSystemError(encodeError('error.worker_stopped'), interrupted.workflowId);
   sendWorkflowStatus(
     { key: '', done: true, cancelled: false },
     interrupted.workflowId,
@@ -436,7 +437,7 @@ async function clearPersistedWorkflow(workflowId: string): Promise<void> {
 async function handleFreeMode(text: string, requestedTargets: AIProvider[] | undefined, workflowId: string): Promise<void> {
   const selected = requestedTargets?.length ? requestedTargets : PROVIDERS;
   const targets = selected.filter((provider) => connections[provider].status === 'connected');
-  if (targets.length === 0) throw new Error('No selected AI provider is ready');
+  if (targets.length === 0) throw new Error(encodeError('error.no_target'));
   sendWorkflowStatus({ key: 'workflow.free', params: { providers: targets.map((provider) => AI_PROVIDERS[provider].name).join(' · ') } });
   const results = await Promise.allSettled(targets.map((provider) => sendAndWait(provider, text, workflowId, false)));
   checkAborted(workflowId);
@@ -580,10 +581,10 @@ async function handleHackMDPublish(payload: { token: string; title: string; cont
       commentPermission: 'disabled',
     }),
   });
-  if (!response.ok) throw new Error(`HackMD ${response.status}: ${await response.text().catch(() => response.statusText)}`);
+  if (!response.ok) throw new Error(encodeError('error.hackmd_failed', { status: response.status, detail: await response.text().catch(() => response.statusText) }));
   const data = (await response.json()) as { id?: string; publishLink?: string };
   const publishLink = data.publishLink || (data.id ? `https://hackmd.io/@/${data.id}/publish` : '');
-  if (!publishLink) throw new Error('HackMD response is missing a publish link');
+  if (!publishLink) throw new Error(encodeError('error.hackmd_no_link'));
   return { publishLink, editLink: data.id ? `https://hackmd.io/${data.id}` : '' };
 }
 
