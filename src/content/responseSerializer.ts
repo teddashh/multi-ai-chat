@@ -26,6 +26,15 @@ interface SerializationContext {
   protectedBlocks: string[];
 }
 
+// Which text to hand back when a response is finalized. Measured on ChatGPT: the stop button
+// disappears while only 39 of the eventual 301 characters have been rendered, and the rest
+// lands ~1s later. So the "still generating" signal can end before the last render commits,
+// and shipping the text cached mid-stream truncates the answer — in the worst case down to
+// its opening line. Streaming is append-only, so the longer of the two is the complete one.
+export function longerResponseText(cached: string, fresh: string | null): string {
+  return fresh && fresh.length > cached.length ? fresh : cached;
+}
+
 export function serializeResponseText(root: Element): string {
   const context: SerializationContext = { protectedBlocks: [] };
   const serialized = normalizeDocument(serializeNode(root, context));

@@ -47,7 +47,18 @@ createContentScript({
       'button[aria-label="Stop streaming"], ' +
       'button[aria-label="Stop"]'
     );
-    return !!stopBtn;
+    if (stopBtn) return true;
+    // The stop button is only mounted while tokens are actively arriving: it is removed before
+    // the last render commits, and it can vanish entirely between the phases of a multi-step
+    // answer (search, reasoning). On its own it lets a pause longer than doneDelay read as
+    // "finished". A turn only grows a copy button once its message is complete (no hover
+    // needed), so use that to cover the gaps the stop button leaves.
+    // Note: this pins us to ChatGPT's copy-turn-action-button testid. If it is renamed we wait
+    // until the background 600s timeout and surface an error — loud beats silently shipping
+    // half an answer into the next provider's prompt.
+    const turns = document.querySelectorAll('[data-testid^="conversation-turn-"]');
+    const lastTurn = turns[turns.length - 1];
+    return !!lastTurn && !lastTurn.querySelector('[data-testid="copy-turn-action-button"]');
   },
 
   // ChatGPT needs longer done delay because of multi-step thinking
