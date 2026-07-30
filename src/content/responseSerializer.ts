@@ -38,8 +38,10 @@ export function longerResponseText(cached: string, fresh: string | null): string
 export function serializeResponseText(root: Element): string {
   const context: SerializationContext = { protectedBlocks: [] };
   const serialized = normalizeDocument(serializeNode(root, context));
+  // Replacer function, not a string: `$&`, `$'` and `` $` `` inside a code block would be
+  // expanded by String.replace as substitution patterns, rewriting the code that gets restored.
   return context.protectedBlocks.reduce(
-    (text, block, index) => text.replace(protectedToken(index), block),
+    (text, block, index) => text.replace(protectedToken(index), () => block),
     serialized,
   );
 }
