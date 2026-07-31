@@ -3,6 +3,7 @@
   "version": "0.2.0",
   "description": "Chrome Side Panel for reliable multi-AI workflows across ChatGPT, Claude, Gemini, and Grok",
   "private": true,
+  "license": "MIT",
   "engines": {
     "node": ">=20"
   },
