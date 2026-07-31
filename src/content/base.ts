@@ -1,6 +1,6 @@
 import type { AIProvider, ExtensionMessage } from '../shared/types';
 import { encodeError } from '../shared/errors';
-import { serializeResponseText } from './responseSerializer';
+import { longerResponseText, serializeResponseText } from './responseSerializer';
 
 export interface ContentScriptConfig {
   provider: AIProvider;
@@ -323,11 +323,7 @@ export function createContentScript(config: ContentScriptConfig): void {
           if (!waitingForResponse) return clearDoneCheck();
           if (!isThinking()) {
             clearDoneCheck();
-            responseTimeout = setTimeout(() => {
-              const finalText = getLatestResponseText();
-              if (finalText) lastResponseText = finalText;
-              finishResponse();
-            }, doneDelay);
+            responseTimeout = setTimeout(finishResponse, doneDelay);
           }
         }, 1000);
       }
@@ -338,10 +334,12 @@ export function createContentScript(config: ContentScriptConfig): void {
 
   function finishResponse(): void {
     if (!waitingForResponse) return;
+    // Must re-read before resetResponseState(): the baseline filter keys off waitingForResponse.
+    const text = longerResponseText(lastResponseText, getLatestResponseText());
     const requestId = activeRequestId;
     const workflowId = activeWorkflowId;
     resetResponseState();
-    safeSendMessage({ action: 'RESPONSE_DONE', provider, requestId, workflowId, payload: lastResponseText });
+    safeSendMessage({ action: 'RESPONSE_DONE', provider, requestId, workflowId, payload: text });
   }
 
   function finishWithError(reason: string, requestId = activeRequestId, workflowId = activeWorkflowId): void {
