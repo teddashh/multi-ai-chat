@@ -62,6 +62,7 @@ export function createContentScript(config: ContentScriptConfig): void {
   let activeWorkflowId: string | undefined;
   let responseObserver: MutationObserver | undefined;
   let sawGenerationActivity = false;
+  let lastReportedLoggedIn: boolean | undefined;
   const sendTimeouts = new Set<number>();
 
   function isContextValid(): boolean {
@@ -97,7 +98,8 @@ export function createContentScript(config: ContentScriptConfig): void {
       cleanup();
       return;
     }
-    safeSendMessage({ action: 'STATUS_REPORT', provider, payload: { loggedIn: loginDetector() } });
+    lastReportedLoggedIn = loginDetector();
+    safeSendMessage({ action: 'STATUS_REPORT', provider, payload: { loggedIn: lastReportedLoggedIn } });
   }
 
   async function sendMessage(text: string, requestId?: string, workflowId?: string): Promise<void> {
@@ -242,6 +244,9 @@ export function createContentScript(config: ContentScriptConfig): void {
 
   function observeResponses(): void {
     responseObserver = new MutationObserver(() => {
+      // Claude/SPA composers mount several seconds after load; re-report the moment
+      // login state flips so the card reaches "ready" without waiting for the 10s poll.
+      if (lastReportedLoggedIn !== undefined && loginDetector() !== lastReportedLoggedIn) reportStatus();
       if (!waitingForResponse || isThinking()) return;
       updateResponse();
     });
