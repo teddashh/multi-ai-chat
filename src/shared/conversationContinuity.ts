@@ -1,4 +1,5 @@
 import { AI_PROVIDERS } from './constants';
+import { ERROR_MARKER } from './errors';
 import type { AIProvider, ChatMessage } from './types';
 
 const MAX_REPLAY_MESSAGES = 16;
@@ -37,7 +38,8 @@ export function questionWithConversationContext(question: string, context?: stri
 function isReplayableMessage(message: ChatMessage): boolean {
   const content = message.content.trim();
   if (!content || message.id.endsWith('-streaming')) return false;
-  return !/^\[Error:/i.test(content) && !/^Error:/i.test(content);
+  // ⚠️ 是翻譯後的錯誤標記；Error: 前綴留給已存的舊對話與未編碼的原生例外
+  return !content.startsWith(ERROR_MARKER) && !/^\[?Error:/i.test(content);
 }
 
 function messageAuthor(message: ChatMessage): string {

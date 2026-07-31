@@ -1,4 +1,5 @@
 import type { AIProvider, ExtensionMessage } from '../shared/types';
+import { encodeError } from '../shared/errors';
 import { serializeResponseText } from './responseSerializer';
 
 export interface ContentScriptConfig {
@@ -26,6 +27,10 @@ const SEND_BUTTON_TIMEOUT_MS = 800;
 const PRE_SEND_DELAY_MS = 800;
 const SEND_RETRY_DELAY_MS = 1500;
 const SEND_VERIFY_DELAY_MS = 1500;
+// 送出成功但完全抓不到回應時，至少等這麼久才放棄。慢的模型（深度思考、搜尋）
+// 常常好幾十秒才吐出第一個字，而 isThinking() 只靠硬寫的選擇器，漏判是常態。
+// notes: 固定 2 分鐘，遠短於背景的 600 秒逾時；若真出現更慢的模型再拉長
+const NO_RESPONSE_GRACE_MS = 120_000;
 
 export function createContentScript(config: ContentScriptConfig): void {
   const marker = `__multiAiChat_${config.provider}`;
@@ -63,6 +68,7 @@ export function createContentScript(config: ContentScriptConfig): void {
   let responseObserver: MutationObserver | undefined;
   let sawGenerationActivity = false;
   let lastReportedLoggedIn: boolean | undefined;
+  let responseWaitStartedAt = 0;
   const sendTimeouts = new Set<number>();
 
   function isContextValid(): boolean {
@@ -103,13 +109,14 @@ export function createContentScript(config: ContentScriptConfig): void {
   }
 
   async function sendMessage(text: string, requestId?: string, workflowId?: string): Promise<void> {
-    if (!text.trim()) throw new Error('Message is empty');
-    if (waitingForResponse) throw new Error(`${provider} already has a response in progress`);
+    if (!text.trim()) throw new Error(encodeError('error.empty_message'));
+    if (waitingForResponse) throw new Error(encodeError('error.response_in_progress', { provider }));
 
     const input = await retryLookup(() => queryFirst(inputSelectors), INPUT_TIMEOUT_MS);
     if (!input) {
-      finishWithError(`${provider} input element not found`, requestId, workflowId);
-      throw new Error(`${provider} input element not found`);
+      const reason = encodeError('error.input_not_found', { provider });
+      finishWithError(reason, requestId, workflowId);
+      throw new Error(reason);
     }
 
     const existingResponses = Array.from(document.querySelectorAll(responseSelectors.join(', ')));
@@ -119,6 +126,7 @@ export function createContentScript(config: ContentScriptConfig): void {
     activeWorkflowId = workflowId;
     lastResponseText = '';
     sawGenerationActivity = false;
+    responseWaitStartedAt = Date.now();
     startResponsePolling();
 
     const injectionStartedAt = Date.now();
@@ -127,7 +135,7 @@ export function createContentScript(config: ContentScriptConfig): void {
       await Promise.resolve();
       assertInputLanded(input, text);
     } catch (error) {
-      finishWithError(`${provider} input injection failed: ${errorMessage(error)}`, requestId, workflowId);
+      finishWithError(encodeError('error.input_injection_failed', { provider, detail: errorMessage(error) }), requestId, workflowId);
       throw error;
     }
 
@@ -144,7 +152,7 @@ export function createContentScript(config: ContentScriptConfig): void {
     if (!isActiveRequest(requestId) || sendStarted()) return;
     const currentInput = queryFirst(inputSelectors);
     if (!currentInput) {
-      if (!firstAttempt.ok) finishWithError(`${provider} input disappeared before send was confirmed`);
+      if (!firstAttempt.ok) finishWithError(encodeError('error.input_disappeared', { provider }));
       return;
     }
     if (!getInputText(currentInput).trim()) return;
@@ -157,7 +165,7 @@ export function createContentScript(config: ContentScriptConfig): void {
     const retryAttempt = await activateSend(currentInput ?? originalInput, requestId);
     if (!isActiveRequest(requestId)) return;
     if (!retryAttempt.ok) {
-      finishWithError(`${provider} send activation failed: ${retryAttempt.detail ?? firstAttempt.detail ?? retryAttempt.path}`);
+      finishWithError(encodeError('error.send_failed', { provider, detail: retryAttempt.detail ?? firstAttempt.detail ?? retryAttempt.path }));
       return;
     }
     scheduleForRequest(() => verifySendAfterRetry(retryAttempt, requestId), SEND_VERIFY_DELAY_MS, requestId);
@@ -172,7 +180,7 @@ export function createContentScript(config: ContentScriptConfig): void {
     const hadSendButton = Boolean(sendButton);
     const enterOk = dispatchEnter(currentInput);
     if (!enterOk) {
-      finishWithError(`${provider} send activation failed: Enter dispatch failed`);
+      finishWithError(encodeError('error.send_failed', { provider, detail: 'Enter dispatch failed' }));
       return;
     }
     scheduleForRequest(() => {
@@ -181,7 +189,7 @@ export function createContentScript(config: ContentScriptConfig): void {
       const finalButton = finalInput ? querySendButton(finalInput) : null;
       if (!finalInput || !getInputText(finalInput).trim()) return;
       if (hadSendButton && (!finalButton || isDisabled(finalButton))) return;
-      finishWithError(`${provider} send was not accepted; the draft is still in the composer`);
+      finishWithError(encodeError('error.send_rejected', { provider }));
     }, SEND_VERIFY_DELAY_MS, requestId);
   }
 
@@ -290,13 +298,20 @@ export function createContentScript(config: ContentScriptConfig): void {
         updateResponse();
         return;
       }
-      if (sawGenerationActivity && responseTimeout === undefined) {
-        responseTimeout = setTimeout(() => {
-          const finalText = getLatestResponseText();
-          lastResponseText = finalText || '[No text response detected]';
+      // sawGenerationActivity 只代表「送出去了」（輸入框被清空也算），不代表真的產生過內容，
+      // 所以這條路徑必須等滿寬限期才收尾，否則慢的模型會在送出後幾秒就被判定沒有回應。
+      if (!sawGenerationActivity || responseTimeout !== undefined) return;
+      if (Date.now() - responseWaitStartedAt < NO_RESPONSE_GRACE_MS) return;
+      responseTimeout = setTimeout(() => {
+        const finalText = getLatestResponseText();
+        if (finalText) {
+          lastResponseText = finalText;
           finishResponse();
-        }, doneDelay);
-      }
+          return;
+        }
+        // 報錯而非填佔位字串：假答案會被背景當成正常結果，餵進下一棒的 prompt。
+        finishWithError(encodeError('error.no_response_text', { provider }));
+      }, doneDelay);
     }, 3000);
   }
 
