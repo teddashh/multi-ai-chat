@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import type { Locale } from '../../shared/types';
+import type { Locale, ThemeMode } from '../../shared/types';
 import { getHackMDToken, setHackMDToken, clearHackMDToken } from '../../shared/hackmd';
 import { LOCALE_LABELS, SUPPORTED_LOCALES, t } from '../../shared/i18n';
+import { THEME_MODES } from '../../shared/theme';
 
 interface Props {
   isOpen: boolean;
   locale: Locale;
   onLocaleChange: (locale: Locale) => void;
+  theme: ThemeMode;
+  onThemeChange: (theme: ThemeMode) => void;
   onClose: () => void;
 }
 
-export default function SettingsModal({ isOpen, locale, onLocaleChange, onClose }: Props) {
+export default function SettingsModal({ isOpen, locale, onLocaleChange, theme, onThemeChange, onClose }: Props) {
   const [token, setToken] = useState('');
   const [saved, setSaved] = useState(false);
 
@@ -42,6 +45,11 @@ export default function SettingsModal({ isOpen, locale, onLocaleChange, onClose 
         <label className="mt-4 block text-xs font-semibold text-slate-700" htmlFor="language-select">{t('settings.language')}</label>
         <select id="language-select" value={locale} onChange={(event) => onLocaleChange(event.target.value as Locale)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-400">
           {SUPPORTED_LOCALES.map((candidate) => <option key={candidate} value={candidate}>{LOCALE_LABELS[candidate]}</option>)}
+        </select>
+
+        <label className="mt-4 block text-xs font-semibold text-slate-700" htmlFor="theme-select">{t('settings.theme')}</label>
+        <select id="theme-select" value={theme} onChange={(event) => onThemeChange(event.target.value as ThemeMode)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-400">
+          {THEME_MODES.map((mode) => <option key={mode} value={mode}>{t(`settings.theme.${mode}`)}</option>)}
         </select>
 
         <label className="mt-4 block text-xs font-semibold text-slate-700" htmlFor="hackmd-token">{t('settings.hackmd.label')}</label>

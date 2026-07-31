@@ -7,6 +7,7 @@ import type {
   Conversation,
   Locale,
   ModeRoles,
+  ThemeMode,
   WorkflowStatusPayload,
 } from '../shared/types';
 import {
@@ -18,6 +19,7 @@ import {
   DEFAULT_ROUNDTABLE_ROLES,
 } from '../shared/constants';
 import { getLocale, setLocale as setActiveLocale, SUPPORTED_LOCALES, t } from '../shared/i18n';
+import { applyTheme, THEME_MODES, watchSystemTheme } from '../shared/theme';
 import { getHackMDToken, publishToHackMD } from '../shared/hackmd';
 import { buildConversationReplayContext } from '../shared/conversationContinuity';
 import { decodeError, ERROR_MARKER } from '../shared/errors';
@@ -131,6 +133,7 @@ export default function App() {
   const [isPublishing, setIsPublishing] = useState(false);
   const [pendingRoles, setPendingRoles] = useState<Record<string, string>>({});
   const [locale, setLocale] = useState<Locale>(getLocale());
+  const [theme, setTheme] = useState<ThemeMode>('system');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState('');
   const [providerUrls, setProviderUrls] = useState<Partial<Record<AIProvider, string>>>({});
@@ -158,12 +161,20 @@ export default function App() {
   }, [locale]);
 
   useEffect(() => {
-    chrome.storage.local.get(['language', 'conversations', 'activeConversationId', 'freeTargets'], (stored) => {
+    applyTheme(theme);
+    return watchSystemTheme(() => applyTheme(theme));
+  }, [theme]);
+
+  useEffect(() => {
+    chrome.storage.local.get(['language', 'theme', 'conversations', 'activeConversationId', 'freeTargets'], (stored) => {
       const savedLocale = stored.language as Locale | undefined;
       if (savedLocale && SUPPORTED_LOCALES.includes(savedLocale)) {
         setActiveLocale(savedLocale);
         setLocale(savedLocale);
       }
+
+      const savedTheme = stored.theme as ThemeMode | undefined;
+      if (savedTheme && THEME_MODES.includes(savedTheme)) setTheme(savedTheme);
 
       const savedTargets = Array.isArray(stored.freeTargets)
         ? stored.freeTargets.filter((provider): provider is AIProvider => PROVIDERS.includes(provider as AIProvider))
@@ -417,6 +428,11 @@ export default function App() {
     void chrome.storage.local.set({ language: nextLocale });
   };
 
+  const changeTheme = (nextTheme: ThemeMode) => {
+    setTheme(nextTheme);
+    void chrome.storage.local.set({ theme: nextTheme });
+  };
+
   const toggleTarget = (provider: AIProvider) => {
     if (isProcessing) return;
     setFreeTargets((current) => {
@@ -568,7 +584,7 @@ export default function App() {
         </div>
       )}
 
-      <SettingsModal isOpen={isSettingsOpen} locale={locale} onLocaleChange={changeLocale} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal isOpen={isSettingsOpen} locale={locale} onLocaleChange={changeLocale} theme={theme} onThemeChange={changeTheme} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 export type AIProvider = 'chatgpt' | 'claude' | 'gemini' | 'grok';
 export type Locale = 'en' | 'zh-TW' | 'ja' | 'de' | 'ko';
+export type ThemeMode = 'system' | 'light' | 'dark';
 
 export interface AIConnection {
   provider: AIProvider;
