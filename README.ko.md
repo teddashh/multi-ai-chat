@@ -64,6 +64,10 @@ npm run verify
 
 직렬 workflow가 실행되는 동안 Side Panel을 열어 두세요.
 
+## 알려진 문제
+
+- **Microsoft Edge + Claude.** Edge에서는 Claude 카드가 "열기" 상태에서 멈춰 연결되지 않을 수 있습니다. Edge가 확장 프로그램을 `claude.ai`에서 실행하지 못하도록 차단할 수 있기 때문입니다(도구 모음 아이콘에 "이 사이트에서는 확장 프로그램이 허용되지 않습니다"라고 표시되고 사이트 액세스 권한도 부여할 수 없습니다). ChatGPT, Gemini, Grok은 영향을 받지 않으며 동일한 빌드가 Google Chrome에서는 정상 작동합니다. 해결 방법: Claude는 Google Chrome을 사용하세요.
+
 ## 권한과 개인정보
 
 `sidePanel`은 UI, `tabs`는 provider 탭 검색, `scripting`과 host 권한은 기존 탭 재주입, `storage`는 설정·30개 대화·선택적 HackMD Token에 사용됩니다. HackMD 게시는 명시적으로 실행할 때만 동작하며 게시된 노트는 guest-readable입니다.

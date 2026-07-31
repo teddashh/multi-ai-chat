@@ -70,6 +70,10 @@ During development, use `npm run dev`, reload the extension from `chrome://exten
 
 Keep the Side Panel open while a serial workflow is running.
 
+## Known issues
+
+- **Microsoft Edge + Claude.** On Edge, the Claude card can stay stuck at "Open" and never connect, because Edge may block the extension from running on `claude.ai` (the toolbar icon shows "This extension is not allowed on this site" and site access cannot be granted). ChatGPT, Gemini, and Grok are unaffected, and the same build works in Google Chrome. Workaround: use Google Chrome for Claude.
+
 ## Permissions and privacy
 
 - `sidePanel`: displays the control UI.

@@ -64,6 +64,10 @@ Für Entwicklung `npm run dev` ausführen, die Erweiterung neu laden und das Sid
 
 Das Side Panel während eines seriellen Workflows geöffnet lassen.
 
+## Bekannte Probleme
+
+- **Microsoft Edge + Claude.** Unter Edge bleibt die Claude-Karte möglicherweise bei „Öffnen“ hängen und verbindet sich nie, weil Edge die Ausführung der Erweiterung auf `claude.ai` blockieren kann (das Symbol in der Symbolleiste zeigt „Diese Erweiterung ist auf dieser Website nicht zulässig“, und der Websitezugriff lässt sich nicht erteilen). ChatGPT, Gemini und Grok sind nicht betroffen, und derselbe Build funktioniert in Google Chrome. Problemumgehung: Verwenden Sie für Claude Google Chrome.
+
 ## Berechtigungen und Datenschutz
 
 `sidePanel` zeigt die UI, `tabs` findet Provider-Tabs, `scripting` plus Hostrechte repariert vorhandene Tabs, und `storage` speichert Einstellungen, 30 Gespräche sowie den optionalen HackMD-Token. HackMD wird nur nach ausdrücklichem Veröffentlichen verwendet; die Notiz ist für Gäste lesbar.

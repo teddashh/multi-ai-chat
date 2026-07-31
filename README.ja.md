@@ -64,6 +64,10 @@ npm run verify
 
 直列workflowの実行中はSide Panelを開いたままにしてください。
 
+## 既知の問題
+
+- **Microsoft Edge + Claude。** Edge では、Claude カードが「開く」のまま接続できないことがあります。Edge が拡張機能を `claude.ai` 上で実行できないようブロックする場合があるためです（ツールバーのアイコンに「このサイトでは拡張機能が許可されていません」と表示され、サイトへのアクセスも付与できません）。ChatGPT・Gemini・Grok は影響を受けず、同じビルドが Google Chrome では正常に動作します。回避策：Claude には Google Chrome をご利用ください。
+
 ## 権限とプライバシー
 
 `sidePanel` はUI、`tabs` はproviderタブ検出、`scripting` とhost権限は既存タブへの再注入、`storage` は設定・30会話・任意のHackMD Tokenに使用します。HackMD公開は明示操作時だけで、ノートはguest-readableです。

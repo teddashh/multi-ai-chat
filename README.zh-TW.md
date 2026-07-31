@@ -70,6 +70,10 @@ npm run verify
 
 串行 workflow 執行期間請保持 Side Panel 開啟。
 
+## 已知問題
+
+- **Microsoft Edge + Claude。** 在 Edge 上，Claude 卡片可能一直停在「開啟」而無法連線，因為 Edge 可能封鎖擴充功能在 `claude.ai` 上執行（工具列圖示會顯示「不允許此網站上的擴充功能」，且無法授予網站存取權）。ChatGPT、Gemini、Grok 不受影響，同一份 build 在 Google Chrome 上正常。解法：Claude 請改用 Google Chrome。
+
 ## 權限與隱私
 
 - `sidePanel`：顯示控制介面。
