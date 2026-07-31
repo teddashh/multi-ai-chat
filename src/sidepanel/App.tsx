@@ -519,7 +519,7 @@ export default function App() {
           <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-700">
             {t('connection.title')}
             {/* notes: float keeps the native ▸ marker; display:flex on summary would drop it */}
-            <button type="button" onClick={(event) => { event.preventDefault(); connectAll(); }} disabled={connectedCount === 4} className="float-right rounded-lg bg-sky-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-800 disabled:bg-slate-300 disabled:text-slate-500">{t('connection.connect_all')}</button>
+            <button type="button" onClick={(event) => { event.preventDefault(); connectAll(); }} disabled={connectedCount === 4} className="float-right rounded-lg bg-sky-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500">{t('connection.connect_all')}</button>
           </summary>
           <div className="border-t border-slate-200 p-2.5">
             <ConnectionBar connections={connections} onOpenLogin={(provider) => { void openLogin(provider).catch(() => {}); }} />
