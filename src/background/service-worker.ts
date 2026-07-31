@@ -210,7 +210,11 @@ async function deliverToTab(provider: AIProvider, tabId: number, message: Extens
       await chrome.scripting.executeScript({ target: { tabId }, files: [CONTENT_SCRIPT_FILES[provider]] });
       await delay(150);
       return await chrome.tabs.sendMessage(tabId, message);
-    } catch {
+    } catch (injectError) {
+      // Last resort failed: the tab cannot run our content script at all. Surface it —
+      // the browser's message (e.g. "Blocked") is the only clue to why the provider
+      // never reports its status.
+      console.error(`Failed to inject the ${provider} content script into tab ${tabId}`, injectError);
       throw firstError;
     }
   }
