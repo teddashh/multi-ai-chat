@@ -82,3 +82,5 @@ npm audit
 ```
 
 Sponsored by [AI-Sister.com](https://ai-sister.com)。作者 Ted Huang（[TED@TED-H.com](mailto:TED@TED-H.com)、[ted-h.com](https://ted-h.com)）。MIT License。
+
+v0.2.x への多大な貢献（送信・応答の信頼性、接続復帰、i18n エラー処理、ダークモード、サイドパネル UX、アイコンの透過化、LICENSE の追加）に心より感謝します — [@DaveTseng2019](https://github.com/DaveTseng2019)。

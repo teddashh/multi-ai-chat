@@ -104,4 +104,6 @@ Main modules:
 
 Sponsored by [AI-Sister.com](https://ai-sister.com). Created by Ted Huang ([TED@TED-H.com](mailto:TED@TED-H.com), [ted-h.com](https://ted-h.com)).
 
+Special thanks to [@DaveTseng2019](https://github.com/DaveTseng2019) for the substantial v0.2.x contributions — send/response reliability, connection recovery, i18n error handling, dark mode, side-panel UX, the transparent icon, and the LICENSE.
+
 MIT License.

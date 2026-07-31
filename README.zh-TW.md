@@ -96,3 +96,5 @@ npm audit
 核心模組：`src/background/service-worker.ts`（編排）、`src/content/base.ts`（可靠注入）、`src/content/*.ts`（provider adapter）、`src/sidepanel/`（React UI、session、Markdown、i18n）。
 
 Sponsored by [AI-Sister.com](https://ai-sister.com)。作者 Ted Huang（[TED@TED-H.com](mailto:TED@TED-H.com)、[ted-h.com](https://ted-h.com)）。MIT License。
+
+特別感謝 [@DaveTseng2019](https://github.com/DaveTseng2019) 對 v0.2.x 的大量貢獻——送出／回應可靠性、連線恢復、i18n 錯誤處理、深色模式、側邊欄 UX、圖示去背，以及補上 LICENSE。

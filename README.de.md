@@ -82,3 +82,5 @@ npm audit
 ```
 
 Sponsored by [AI-Sister.com](https://ai-sister.com). Erstellt von Ted Huang ([TED@TED-H.com](mailto:TED@TED-H.com), [ted-h.com](https://ted-h.com)). MIT License.
+
+Besonderer Dank an [@DaveTseng2019](https://github.com/DaveTseng2019) für die umfangreichen Beiträge zu v0.2.x — Zuverlässigkeit von Senden/Antwort, Verbindungswiederherstellung, i18n-Fehlerbehandlung, Dark Mode, Side-Panel-UX, das transparente Icon und die LICENSE.
