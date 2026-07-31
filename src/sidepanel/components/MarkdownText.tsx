@@ -136,7 +136,7 @@ function renderBlocks(text: string): ReactNode[] {
       if (cursor < lines.length) cursor += 1;
       blocks.push(
         <div key={key} className="my-3 overflow-hidden rounded-lg border border-slate-700 bg-slate-950 text-slate-100">
-          {language && <div className="border-b border-slate-800 px-3 py-1 text-[10px] uppercase tracking-wide text-slate-400">{language}</div>}
+          {language && <div className="border-b border-slate-800 px-3 py-1 text-[11px] uppercase tracking-wide text-slate-400">{language}</div>}
           <pre className="overflow-x-auto p-3 text-xs leading-relaxed"><code>{code.join('\n')}</code></pre>
         </div>,
       );

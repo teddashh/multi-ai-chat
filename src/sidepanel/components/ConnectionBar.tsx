@@ -29,7 +29,7 @@ export default function ConnectionBar({ connections, onOpenLogin }: Props) {
             <span className={`h-2 w-2 shrink-0 rounded-full ${ready ? 'bg-emerald-500' : checking ? 'animate-pulse bg-sky-400' : 'bg-slate-300'}`} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-xs font-semibold text-slate-800">{info.name}</span>
-              <span className="block truncate text-[10px] text-slate-500">{status}</span>
+              <span className="block truncate text-[11px] text-slate-500">{status}</span>
             </span>
           </button>
         );

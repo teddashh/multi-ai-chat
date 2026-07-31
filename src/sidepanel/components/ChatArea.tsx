@@ -58,7 +58,7 @@ function MessageCard({ message }: { message: ChatMessage }) {
   if (message.role === 'user') {
     return (
       <article className="ml-8 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5">
-        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-sky-700">{t('chat.you')}</div>
+        <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-sky-700">{t('chat.you')}</div>
         <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-900">{message.content}</div>
       </article>
     );
@@ -75,8 +75,8 @@ function MessageCard({ message }: { message: ChatMessage }) {
     <article className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
       <div className="mb-1.5 flex items-center gap-2">
         <span className="text-[11px] font-bold" style={{ color: info.color }}>{info.name}</span>
-        {role && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">{role}</span>}
-        {streaming && <span className="animate-pulse text-[10px] text-amber-600">{t('chat.typing')}</span>}
+        {role && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500">{role}</span>}
+        {streaming && <span className="animate-pulse text-[11px] text-amber-600">{t('chat.typing')}</span>}
       </div>
       <div className="text-sm text-slate-800"><MarkdownText text={message.content} /></div>
     </article>

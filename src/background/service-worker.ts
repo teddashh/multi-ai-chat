@@ -51,6 +51,8 @@ const connections: Record<AIProvider, AIConnection> = Object.fromEntries(
 ) as Record<AIProvider, AIConnection>;
 
 const responseWaiters = new Map<string, ResponseWaiter>();
+// notes: 只有這輪流程真的送過訊息的 provider 才需要記網址；其餘分頁與這個對話無關
+const workflowProviders = new Set<AIProvider>();
 let workflowAborted = false;
 let activeWorkflowId: string | undefined;
 let activeSessionId: string | undefined;
@@ -119,7 +121,9 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
       return true;
 
     case 'RESET_PROVIDER_SESSIONS':
-      void resetProviderSessions().then(() => sendResponse({ ok: true })).catch((error) => sendResponse({ ok: false, error: errorMessage(error) }));
+      void resetProviderSessions((message.payload as { providers?: AIProvider[] } | undefined)?.providers)
+        .then(() => sendResponse({ ok: true }))
+        .catch((error) => sendResponse({ ok: false, error: errorMessage(error) }));
       return true;
 
     case 'RESTORE_PROVIDER_SESSIONS':
@@ -143,8 +147,11 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
     }
 
     case 'OPEN_LOGIN':
-      if (message.provider) void focusOrOpenProvider(message.provider);
-      return false;
+      if (!message.provider) return false;
+      focusOrOpenProvider(message.provider)
+        .then(() => sendResponse({ ok: true }))
+        .catch((error) => sendResponse({ ok: false, error: errorMessage(error) }));
+      return true;
 
     case 'CANCEL_WORKFLOW':
       if ((message.payload as { clientId?: string } | undefined)?.clientId === activeClientId) {
@@ -259,7 +266,7 @@ async function focusOrOpenProvider(provider: AIProvider): Promise<void> {
 
 async function getProviderUrls(): Promise<Partial<Record<AIProvider, string>>> {
   const urls: Partial<Record<AIProvider, string>> = {};
-  await Promise.all(PROVIDERS.map(async (provider) => {
+  await Promise.all([...workflowProviders].map(async (provider) => {
     const tabId = connections[provider].tabId;
     if (!tabId) return;
     try {
@@ -270,8 +277,8 @@ async function getProviderUrls(): Promise<Partial<Record<AIProvider, string>>> {
   return urls;
 }
 
-async function resetProviderSessions(): Promise<void> {
-  await Promise.all(PROVIDERS.map(async (provider) => {
+async function resetProviderSessions(targets: AIProvider[] = PROVIDERS): Promise<void> {
+  await Promise.all(targets.map(async (provider) => {
     const tabId = connections[provider].tabId;
     if (!tabId) return;
     connections[provider] = { provider, status: 'checking', tabId };
@@ -296,6 +303,7 @@ async function sendToProvider(provider: AIProvider, text: string, requestId: str
   if (connection.status !== 'connected' || !connection.tabId) {
     throw new Error(encodeError('error.not_ready', { provider }));
   }
+  workflowProviders.add(provider);
   await deliverToTab(provider, connection.tabId, {
     action: 'SEND_MESSAGE',
     provider,
@@ -374,6 +382,7 @@ function checkAborted(workflowId: string): void {
 async function handleSendMessage(params: SendParams): Promise<void> {
   if (activeWorkflowId) abortWorkflow();
   workflowAborted = false;
+  workflowProviders.clear();
   const workflowId = crypto.randomUUID();
   activeWorkflowId = workflowId;
   activeSessionId = params.sessionId;
