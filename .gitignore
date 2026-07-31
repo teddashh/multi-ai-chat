@@ -10,3 +10,4 @@ browser-session/
 .env.*
 *.pem
 *.key
+store/*.zip
