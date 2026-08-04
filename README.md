@@ -27,6 +27,7 @@ A lightweight Chrome extension that turns your existing **ChatGPT, Claude, Gemin
 - **Readable transcript.** Responses use a safe React Markdown renderer instead of raw plain text.
 - **Five UI languages.** English, Traditional Chinese, Japanese, German, and Korean.
 - **Modern Side Panel.** Compact mode cards, descriptions, selected free-mode targets, connection setup, and a small workflow trace.
+- **Light, dark, or system.** Dark mode follows your OS by default, plus a manual Light / Dark / System switch in Settings, with WCAG-checked contrast.
 
 ## Modes
 

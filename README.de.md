@@ -24,6 +24,7 @@ Steuere deine angemeldeten **ChatGPT-, Claude-, Gemini- und Grok-Tabs** als geme
 - „Bereit“ erscheint erst nach Bestätigung des Composers.
 - Bis zu 30 lokale Gespräche, Neuer Chat und Folgefragen nach Workflows.
 - Sicheres Markdown, fünf UI-Sprachen und ein kompaktes neues Side Panel.
+- Anzeigemodus Hell/Dunkel/System: Dark Mode folgt standardmäßig dem Betriebssystem, mit manueller Umschaltung in den Einstellungen und WCAG-geprüftem Kontrast.
 
 ## Modi
 
