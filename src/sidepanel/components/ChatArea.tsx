@@ -35,7 +35,7 @@ export default function ChatArea({ messages, mode, conversationId }: Props) {
         <div className="max-w-xs">
           <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-sky-50 text-2xl">{mode === 'free' ? '⚡' : '💬'}</div>
           <h2 className="mt-3 text-sm font-semibold text-slate-800">{t('chat.empty')}</h2>
-          <p className="mt-1 text-xs leading-relaxed text-slate-500">{t('chat.empty.help')}</p>
+          <p className="mt-1 text-sm leading-relaxed text-slate-600">{t('chat.empty.help')}</p>
         </div>
       </div>
     );
