@@ -7,6 +7,9 @@ import type {
   Conversation,
   Locale,
   ModeRoles,
+  StepRecoveryAction,
+  StepRecoveryDecision,
+  StepRecoveryRequest,
   ThemeMode,
   WorkflowStatusPayload,
 } from '../shared/types';
@@ -23,6 +26,13 @@ import { applyTheme, THEME_MODES, watchSystemTheme } from '../shared/theme';
 import { getHackMDToken, publishToHackMD } from '../shared/hackmd';
 import { buildConversationReplayContext } from '../shared/conversationContinuity';
 import { decodeError, ERROR_MARKER } from '../shared/errors';
+import { createWorkflowCancellation, createWorkflowScope } from '../shared/workflowScope';
+import {
+  acceptStepRecoveryMessage,
+  acceptWorkflowResponse,
+  activeWorkflowAfterStatus,
+  shouldClearStepRecovery,
+} from './stepRecoveryMessages';
 import ConnectionBar from './components/ConnectionBar';
 import ModeSelector from './components/ModeSelector';
 import RoleConfig from './components/RoleConfig';
@@ -127,6 +137,8 @@ export default function App() {
   const [freeTargets, setFreeTargets] = useState<AIProvider[]>(PROVIDERS);
   const [isProcessing, setIsProcessing] = useState(false);
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatusPayload | null>(null);
+  const [stepRecovery, setStepRecovery] = useState<StepRecoveryRequest | null>(null);
+  const [isResolvingRecovery, setIsResolvingRecovery] = useState(false);
   const [trace, setTrace] = useState<TraceEntry[]>([]);
   const [showRoleConfig, setShowRoleConfig] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -147,6 +159,11 @@ export default function App() {
   const activeConversationIdRef = useRef('');
   const activeWorkflowIdRef = useRef<string>();
   const ignoredWorkflowIdsRef = useRef(new Set<string>());
+  const completedWorkflowIdsRef = useRef(new Set<string>());
+  const ignoredRequestIdsRef = useRef(new Set<string>());
+  const handledRecoveryIdsRef = useRef(new Set<string>());
+  const stepRecoveryRef = useRef<StepRecoveryRequest | null>(null);
+  const resolvingRecoveryRef = useRef(false);
 
   useEffect(() => {
     pendingRolesRef.current = pendingRoles;
@@ -239,9 +256,10 @@ export default function App() {
         case 'ROLE_ASSIGNMENT': {
           const { labelKey, sessionId, clientId } = message.payload as { labelKey: string; sessionId?: string; clientId?: string };
           if (clientId !== clientIdRef.current || sessionId !== activeConversationIdRef.current || message.workflowId !== activeWorkflowIdRef.current) break;
-          if (message.provider) {
+          if (message.provider && (!message.requestId || !ignoredRequestIdsRef.current.has(message.requestId))) {
+            const roleKey = message.requestId ?? message.provider;
             setPendingRoles((current) => {
-              const next = { ...current, [message.provider as string]: labelKey };
+              const next = { ...current, [roleKey]: labelKey };
               pendingRolesRef.current = next;
               return next;
             });
@@ -249,22 +267,57 @@ export default function App() {
           break;
         }
         case 'RESPONSE_CHUNK':
-          if (!message.provider || !acceptWorkflowMessage(message.workflowId, activeWorkflowIdRef, ignoredWorkflowIdsRef)) break;
+          if (!message.provider || !acceptWorkflowResponse(message.workflowId, activeWorkflowIdRef.current, ignoredWorkflowIdsRef.current)) break;
+          if (message.requestId && ignoredRequestIdsRef.current.has(message.requestId)) break;
           setMessages((current) => upsertStreamingMessage(current, message.provider!, message.requestId, String(message.payload ?? ''), pendingRolesRef, setPendingRoles));
           break;
         case 'RESPONSE_DONE':
-          if (!message.provider || !acceptWorkflowMessage(message.workflowId, activeWorkflowIdRef, ignoredWorkflowIdsRef)) break;
+          if (!message.provider || !acceptWorkflowResponse(message.workflowId, activeWorkflowIdRef.current, ignoredWorkflowIdsRef.current)) break;
+          if (message.requestId && ignoredRequestIdsRef.current.has(message.requestId)) break;
           setMessages((current) => finalizeMessage(current, message.provider!, message.requestId, humanizeError(String(message.payload ?? '')), pendingRolesRef, setPendingRoles));
           break;
+        case 'STEP_RECOVERY_REQUIRED': {
+          const recovery = acceptStepRecoveryMessage(message, {
+            clientId: clientIdRef.current,
+            sessionId: activeConversationIdRef.current,
+            activeWorkflowId: activeWorkflowIdRef.current,
+            currentRecoveryId: stepRecoveryRef.current?.recoveryId,
+            ignoredWorkflowIds: ignoredWorkflowIdsRef.current,
+            completedWorkflowIds: completedWorkflowIdsRef.current,
+            handledRecoveryIds: handledRecoveryIdsRef.current,
+          });
+          if (!recovery) break;
+          activeWorkflowIdRef.current = recovery.workflowId;
+          ignoreRequest(recovery.failedRequestId, ignoredRequestIdsRef);
+          discardPendingRole(recovery.failedRequestId, pendingRolesRef, setPendingRoles);
+          setMessages((current) => current.filter((entry) => entry.requestId !== recovery.failedRequestId));
+          stepRecoveryRef.current = recovery;
+          setStepRecovery(recovery);
+          resolvingRecoveryRef.current = false;
+          setIsResolvingRecovery(false);
+          setIsProcessing(true);
+          break;
+        }
         case 'WORKFLOW_STATUS': {
           const status = message.payload as WorkflowStatusPayload;
           if (!status || status.clientId !== clientIdRef.current || status.sessionId !== activeConversationIdRef.current || !status.workflowId) break;
           if (ignoredWorkflowIdsRef.current.has(status.workflowId)) break;
+          if (activeWorkflowIdRef.current && activeWorkflowIdRef.current !== status.workflowId) break;
           if (status.done) {
+            completeWorkflow(status.workflowId, completedWorkflowIdsRef);
+            setStepRecovery((current) => {
+              if (!current || !shouldClearStepRecovery(current, status)) return current;
+              ignoreRecovery(current.recoveryId, handledRecoveryIdsRef);
+              stepRecoveryRef.current = null;
+              return null;
+            });
+            resolvingRecoveryRef.current = false;
+            setIsResolvingRecovery(false);
             if (status.cancelled) {
+              clearPendingRoles(pendingRolesRef, setPendingRoles);
               ignoreWorkflow(status.workflowId, ignoredWorkflowIdsRef);
-              if (activeWorkflowIdRef.current === status.workflowId) activeWorkflowIdRef.current = undefined;
             }
+            activeWorkflowIdRef.current = activeWorkflowAfterStatus(activeWorkflowIdRef.current, status);
             setWorkflowStatus(null);
             setIsProcessing(false);
             if (!status.cancelled) {
@@ -276,6 +329,7 @@ export default function App() {
             break;
           }
           activeWorkflowIdRef.current = status.workflowId;
+          setIsProcessing(true);
           setWorkflowStatus(status);
           const text = formatWorkflowStatus(status);
           setTrace((current) => current[current.length - 1]?.text === text ? current : [...current, { id: crypto.randomUUID(), text, timestamp: Date.now() }].slice(-25));
@@ -328,36 +382,76 @@ export default function App() {
   const handleSend = useCallback((text: string) => {
     if (!text.trim() || isProcessing) return;
     if (activeWorkflowIdRef.current) ignoreWorkflow(activeWorkflowIdRef.current, ignoredWorkflowIdsRef);
-    activeWorkflowIdRef.current = undefined;
+    const workflowScope = createWorkflowScope(activeConversationId, clientIdRef.current);
+    activeWorkflowIdRef.current = workflowScope.workflowId;
     const context = contextNeedsReplay ? buildConversationReplayContext(messages) : undefined;
     setMessages((current) => [...current, { id: `user-${crypto.randomUUID()}`, role: 'user', content: text, timestamp: Date.now() }]);
     setIsProcessing(true);
     setWorkflowStatus(null);
+    stepRecoveryRef.current = null;
+    setStepRecovery(null);
+    resolvingRecoveryRef.current = false;
+    setIsResolvingRecovery(false);
+    clearPendingRoles(pendingRolesRef, setPendingRoles);
     setContextNeedsReplay(false);
     chrome.runtime.sendMessage({
       action: 'SEND_MESSAGE',
       payload: {
+        ...workflowScope,
         text,
         context,
         mode,
         roles: mode === 'free' ? undefined : roles,
         targets: mode === 'free' ? freeTargets : undefined,
-        sessionId: activeConversationId,
-        clientId: clientIdRef.current,
       },
     }).catch((error) => {
+      if (activeWorkflowIdRef.current === workflowScope.workflowId) activeWorkflowIdRef.current = undefined;
       setMessages((current) => [...current, { id: `system-${crypto.randomUUID()}`, role: 'ai', provider: 'system' as AIProvider, content: `${ERROR_MARKER} ${String(error)}`, timestamp: Date.now() }]);
       setIsProcessing(false);
     });
   }, [activeConversationId, contextNeedsReplay, freeTargets, isProcessing, messages, mode, roles]);
 
   const stopWorkflow = useCallback(() => {
-    if (activeWorkflowIdRef.current) ignoreWorkflow(activeWorkflowIdRef.current, ignoredWorkflowIdsRef);
+    const workflowId = activeWorkflowIdRef.current;
+    if (workflowId) ignoreWorkflow(workflowId, ignoredWorkflowIdsRef);
     activeWorkflowIdRef.current = undefined;
-    chrome.runtime.sendMessage({ action: 'CANCEL_WORKFLOW', payload: { clientId: clientIdRef.current } }).catch(() => {});
+    const cancellation = createWorkflowCancellation(activeConversationIdRef.current, clientIdRef.current, workflowId);
+    if (cancellation) chrome.runtime.sendMessage({ action: 'CANCEL_WORKFLOW', payload: cancellation }).catch(() => {});
     setWorkflowStatus(null);
+    stepRecoveryRef.current = null;
+    setStepRecovery(null);
+    resolvingRecoveryRef.current = false;
+    setIsResolvingRecovery(false);
+    clearPendingRoles(pendingRolesRef, setPendingRoles);
     setIsProcessing(false);
   }, []);
+
+  const resolveStepRecovery = useCallback(async (action: StepRecoveryAction) => {
+    const recovery = stepRecovery;
+    if (!recovery || resolvingRecoveryRef.current) return;
+    resolvingRecoveryRef.current = true;
+    setIsResolvingRecovery(true);
+    const decision: StepRecoveryDecision = {
+      recoveryId: recovery.recoveryId,
+      workflowId: recovery.workflowId,
+      sessionId: recovery.sessionId,
+      clientId: recovery.clientId,
+      provider: recovery.provider,
+      failedRequestId: recovery.failedRequestId,
+      action,
+    };
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'RESOLVE_STEP_RECOVERY', payload: decision }) as { ok?: boolean } | undefined;
+      if (response?.ok) {
+        ignoreRecovery(recovery.recoveryId, handledRecoveryIdsRef);
+        setStepRecovery((current) => current?.recoveryId === recovery.recoveryId ? null : current);
+        if (stepRecoveryRef.current?.recoveryId === recovery.recoveryId) stepRecoveryRef.current = null;
+        return;
+      }
+    } catch {}
+    resolvingRecoveryRef.current = false;
+    setIsResolvingRecovery(false);
+  }, [stepRecovery]);
 
   // notes: 只有真的回答過的 AI 需要重設分頁；沒用到的分頁不去動它，使用者可能正在上面看別的東西
   const answeredProviders = (): AIProvider[] => [...new Set(
@@ -388,6 +482,11 @@ export default function App() {
     setRoles(DEFAULT_DEBATE_ROLES);
     setTrace([]);
     setWorkflowStatus(null);
+    stepRecoveryRef.current = null;
+    setStepRecovery(null);
+    resolvingRecoveryRef.current = false;
+    setIsResolvingRecovery(false);
+    clearPendingRoles(pendingRolesRef, setPendingRoles);
     closeDrawer();
     setConnectionsOpen(true);
     chrome.runtime.sendMessage({ action: 'RESET_PROVIDER_SESSIONS', payload: { providers: answeredProviders() } }).catch(() => {});
@@ -546,6 +645,17 @@ export default function App() {
         <details className="mt-2 rounded-lg border border-slate-200 bg-white" open={isProcessing}>
           <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-700"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${isProcessing ? 'animate-pulse bg-sky-500' : 'bg-emerald-500'}`} />{t('trace.title')} · <span className="font-normal text-slate-500">{currentStatus}</span></summary>
           {trace.length > 0 && <div className="max-h-28 space-y-1 overflow-y-auto border-t border-slate-200 p-2.5">{trace.slice(-8).map((entry) => <div key={entry.id} className="truncate text-[11px] text-slate-600">{new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {entry.text}</div>)}</div>}
+          {stepRecovery && (
+            <div role="alert" className="border-t border-amber-200 bg-amber-50 p-2.5">
+              <div className="text-xs font-semibold text-amber-900">{t('recovery.title', { provider: AI_PROVIDERS[stepRecovery.provider].name })}</div>
+              <div className="mt-1 break-words text-[11px] leading-relaxed text-amber-800">{humanizeError(stepRecovery.reason)}</div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <button type="button" disabled={isResolvingRecovery} onClick={() => void resolveStepRecovery('retry')} className="rounded-lg bg-sky-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-800 disabled:opacity-50">{t('recovery.retry')}</button>
+                <button type="button" disabled={isResolvingRecovery} onClick={() => void resolveStepRecovery('skip')} className="rounded-lg border border-amber-400 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50">{t('recovery.skip')}</button>
+                <button type="button" disabled={isResolvingRecovery} onClick={() => void resolveStepRecovery('cancel')} className="rounded-lg border border-red-300 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50">{t('recovery.cancel')}</button>
+              </div>
+            </div>
+          )}
         </details>
       </section>
 
@@ -603,7 +713,7 @@ function upsertStreamingMessage(
 ): ChatMessage[] {
   const existing = messages.find((message) => message.requestId === requestId && message.id.endsWith('-streaming'));
   if (existing) return messages.map((message) => message.id === existing.id ? { ...message, content } : message);
-  const modeRole = consumePendingRole(provider, pendingRolesRef, setPendingRoles);
+  const modeRole = consumePendingRole(provider, requestId, pendingRolesRef, setPendingRoles);
   return [...messages, { id: `${requestId ?? crypto.randomUUID()}-streaming`, role: 'ai', provider, modeRole, content, timestamp: Date.now(), requestId }];
 }
 
@@ -617,32 +727,48 @@ function finalizeMessage(
 ): ChatMessage[] {
   const existing = messages.find((message) => message.requestId === requestId && message.id.endsWith('-streaming'));
   if (existing) return messages.map((message) => message.id === existing.id ? { ...message, id: message.id.replace(/-streaming$/, ''), content } : message);
-  const modeRole = consumePendingRole(provider, pendingRolesRef, setPendingRoles);
+  const modeRole = consumePendingRole(provider, requestId, pendingRolesRef, setPendingRoles);
   return [...messages, { id: requestId ?? crypto.randomUUID(), role: 'ai', provider, modeRole, content, timestamp: Date.now(), requestId }];
 }
 
 function consumePendingRole(
   provider: AIProvider,
+  requestId: string | undefined,
   pendingRolesRef: React.MutableRefObject<Record<string, string>>,
   setPendingRoles: React.Dispatch<React.SetStateAction<Record<string, string>>>,
 ): string | undefined {
-  const role = pendingRolesRef.current[provider];
+  const key = requestId && pendingRolesRef.current[requestId] ? requestId : provider;
+  const role = pendingRolesRef.current[key];
   if (!role) return undefined;
   setPendingRoles((current) => {
     const next = { ...current };
-    delete next[provider];
+    delete next[key];
     pendingRolesRef.current = next;
     return next;
   });
   return role;
 }
 
-function acceptWorkflowMessage(
-  workflowId: string | undefined,
-  activeWorkflowIdRef: React.MutableRefObject<string | undefined>,
-  ignoredWorkflowIdsRef: React.MutableRefObject<Set<string>>,
-): boolean {
-  return Boolean(workflowId && workflowId === activeWorkflowIdRef.current && !ignoredWorkflowIdsRef.current.has(workflowId));
+function discardPendingRole(
+  requestId: string,
+  pendingRolesRef: React.MutableRefObject<Record<string, string>>,
+  setPendingRoles: React.Dispatch<React.SetStateAction<Record<string, string>>>,
+): void {
+  if (!pendingRolesRef.current[requestId]) return;
+  setPendingRoles((current) => {
+    const next = { ...current };
+    delete next[requestId];
+    pendingRolesRef.current = next;
+    return next;
+  });
+}
+
+function clearPendingRoles(
+  pendingRolesRef: React.MutableRefObject<Record<string, string>>,
+  setPendingRoles: React.Dispatch<React.SetStateAction<Record<string, string>>>,
+): void {
+  pendingRolesRef.current = {};
+  setPendingRoles({});
 }
 
 function ignoreWorkflow(workflowId: string, ignoredWorkflowIdsRef: React.MutableRefObject<Set<string>>): void {
@@ -652,5 +778,35 @@ function ignoreWorkflow(workflowId: string, ignoredWorkflowIdsRef: React.Mutable
     const oldest = ignored.values().next().value as string | undefined;
     if (!oldest) break;
     ignored.delete(oldest);
+  }
+}
+
+function completeWorkflow(workflowId: string, completedWorkflowIdsRef: React.MutableRefObject<Set<string>>): void {
+  const completed = completedWorkflowIdsRef.current;
+  completed.add(workflowId);
+  while (completed.size > 100) {
+    const oldest = completed.values().next().value as string | undefined;
+    if (!oldest) break;
+    completed.delete(oldest);
+  }
+}
+
+function ignoreRequest(requestId: string, ignoredRequestIdsRef: React.MutableRefObject<Set<string>>): void {
+  const ignored = ignoredRequestIdsRef.current;
+  ignored.add(requestId);
+  while (ignored.size > 200) {
+    const oldest = ignored.values().next().value as string | undefined;
+    if (!oldest) break;
+    ignored.delete(oldest);
+  }
+}
+
+function ignoreRecovery(recoveryId: string, handledRecoveryIdsRef: React.MutableRefObject<Set<string>>): void {
+  const handled = handledRecoveryIdsRef.current;
+  handled.add(recoveryId);
+  while (handled.size > 200) {
+    const oldest = handled.values().next().value as string | undefined;
+    if (!oldest) break;
+    handled.delete(oldest);
   }
 }

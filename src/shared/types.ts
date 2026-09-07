@@ -81,6 +81,28 @@ export interface WorkflowStatusPayload {
   cancelled?: boolean;
 }
 
+export type StepRecoveryAction = 'retry' | 'skip' | 'cancel';
+
+export interface StepRecoveryRequest {
+  recoveryId: string;
+  workflowId: string;
+  sessionId: string;
+  clientId: string;
+  provider: AIProvider;
+  failedRequestId: string;
+  reason: string;
+}
+
+export interface StepRecoveryDecision {
+  recoveryId: string;
+  workflowId: string;
+  sessionId: string;
+  clientId: string;
+  provider: AIProvider;
+  failedRequestId: string;
+  action: StepRecoveryAction;
+}
+
 // === Chrome Message Passing ===
 
 export type MessageAction =
@@ -97,6 +119,8 @@ export type MessageAction =
   | 'CONNECTIONS_UPDATE'
   | 'WORKFLOW_STATUS'
   | 'ROLE_ASSIGNMENT'
+  | 'STEP_RECOVERY_REQUIRED'
+  | 'RESOLVE_STEP_RECOVERY'
   | 'CANCEL_WORKFLOW'
   | 'STOP_GENERATION'
   | 'PUBLISH_HACKMD';

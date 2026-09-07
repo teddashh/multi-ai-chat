@@ -1,6 +1,7 @@
 import type { AIProvider, ExtensionMessage } from '../shared/types';
 import { encodeError } from '../shared/errors';
 import { longerResponseText, serializeResponseText } from './responseSerializer';
+import { shouldStopActiveRequest } from '../shared/requestScope';
 
 export interface ContentScriptConfig {
   provider: AIProvider;
@@ -347,10 +348,12 @@ export function createContentScript(config: ContentScriptConfig): void {
     safeSendMessage({ action: 'RESPONSE_DONE', provider, requestId, workflowId, payload: `[Error: ${reason}]` });
   }
 
-  function stopGeneration(): void {
+  function stopGeneration(requestId?: string, workflowId?: string): boolean {
+    if (!shouldStopActiveRequest(activeRequestId, activeWorkflowId, requestId, workflowId)) return false;
     const stopButton = queryFirst(config.stopButtonSelectors ?? [], document, true);
     if (stopButton) clickElement(stopButton);
     resetResponseState();
+    return true;
   }
 
   function resetResponseState(): void {
@@ -403,8 +406,8 @@ export function createContentScript(config: ContentScriptConfig): void {
       return true;
     }
     if (message.action === 'STOP_GENERATION' && (!message.provider || message.provider === provider)) {
-      stopGeneration();
-      sendResponse({ ok: true });
+      const stopped = stopGeneration(message.requestId, message.workflowId);
+      sendResponse({ ok: stopped });
       return true;
     }
     return false;
