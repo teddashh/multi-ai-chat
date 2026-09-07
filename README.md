@@ -39,6 +39,8 @@ A lightweight Chrome extension that turns your existing **ChatGPT, Claude, Gemin
 | **Coding** | Eight-step specification, review, implementation, test, revision, and acceptance loop |
 | **Roundtable** | Five rounds × four AIs = twenty turns |
 
+If a provider fails during Roundtable, the workflow pauses so you can **Retry**, **Skip this turn**, or **Cancel**. Skip substitutes a safe placeholder in the remaining Roundtable context and continues to the next AI; provider error text is not passed into later turns.
+
 ## Install from source
 
 Requirements: Chrome 114+, Node.js 22.18+, and npm.

@@ -6,6 +6,7 @@ import type {
   ConsultRoles,
   CodingRoles,
   RoundtableRoles,
+  StepRecoveryRequest,
   ExtensionMessage,
   WorkflowStatusPayload,
 } from '../shared/types';
@@ -20,15 +21,31 @@ import {
 import { questionWithConversationContext } from '../shared/conversationContinuity';
 import { encodeError } from '../shared/errors';
 import { getProviderFromUrl } from '../shared/providerUrl';
+import {
+  activeCancellationTarget,
+  WorkflowLifecycleRegistry,
+} from '../shared/workflowScope';
+import { assertContentScriptAccepted } from './messageDelivery';
+import {
+  ProviderRequestError,
+  runRoundtableWorkflow,
+  StepRecoveryCoordinator,
+  StepRecoveryReplayCoordinator,
+  transferStepRecoveryOwnership,
+} from './roundtableRecovery';
+import { assertCurrentWorkflow, WorkflowStartGate } from './workflowStartGate';
 
 interface ResponseWaiter {
   provider: AIProvider;
+  workflowId: string;
+  tabId?: number;
   resolve: (value: string) => void;
   reject: (reason: Error) => void;
   timer: ReturnType<typeof setTimeout>;
 }
 
 interface SendParams {
+  workflowId: string;
   text: string;
   context?: string;
   mode: ChatMode;
@@ -52,6 +69,10 @@ const connections: Record<AIProvider, AIConnection> = Object.fromEntries(
 ) as Record<AIProvider, AIConnection>;
 
 const responseWaiters = new Map<string, ResponseWaiter>();
+const stepRecovery = new StepRecoveryCoordinator();
+const stepRecoveryReplay = new StepRecoveryReplayCoordinator();
+const workflowStartGate = new WorkflowStartGate();
+const workflowLifecycle = new WorkflowLifecycleRegistry();
 // notes: 只有這輪流程真的送過訊息的 provider 才需要記網址；其餘分頁與這個對話無關
 const workflowProviders = new Set<AIProvider>();
 let workflowAborted = false;
@@ -114,6 +135,7 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
       // 先回快取讓側邊欄立即有內容，再重新探測一次；結果會透過 broadcastConnections 送達。
       // 沒有這一步的話，快取一旦是 disconnected 就只能等下一次分頁載入事件才會更新。
       void refreshConnections();
+      void replayPendingStepRecovery(message.payload as { clientId?: string; sessionId?: string } | undefined);
       void notifyInterruptedWorkflow(message.payload as { clientId?: string; sessionId?: string } | undefined);
       return true;
 
@@ -154,14 +176,23 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
         .catch((error) => sendResponse({ ok: false, error: errorMessage(error) }));
       return true;
 
-    case 'CANCEL_WORKFLOW':
-      if ((message.payload as { clientId?: string } | undefined)?.clientId === activeClientId) {
-        abortWorkflow();
-        sendResponse({ ok: true });
-      } else {
+    case 'CANCEL_WORKFLOW': {
+      const registered = !sender.tab ? workflowLifecycle.requestCancellation(message.payload) : undefined;
+      if (!registered) {
         sendResponse({ ok: false });
+        return true;
       }
+      const activeTarget = activeCancellationTarget(registered.workflowId, activeWorkflowId);
+      if (activeTarget) void abortWorkflow(activeTarget).then(() => sendResponse({ ok: true }));
+      else sendResponse({ ok: true });
       return true;
+    }
+
+    case 'RESOLVE_STEP_RECOVERY': {
+      const accepted = !sender.tab && stepRecovery.resolve(message.payload);
+      sendResponse({ ok: accepted });
+      return true;
+    }
 
     case 'PUBLISH_HACKMD':
       handleHackMDPublish(message.payload as { token: string; title: string; content: string })
@@ -169,11 +200,24 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
         .catch((error) => sendResponse({ ok: false, error: errorMessage(error) }));
       return true;
 
-    case 'SEND_MESSAGE':
-      void handleSendMessage(message.payload as SendParams)
+    case 'SEND_MESSAGE': {
+      const params = message.payload as SendParams | undefined;
+      if (sender.tab || !isSendParams(params) || !workflowLifecycle.register({
+        workflowId: params.workflowId,
+        sessionId: params.sessionId,
+        clientId: params.clientId,
+      })) {
+        sendResponse({ ok: false, error: 'Invalid or duplicate workflow id' });
+        return false;
+      }
+      void handleSendMessage(params)
         .then(() => sendResponse({ ok: true }))
-        .catch((error) => sendResponse({ ok: false, error: errorMessage(error) }));
+        .catch((error) => sendResponse({ ok: false, error: errorMessage(error) }))
+        .finally(() => {
+          workflowLifecycle.finish(params.workflowId);
+        });
       return true;
+    }
 
     case 'RESPONSE_DONE':
       if (!sender.tab || !message.requestId) return false;
@@ -297,40 +341,57 @@ async function sendToProvider(provider: AIProvider, text: string, requestId: str
     throw new Error(encodeError('error.not_ready', { provider }));
   }
   workflowProviders.add(provider);
-  await deliverToTab(provider, connection.tabId, {
+  const result = await deliverToTab(provider, connection.tabId, {
     action: 'SEND_MESSAGE',
     provider,
     requestId,
     workflowId,
     payload: { text },
   });
+  assertContentScriptAccepted(result);
 }
 
-async function sendAndWait(provider: AIProvider, text: string, workflowId: string, preserveQuestionLanguage = true): Promise<string> {
+async function sendAndWait(
+  provider: AIProvider,
+  text: string,
+  workflowId: string,
+  preserveQuestionLanguage = true,
+  reservedRequestId?: string,
+): Promise<string> {
   checkAborted(workflowId);
-  const requestId = `${workflowId}:${provider}:${crypto.randomUUID()}`;
-  const responsePromise = waitForResponse(provider, requestId);
+  const requestId = reservedRequestId ?? createProviderRequestId(provider, workflowId);
+  const responsePromise = waitForResponse(provider, requestId, workflowId);
   try {
-    const prompt = preserveQuestionLanguage
-      ? `${text}\n\nLanguage requirement: answer in the same language as the user's original question.`
-      : text;
-    await sendToProvider(provider, prompt, requestId, workflowId);
+    try {
+      const prompt = preserveQuestionLanguage
+        ? `${text}\n\nLanguage requirement: answer in the same language as the user's original question.`
+        : text;
+      await sendToProvider(provider, prompt, requestId, workflowId);
+    } catch (error) {
+      rejectResponseWaiter(requestId, error instanceof Error ? error : new Error(String(error)));
+    }
+    const response = await responsePromise;
+    const providerError = response.match(/^\[Error:\s*(.+)]$/s);
+    if (providerError) throw new Error(providerError[1]);
+    return response;
   } catch (error) {
-    rejectResponseWaiter(requestId, error instanceof Error ? error : new Error(String(error)));
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
+    if (error instanceof ProviderRequestError) throw error;
+    throw new ProviderRequestError(provider, workflowId, requestId, error);
   }
-  const response = await responsePromise;
-  const providerError = response.match(/^\[Error:\s*(.+)]$/s);
-  if (providerError) throw new Error(providerError[1]);
-  return response;
 }
 
-function waitForResponse(provider: AIProvider, requestId: string, timeoutMs = 600_000): Promise<string> {
+function createProviderRequestId(provider: AIProvider, workflowId: string): string {
+  return `${workflowId}:${provider}:${crypto.randomUUID()}`;
+}
+
+function waitForResponse(provider: AIProvider, requestId: string, workflowId: string, timeoutMs = 600_000): Promise<string> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       responseWaiters.delete(requestId);
       reject(new Error(encodeError('error.timeout', { provider, seconds: Math.round(timeoutMs / 1000) })));
     }, timeoutMs);
-    responseWaiters.set(requestId, { provider, resolve, reject, timer });
+    responseWaiters.set(requestId, { provider, workflowId, tabId: connections[provider].tabId, resolve, reject, timer });
   });
 }
 
@@ -356,42 +417,43 @@ function rejectWaitersForProvider(provider: AIProvider, error: Error): void {
   }
 }
 
-function abortWorkflow(): void {
-  workflowAborted = true;
+async function abortWorkflow(targetWorkflowId = activeWorkflowId): Promise<void> {
+  if (!targetWorkflowId) return;
+  const targetSessionId = activeWorkflowId === targetWorkflowId ? activeSessionId : undefined;
+  const targetClientId = activeWorkflowId === targetWorkflowId ? activeClientId : undefined;
+  if (activeWorkflowId === targetWorkflowId) workflowAborted = true;
   const abortError = new DOMException('Workflow cancelled', 'AbortError');
-  const activeProviders = new Set(Array.from(responseWaiters.values(), (waiter) => waiter.provider));
-  for (const [requestId] of responseWaiters) rejectResponseWaiter(requestId, abortError);
-  for (const provider of activeProviders) {
-    const tabId = connections[provider].tabId;
-    if (tabId) void deliverToTab(provider, tabId, { action: 'STOP_GENERATION', provider }).catch(() => {});
-  }
-  if (activeWorkflowId) sendWorkflowStatus({ key: '', done: true, cancelled: true });
+  const activeRequests = Array.from(responseWaiters, ([requestId, waiter]) => ({ requestId, ...waiter }))
+    .filter((waiter) => waiter.workflowId === targetWorkflowId);
+  const pendingRecovery = stepRecovery.current();
+  const recovering = pendingRecovery?.workflowId === targetWorkflowId ? pendingRecovery : undefined;
+  for (const { requestId } of activeRequests) rejectResponseWaiter(requestId, abortError);
+  stepRecovery.cancel(targetWorkflowId, abortError);
+  await Promise.all(activeRequests.map(({ provider, requestId, workflowId, tabId }) => (
+    resetProviderRequest(provider, requestId, workflowId, tabId)
+  )));
+  if (recovering) await resetProviderAfterFailure(recovering.provider, recovering.failedRequestId, recovering.workflowId);
+  await sendWorkflowStatus({ key: '', done: true, cancelled: true }, targetWorkflowId, targetSessionId, targetClientId);
 }
 
 function checkAborted(workflowId: string): void {
-  if (workflowAborted || activeWorkflowId !== workflowId) throw new DOMException('Workflow cancelled', 'AbortError');
+  assertCurrentWorkflow(workflowId, activeWorkflowId, workflowAborted);
 }
 
 async function handleSendMessage(params: SendParams): Promise<void> {
-  if (activeWorkflowId) abortWorkflow();
-  workflowAborted = false;
-  workflowProviders.clear();
-  const workflowId = crypto.randomUUID();
-  activeWorkflowId = workflowId;
-  activeSessionId = params.sessionId;
-  activeClientId = params.clientId;
-  await chrome.storage.session.set({
-    [ACTIVE_WORKFLOW_STORAGE_KEY]: {
-      workflowId,
-      sessionId: params.sessionId,
-      clientId: params.clientId,
-      startedAt: Date.now(),
-    },
-  });
-  const question = questionWithConversationContext(params.text, params.context);
-  sendWorkflowStatus({ key: 'workflow.starting' }, workflowId, params.sessionId, params.clientId);
+  const workflowId = params.workflowId;
+  try {
+    await beginWorkflow(params);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return;
+    throw error;
+  }
 
   try {
+    checkAborted(workflowId);
+    const question = questionWithConversationContext(params.text, params.context);
+    await sendWorkflowStatus({ key: 'workflow.starting' }, workflowId, params.sessionId, params.clientId);
+    checkAborted(workflowId);
     switch (params.mode) {
       case 'free':
         await handleFreeMode(question, params.targets, workflowId);
@@ -412,7 +474,10 @@ async function handleSendMessage(params: SendParams): Promise<void> {
   } catch (error) {
     if (!(error instanceof DOMException && error.name === 'AbortError')) sendSystemError(errorMessage(error), workflowId);
   } finally {
-    sendWorkflowStatus({ key: '', done: true, cancelled: workflowAborted }, workflowId, params.sessionId, params.clientId);
+    stepRecovery.cancel(workflowId);
+    const completionClientId = activeWorkflowId === workflowId ? activeClientId : params.clientId;
+    const cancelled = workflowAborted || activeWorkflowId !== workflowId;
+    await sendWorkflowStatus({ key: '', done: true, cancelled }, workflowId, params.sessionId, completionClientId);
     await clearPersistedWorkflow(workflowId);
     if (activeWorkflowId === workflowId) {
       activeWorkflowId = undefined;
@@ -420,6 +485,41 @@ async function handleSendMessage(params: SendParams): Promise<void> {
       activeClientId = undefined;
     }
   }
+}
+
+async function beginWorkflow(params: SendParams): Promise<void> {
+  await workflowStartGate.run(async () => {
+    workflowLifecycle.assertCanStart(params.workflowId);
+    if (activeWorkflowId) await abortWorkflow(activeWorkflowId);
+    workflowLifecycle.assertCanStart(params.workflowId);
+    workflowAborted = false;
+    workflowProviders.clear();
+    activeWorkflowId = params.workflowId;
+    activeSessionId = params.sessionId;
+    activeClientId = params.clientId;
+    await chrome.storage.session.set({
+      [ACTIVE_WORKFLOW_STORAGE_KEY]: {
+        workflowId: params.workflowId,
+        sessionId: params.sessionId,
+        clientId: params.clientId,
+        startedAt: Date.now(),
+      },
+    });
+  });
+}
+
+function isSendParams(value: unknown): value is SendParams {
+  if (!value || typeof value !== 'object') return false;
+  const params = value as Partial<SendParams>;
+  return typeof params.workflowId === 'string'
+    && typeof params.text === 'string'
+    && typeof params.sessionId === 'string'
+    && typeof params.clientId === 'string'
+    && (params.mode === 'free'
+      || params.mode === 'debate'
+      || params.mode === 'consult'
+      || params.mode === 'coding'
+      || params.mode === 'roundtable');
 }
 
 async function notifyInterruptedWorkflow(target?: { clientId?: string; sessionId?: string }): Promise<void> {
@@ -529,17 +629,20 @@ async function handleCodingMode(text: string, roles: CodingRoles, workflowId: st
 }
 
 async function handleRoundtableMode(text: string, roles: RoundtableRoles, workflowId: string): Promise<void> {
-  const participants: AIProvider[] = [roles.first, roles.second, roles.third, roles.fourth];
-  const history: { name: string; round: number; text: string }[] = [];
-  for (let round = 1; round <= 5; round += 1) {
-    for (const participant of participants) {
-      checkAborted(workflowId);
-      sendWorkflowStatus({ key: 'workflow.roundtable', params: { round, labelKey: `round.${round}`, provider: name(participant) } });
-      sendRoleAssignment(participant, `round.${round}`);
-      const response = await sendAndWait(participant, PROMPTS.roundtable.buildPrompt(text, round, name(participant), history), workflowId);
-      history.push({ name: name(participant), round, text: response });
-    }
-  }
+  await runRoundtableWorkflow(text, roles, workflowId, {
+    checkAborted,
+    providerName: name,
+    buildPrompt: PROMPTS.roundtable.buildPrompt,
+    createRequestId: createProviderRequestId,
+    sendStatus: async (round, participant) => {
+      await sendWorkflowStatus({ key: 'workflow.roundtable', params: { round, labelKey: `round.${round}`, provider: name(participant) } });
+    },
+    sendRoleAssignment,
+    sendAndWait: (participant, prompt, activeId, requestId) => sendAndWait(participant, prompt, activeId, true, requestId),
+    requestRecovery: requestStepRecovery,
+    resetProvider: resetProviderAfterFailure,
+    cancelWorkflow: abortWorkflow,
+  });
 }
 
 function sendCodingStatus(current: number, provider: AIProvider, actionKey: string): void {
@@ -554,25 +657,111 @@ function name(provider: AIProvider): string {
   return AI_PROVIDERS[provider].name;
 }
 
-function sendWorkflowStatus(
+async function sendWorkflowStatus(
   payload: WorkflowStatusPayload,
   workflowId = activeWorkflowId,
   sessionId = activeSessionId,
   clientId = activeClientId,
-): void {
-  chrome.runtime.sendMessage({
+): Promise<void> {
+  await chrome.runtime.sendMessage({
     action: 'WORKFLOW_STATUS',
     payload: { ...payload, workflowId, sessionId, clientId },
   }).catch(() => {});
 }
 
-function sendRoleAssignment(provider: AIProvider, labelKey: string): void {
-  chrome.runtime.sendMessage({
+async function sendRoleAssignment(provider: AIProvider, labelKey: string, requestId?: string): Promise<void> {
+  await chrome.runtime.sendMessage({
     action: 'ROLE_ASSIGNMENT',
     provider,
+    requestId,
     workflowId: activeWorkflowId,
     payload: { labelKey, sessionId: activeSessionId, clientId: activeClientId },
   }).catch(() => {});
+}
+
+function requestStepRecovery(
+  provider: AIProvider,
+  error: unknown,
+  workflowId: string,
+  failedRequestId: string,
+): Promise<'retry' | 'skip' | 'cancel'> {
+  checkAborted(workflowId);
+  if (!activeSessionId || !activeClientId) throw new DOMException('Workflow cancelled', 'AbortError');
+  return stepRecovery.waitForDecision(
+    {
+      workflowId,
+      sessionId: activeSessionId,
+      clientId: activeClientId,
+      provider,
+      failedRequestId,
+      reason: errorMessage(error),
+    },
+    broadcastStepRecovery,
+    new Error(encodeError('error.recovery_timeout', { provider })),
+  );
+}
+
+async function resetProviderAfterFailure(provider: AIProvider, failedRequestId: string, workflowId: string): Promise<void> {
+  await resetProviderRequest(provider, failedRequestId, workflowId, connections[provider].tabId);
+}
+
+async function resetProviderRequest(provider: AIProvider, requestId: string, workflowId: string, tabId?: number): Promise<void> {
+  if (!tabId) return;
+  await deliverToTab(provider, tabId, {
+    action: 'STOP_GENERATION',
+    provider,
+    requestId,
+    workflowId,
+  }).catch(() => {});
+}
+
+function broadcastStepRecovery(request: StepRecoveryRequest): void {
+  stepRecoveryReplay.publish(request, sendStepRecoveryMessage);
+}
+
+function sendStepRecoveryMessage(request: StepRecoveryRequest): void {
+  chrome.runtime.sendMessage({
+    action: 'STEP_RECOVERY_REQUIRED',
+    provider: request.provider,
+    requestId: request.failedRequestId,
+    workflowId: request.workflowId,
+    payload: request,
+  }).catch(() => {});
+}
+
+async function replayPendingStepRecovery(target?: { clientId?: string; sessionId?: string }): Promise<void> {
+  await stepRecoveryReplay.replay(async () => {
+    const current = stepRecovery.current();
+    if (!current || !target?.clientId || target.sessionId !== current.sessionId) return undefined;
+    const targetClientId = target.clientId;
+    if (!workflowLifecycle.canOwnRecovery(current.workflowId, targetClientId)) return undefined;
+    if (targetClientId === current.clientId) return current;
+    const registered = workflowLifecycle.current(current.workflowId);
+    if (!registered
+      || registered.sessionId !== current.sessionId
+      || registered.clientId !== current.clientId) return undefined;
+    return transferStepRecoveryOwnership(
+      current,
+      targetClientId,
+      () => {
+        const next = stepRecovery.rebindClient(current.workflowId, current.sessionId, targetClientId);
+        if (!next) return undefined;
+        workflowLifecycle.rebind(current.workflowId, current.sessionId, targetClientId);
+        workflowLifecycle.revokeRecoveryOwner(current.workflowId, current.clientId);
+        activeClientId = targetClientId;
+        return next;
+      },
+      async (previous) => {
+        await sendWorkflowStatus(
+          { key: '', done: true, cancelled: true },
+          previous.workflowId,
+          previous.sessionId,
+          previous.clientId,
+        );
+      },
+      (candidate) => stepRecovery.current()?.recoveryId === candidate.recoveryId,
+    );
+  }, sendStepRecoveryMessage);
 }
 
 function sendSystemError(message: string, workflowId = activeWorkflowId): void {

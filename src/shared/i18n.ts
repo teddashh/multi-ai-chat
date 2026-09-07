@@ -116,6 +116,10 @@ const en: Record<string, string> = {
   'workflow.coding': 'Step {current}/8 · {provider} · {action}',
   'workflow.roundtable': 'Round {round}/5 · {label} · {provider}',
   'workflow.cancelled': 'Workflow stopped',
+  'recovery.title': '{provider} could not finish this turn',
+  'recovery.retry': 'Retry',
+  'recovery.skip': 'Skip this turn',
+  'recovery.cancel': 'Cancel workflow',
   'coding.spec': 'writing the specification',
   'coding.specReview': 'reviewing the specification',
   'coding.codeV1': 'implementing v1',
@@ -142,6 +146,7 @@ const en: Record<string, string> = {
   'error.reloaded': '{provider} reloaded during the workflow',
   'error.tab_closed': 'The {provider} tab was closed during the workflow',
   'error.timeout': '{provider} did not respond within {seconds} seconds',
+  'error.recovery_timeout': 'No recovery choice was made for {provider}; the workflow was stopped',
   'error.no_target': 'None of the selected AIs is ready',
   'error.worker_stopped': 'The browser stopped the extension worker during this workflow. Please run the step again.',
   'error.hackmd_failed': 'HackMD {status}: {detail}',
@@ -162,6 +167,7 @@ const zh: Record<string, string> = {
   'workflow.starting': '正在啟動流程…',
   'workflow.interrupted': '上一個流程被瀏覽器中斷…',
   'workflow.free': '{providers} 同時作答中…', 'workflow.debate.pro': '{provider} 正方立論中…', 'workflow.debate.con': '{provider} 反方反駁中…', 'workflow.debate.judge': '{provider} 評析雙方中…', 'workflow.debate.summary': '{provider} 綜合結論中…', 'workflow.consult.initial': '{first} 與 {second} 獨立回答中…', 'workflow.consult.review': '{provider} 審查兩份回答中…', 'workflow.consult.summary': '{provider} 整理最終答案中…', 'workflow.coding': '第 {current}/8 步 · {provider} · {action}', 'workflow.roundtable': '第 {round}/5 輪 · {label} · {provider}', 'workflow.cancelled': '流程已停止',
+  'recovery.title': '{provider} 未能完成這一棒', 'recovery.retry': '重試', 'recovery.skip': '略過這一棒', 'recovery.cancel': '取消流程',
   'coding.spec': '撰寫規格', 'coding.specReview': '審查規格', 'coding.codeV1': '實作 v1', 'coding.codeReview': '程式碼審查', 'coding.test': '設計測試', 'coding.codeV2': '修正 v2', 'coding.acceptance': '驗收', 'coding.final': '整理最終版',
   'round.1': '開場立論', 'round.2': '交叉質疑', 'round.3': '攻防深化', 'round.4': '核心收斂', 'round.5': '真理浮現',
   'error.input_not_found': '找不到 {provider} 的輸入框',
@@ -177,6 +183,7 @@ const zh: Record<string, string> = {
   'error.reloaded': '{provider} 在流程進行中重新載入',
   'error.tab_closed': '{provider} 的分頁在流程進行中被關閉',
   'error.timeout': '{provider} 超過 {seconds} 秒沒有回應',
+  'error.recovery_timeout': '未選擇如何處理 {provider} 的失敗，流程已停止',
   'error.no_target': '選取的 AI 都尚未就緒',
   'error.worker_stopped': '瀏覽器在流程進行中停止了擴充功能的背景程序，請重新執行這一步。',
   'error.hackmd_failed': 'HackMD {status}：{detail}',
@@ -194,6 +201,8 @@ const ja: Record<string, string> = {
   'workflow.starting': 'ワークフローを開始中…',
   'workflow.interrupted': '前回のワークフローがブラウザにより中断されました…',
   'workflow.free': '{providers} が同時に回答中…', 'workflow.debate.pro': '{provider} が賛成立論中…', 'workflow.debate.con': '{provider} が反論中…', 'workflow.debate.judge': '{provider} が判定中…', 'workflow.debate.summary': '{provider} がまとめ中…', 'workflow.consult.initial': '{first} と {second} が独立回答中…', 'workflow.consult.review': '{provider} がレビュー中…', 'workflow.consult.summary': '{provider} が最終回答を作成中…', 'workflow.coding': 'ステップ {current}/8 · {provider} · {action}', 'workflow.roundtable': 'ラウンド {round}/5 · {label} · {provider}', 'workflow.cancelled': '停止しました',
+  'recovery.title': '{provider} がこの発言を完了できませんでした', 'recovery.retry': '再試行', 'recovery.skip': 'この発言をスキップ', 'recovery.cancel': 'ワークフローを中止',
+  'error.recovery_timeout': '{provider} のエラーに対する選択がなかったため、ワークフローを停止しました',
   'coding.spec': '仕様を作成', 'coding.specReview': '仕様をレビュー', 'coding.codeV1': 'v1を実装', 'coding.codeReview': 'コードレビュー', 'coding.test': 'テストを設計', 'coding.codeV2': 'v2を修正', 'coding.acceptance': '受入確認', 'coding.final': '最終版を作成', 'round.1': '開場立論', 'round.2': '相互質問', 'round.3': '議論深化', 'round.4': '収束', 'round.5': '最終統合',
 };
 
@@ -208,6 +217,8 @@ const de: Record<string, string> = {
   'workflow.starting': 'Workflow wird gestartet…',
   'workflow.interrupted': 'Der vorherige Workflow wurde vom Browser unterbrochen…',
   'workflow.free': '{providers} antworten parallel…', 'workflow.debate.pro': '{provider} trägt die Pro-Seite vor…', 'workflow.debate.con': '{provider} widerspricht…', 'workflow.debate.judge': '{provider} bewertet beide Seiten…', 'workflow.debate.summary': '{provider} fasst zusammen…', 'workflow.consult.initial': '{first} und {second} antworten unabhängig…', 'workflow.consult.review': '{provider} prüft beide Antworten…', 'workflow.consult.summary': '{provider} erstellt das Endergebnis…', 'workflow.coding': 'Schritt {current}/8 · {provider} · {action}', 'workflow.roundtable': 'Runde {round}/5 · {label} · {provider}', 'workflow.cancelled': 'Workflow gestoppt',
+  'recovery.title': '{provider} konnte diesen Beitrag nicht abschließen', 'recovery.retry': 'Erneut versuchen', 'recovery.skip': 'Beitrag überspringen', 'recovery.cancel': 'Workflow abbrechen',
+  'error.recovery_timeout': 'Für den Fehler von {provider} wurde keine Auswahl getroffen; der Workflow wurde gestoppt',
   'coding.spec': 'Spezifikation erstellen', 'coding.specReview': 'Spezifikation prüfen', 'coding.codeV1': 'v1 implementieren', 'coding.codeReview': 'Code prüfen', 'coding.test': 'Tests entwerfen', 'coding.codeV2': 'v2 korrigieren', 'coding.acceptance': 'Abnahme prüfen', 'coding.final': 'Endversion erstellen', 'round.1': 'Eröffnungspositionen', 'round.2': 'Kreuzfragen', 'round.3': 'Vertiefung', 'round.4': 'Konvergenz', 'round.5': 'Synthese',
 };
 
@@ -222,6 +233,8 @@ const ko: Record<string, string> = {
   'workflow.starting': '워크플로 시작 중…',
   'workflow.interrupted': '이전 워크플로가 브라우저에 의해 중단되었습니다…',
   'workflow.free': '{providers} 동시 답변 중…', 'workflow.debate.pro': '{provider} 찬성 논의 중…', 'workflow.debate.con': '{provider} 반론 중…', 'workflow.debate.judge': '{provider} 판정 중…', 'workflow.debate.summary': '{provider} 종합 중…', 'workflow.consult.initial': '{first}와 {second}가 독립 답변 중…', 'workflow.consult.review': '{provider} 검토 중…', 'workflow.consult.summary': '{provider} 최종 답변 작성 중…', 'workflow.coding': '{current}/8 단계 · {provider} · {action}', 'workflow.roundtable': '{round}/5 라운드 · {label} · {provider}', 'workflow.cancelled': '워크플로 중지됨',
+  'recovery.title': '{provider}가 이번 발언을 완료하지 못했습니다', 'recovery.retry': '다시 시도', 'recovery.skip': '이번 발언 건너뛰기', 'recovery.cancel': '워크플로 취소',
+  'error.recovery_timeout': '{provider} 오류에 대한 선택이 없어 워크플로가 중지되었습니다',
   'coding.spec': '명세 작성', 'coding.specReview': '명세 검토', 'coding.codeV1': 'v1 구현', 'coding.codeReview': '코드 검토', 'coding.test': '테스트 설계', 'coding.codeV2': 'v2 수정', 'coding.acceptance': '인수 확인', 'coding.final': '최종 버전 작성', 'round.1': '개회사', 'round.2': '상호 질문', 'round.3': '심화 공방', 'round.4': '수렴', 'round.5': '최종 종합',
 };
 

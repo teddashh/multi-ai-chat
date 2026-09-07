@@ -36,6 +36,8 @@ Steuere deine angemeldeten **ChatGPT-, Claude-, Gemini- und Grok-Tabs** als geme
 | Coding | Acht Schritte für Spezifikation, Reviews, Umsetzung, Tests und Abnahme |
 | Rundtisch | 5 Runden × 4 KIs = 20 Beiträge |
 
+Fällt ein Provider während des Rundtischs aus, pausiert der Workflow und bietet **Erneut versuchen**, **Beitrag überspringen** oder **Abbrechen** an. Beim Überspringen verwendet der verbleibende Rundtisch-Kontext einen sicheren Platzhalter und fährt mit der nächsten KI fort; der Provider-Fehlertext gelangt nicht in spätere Beiträge.
+
 ## Aus dem Quellcode installieren
 
 Voraussetzungen: Chrome 114+, Node.js 22.18+ und npm.
