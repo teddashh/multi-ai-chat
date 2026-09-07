@@ -1,6 +1,6 @@
 {
   "name": "multi-ai-chat",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Chrome Side Panel for reliable multi-AI workflows across ChatGPT, Claude, Gemini, and Grok",
   "private": true,
   "license": "MIT",
@@ -9,6 +9,9 @@
   },
   "scripts": {
     "dev": "webpack --watch --mode development",
+    "assets:promo": "node scripts/generate-promo-tile.js",
+    "assets:screenshot": "node scripts/generate-store-screenshot.js",
+    "assets:store": "npm run assets:promo && npm run assets:screenshot",
     "build": "webpack --mode production",
     "check:version": "node scripts/check-version.js",
     "typecheck": "tsc --noEmit",

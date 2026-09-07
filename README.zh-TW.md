@@ -4,7 +4,7 @@
 
 用一個輕量 Chrome 外掛，把你原本已登入的 **ChatGPT、Claude、Gemini、Grok** 分頁組成多 AI workflow。它直接操作 provider 網頁，不需模型 API Key，也沒有額外的對話後端。
 
-**目前原始碼：v0.2.0** · Chrome 114+ · Manifest V3 · MIT
+**目前原始碼：v0.2.1** · Chrome 114+ · Manifest V3 · MIT · [隱私權政策](./store/PRIVACY.md)
 
 > 外掛會自動操作第三方網頁介面。Provider 改版可能暫時使 selector 失效；自動化也可能受各服務條款約束。請只使用你有權使用的帳號與內容。
 
@@ -14,6 +14,13 @@
 |---|---|
 | **瀏覽器外掛（本 repo）** | 想用小巧 Side Panel 控制平常就在使用的 Chrome 分頁 |
 | [Desktop app](https://github.com/teddashh/multi-ai-chat-desktop) | 需要獨立 profile、聚焦 WebView、replay、snapshot 與本機檔案 workflow |
+
+## v0.2.1 更新
+
+- **道理辯證可從單步失敗恢復。** Provider 失敗時可選擇「重試」、「略過這一棒」或「取消」；重試使用新的 request ID，略過僅在後續圓桌上下文使用安全佔位內容，晚到或過期的回應不會混入 transcript 或後續步驟。
+- **嚴格驗證 provider URL。** 使用標準 URL parser 與精確的 HTTPS hostname 辨識 provider 分頁，拒絕相似網域、query string 與 user-info 欺騙。
+- **CI 與 release guardrail。** CI 固定 Node.js 22.18.0 與 GitHub Actions 版本，執行 dependency audit、typecheck、測試與 production build，檢查版本一致性，並拒絕過期的已提交 `dist/`。
+- **維護 build dependencies。** 更新有弱點的間接套件，以及 `@types/chrome`、PostCSS、Sharp、css-loader；Dependabot 現在每週檢查 npm 與 GitHub Actions。
 
 ## v0.2.0 更新
 

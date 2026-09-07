@@ -4,7 +4,7 @@
 
 A lightweight Chrome extension that turns your existing **ChatGPT, Claude, Gemini, and Grok** tabs into one multi-AI workflow. It uses the provider pages you are already logged into—no model API keys and no separate chat backend.
 
-**Current source: v0.2.0** · Chrome 114+ · Manifest V3 · MIT
+**Current source: v0.2.1** · Chrome 114+ · Manifest V3 · MIT · [Privacy Policy](./store/PRIVACY.md)
 
 > This extension automates third-party web interfaces. A provider redesign can temporarily break selectors, and automated use may be governed by each provider’s terms. Use accounts and content you are authorized to use.
 
@@ -14,6 +14,13 @@ A lightweight Chrome extension that turns your existing **ChatGPT, Claude, Gemin
 |---|---|
 | **Browser extension (this repo)** | You want a small Chrome Side Panel that controls tabs you already use |
 | [Desktop app](https://github.com/teddashh/multi-ai-chat-desktop) | You want isolated profiles, focused live WebViews, replay, snapshots, and local-file workflows |
+
+## What changed in v0.2.1
+
+- **Recoverable Roundtable steps.** If a provider fails, choose Retry, Skip this turn, or Cancel. Retries use a fresh request ID, skips use a safe placeholder only in the remaining Roundtable context, and stale or late responses cannot leak into the transcript or a later step.
+- **Strict provider URL validation.** Provider tabs are recognized with the standard URL parser and exact supported HTTPS hostnames, rejecting lookalike domains plus query-string and user-info tricks.
+- **CI and release guardrails.** CI pins Node.js 22.18.0 and GitHub Actions, audits dependencies, type-checks and tests the source, builds production assets, checks version consistency, and rejects stale committed `dist/` output.
+- **Maintained build dependencies.** Vulnerable transitive packages were refreshed, and `@types/chrome`, PostCSS, Sharp, and css-loader were updated. Weekly Dependabot checks now cover npm and GitHub Actions.
 
 ## What changed in v0.2.0
 
