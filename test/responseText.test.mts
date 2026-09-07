@@ -1,5 +1,5 @@
 // Uses Node's built-in node:test — no test framework dependency. Runs the TypeScript sources
-// directly, which needs Node 22.6+ native type stripping.
+// directly, which needs Node 22.18+ native type stripping.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { longerResponseText, serializeResponseText } from '../src/content/responseSerializer.ts';

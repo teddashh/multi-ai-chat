@@ -1,5 +1,5 @@
 // 用 Node 內建的 node:test，沒有測試框架依賴。直接跑 TypeScript 原始碼，
-// 需要 Node 22.6+ 的原生型別剝離（本機為 v26）。
+// 需要 Node 22.18+ 的原生型別剝離。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { encodeError, decodeError, ERROR_MARKER } from '../src/shared/errors.ts';
