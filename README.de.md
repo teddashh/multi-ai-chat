@@ -38,7 +38,7 @@ Steuere deine angemeldeten **ChatGPT-, Claude-, Gemini- und Grok-Tabs** als geme
 
 ## Aus dem Quellcode installieren
 
-Voraussetzungen: Chrome 114+, Node.js 20+ und npm.
+Voraussetzungen: Chrome 114+, Node.js 22.18+ und npm.
 
 ```sh
 git clone https://github.com/teddashh/multi-ai-chat.git

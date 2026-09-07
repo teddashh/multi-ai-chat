@@ -41,7 +41,7 @@ A lightweight Chrome extension that turns your existing **ChatGPT, Claude, Gemin
 
 ## Install from source
 
-Requirements: Chrome 114+, Node.js 20+, and npm.
+Requirements: Chrome 114+, Node.js 22.18+, and npm.
 
 ```sh
 git clone https://github.com/teddashh/multi-ai-chat.git

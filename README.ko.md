@@ -38,7 +38,7 @@
 
 ## 소스에서 설치
 
-Chrome 114+, Node.js 20+, npm이 필요합니다.
+Chrome 114+, Node.js 22.18+, npm이 필요합니다.
 
 ```sh
 git clone https://github.com/teddashh/multi-ai-chat.git

@@ -38,7 +38,7 @@
 
 ## ソースからインストール
 
-Chrome 114+、Node.js 20+、npm が必要です。
+Chrome 114+、Node.js 22.18+、npm が必要です。
 
 ```sh
 git clone https://github.com/teddashh/multi-ai-chat.git
