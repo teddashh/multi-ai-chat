@@ -1,6 +1,6 @@
 # Privacy Policy — Multi-AI Chat (Chrome extension)
 
-**Effective date:** 2026-07-31
+**Effective date:** 2026-07-31 · **Last updated:** 2026-09-07
 
 Multi-AI Chat is a Chrome Side Panel extension that lets you send one prompt to the
 ChatGPT, Claude, Gemini, and Grok tabs you are already signed into. This policy explains
@@ -18,7 +18,9 @@ what it accesses and what it does **not** do.
 
 - **Prompt and response text on provider pages.** To run a workflow, the content script types
   your prompt into the provider's composer, sends it, and reads the on-page response so it can be
-  shown in the Side Panel and passed to the next step. This text is processed locally.
+  shown in the Side Panel and passed to the next step. This text is processed locally. In the
+  Chrome Web Store disclosures, this is declared as both **Website content** and **Personal
+  communications** because prompts and AI responses are chat messages.
 - **Local storage.** Your UI language, up to 30 recent conversations, and an optional HackMD API
   token are stored with `chrome.storage.local` on your device. The HackMD token is confined to
   trusted extension pages so provider content scripts cannot read it.
@@ -44,8 +46,13 @@ Nothing is ever sent to the developer.
 
 ## Data sharing
 
-The developer does not sell, rent, or transfer your data to third parties, and does not use it
-for any purpose beyond the extension's single purpose (running your multi-AI workflows).
+The developer never receives, sells, rents, or uses your data. The extension makes only the
+user-directed transfers described above: prompts to the providers you select in order to run a
+workflow, and—only when you click **Publish**—the current conversation and your token to HackMD.
+It makes no other transfers.
+
+Use of information received from Google APIs adheres to the Chrome Web Store User Data Policy,
+including its Limited Use requirements.
 
 ## Permissions, briefly
 

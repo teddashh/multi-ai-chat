@@ -4,7 +4,7 @@
 
 로그인된 **ChatGPT, Claude, Gemini, Grok** 탭을 하나의 가벼운 Chrome Side Panel에서 다중 AI workflow로 제어합니다. 모델 API 키나 별도의 대화 서버가 필요하지 않습니다.
 
-**현재 소스: v0.2.0** · Chrome 114+ · Manifest V3 · MIT
+**현재 소스: v0.2.1** · Chrome 114+ · Manifest V3 · MIT · [개인정보 처리방침](./store/PRIVACY.md)
 
 > 제3자 웹 UI를 자동화하므로 provider 화면 변경으로 selector가 일시적으로 깨질 수 있습니다. 각 서비스 약관을 확인하고 사용 권한이 있는 계정과 콘텐츠만 이용하세요.
 
@@ -14,6 +14,13 @@
 |---|---|
 | **Browser extension (이 repo)** | 평소 사용하는 Chrome 탭을 작은 Side Panel에서 제어 |
 | [Desktop app](https://github.com/teddashh/multi-ai-chat-desktop) | 독립 profile, live WebView, replay, snapshot, 로컬 파일이 필요 |
+
+## v0.2.1
+
+- **원탁 토론 단계 복구.** Provider 실패 시 다시 시도, 이번 발언 건너뛰기, 취소 중 하나를 선택할 수 있습니다. 재시도는 새 request ID를 사용하고, 건너뛰기는 남은 원탁 토론 문맥에서만 안전한 자리 표시자를 사용하며, 늦거나 만료된 응답은 transcript나 후속 단계에 섞이지 않습니다.
+- **엄격한 provider URL 검증.** 표준 URL parser와 정확히 일치하는 지원 HTTPS hostname으로 provider 탭을 식별하여 유사 도메인, query string, user-info를 이용한 위장을 거부합니다.
+- **CI 및 release guardrail.** Node.js 22.18.0과 GitHub Actions를 고정하고 dependency audit, typecheck, 테스트, production build, 버전 일치 여부, commit된 `dist/`의 최신 상태를 검사합니다.
+- **Build dependency 유지보수.** 취약한 간접 패키지와 `@types/chrome`, PostCSS, Sharp, css-loader를 업데이트했으며 Dependabot이 npm과 GitHub Actions를 매주 확인합니다.
 
 ## v0.2.0
 

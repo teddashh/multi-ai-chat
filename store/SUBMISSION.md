@@ -1,6 +1,6 @@
 # Chrome Web Store — submission pack
 
-Everything needed for the Developer Dashboard listing of **Multi-AI Chat** (v0.2.0).
+Everything needed for the Developer Dashboard listing of **Multi-AI Chat** (v0.2.1).
 Copy each block into the matching field. Items marked **[you]** can only be done by the
 publishing Google account.
 
@@ -8,10 +8,10 @@ publishing Google account.
 
 ## 0. Before you upload — action items **[you]**
 
-1. **Register a developer account** at https://chrome.google.com/webstore/devconsole — one-time **US$5** fee (Google account + card). New accounts may need identity verification (can take a few days).
-2. **Host the privacy policy.** Publish `store/PRIVACY.md` somewhere public (e.g. `https://ted-h.com/multi-ai-chat/privacy`) and paste the URL into the dashboard. A privacy-policy URL is **required** because the extension reads page content.
-3. **Upload the package** `multi-ai-chat-store-v0.2.0.zip` (see §6 to regenerate).
-4. **Add screenshots** (see §5).
+1. **Register a developer account** at https://chrome.google.com/webstore/devconsole — one-time **US$5** fee (Google account + card). New accounts may need identity verification (can take a few days), and the publishing Google account must have **2-Step Verification** enabled.
+2. **Privacy policy.** Use the public repository copy at `https://github.com/teddashh/multi-ai-chat/blob/master/store/PRIVACY.md` (or mirror it on the developer's own domain). A privacy-policy URL is **required** because the extension reads page content.
+3. **Upload the package** `multi-ai-chat-store-v0.2.1.zip` (see §6 to regenerate).
+4. **Add the screenshot and small promo tile** from `store/` (see §5).
 5. Fill the fields below, complete the **Privacy practices** tab (§4), then **Submit for review**.
 
 ---
@@ -43,6 +43,9 @@ WHY IT'S RELIABLE
 • Input selectors retry, rich editors are verified, and Enter is used as a checked fallback.
 • Every request has an ID, so a late answer can never complete the wrong workflow.
 • Stop really stops — it cancels waiters and asks each provider page to stop generating.
+• If a Roundtable provider fails, choose Retry, Skip this turn, or Cancel; retries are isolated
+  with a fresh request ID, while skips use a safe placeholder only in the remaining Roundtable
+  context instead of passing error text to later turns.
 • A tab is shown "Ready" only after its composer confirms you are signed in.
 
 ALSO
@@ -97,26 +100,26 @@ Declare the following data types and reasons; leave every other type unchecked.
 
 | Data type | Collected? | What / why |
 |---|---|---|
-| **Website content** | Yes | The prompt text and the provider's on-page response are read to run the workflow and show the transcript. Processed locally; only sent externally if the user clicks Publish (to their own HackMD). Never sent to the developer. |
+| **Website content** | Yes | Prompt and response text are read to run the workflow and show the transcript. Prompts are sent to the providers the user selects; the conversation is also sent to HackMD only if the user explicitly clicks Publish. Never sent to the developer, and no other transfers occur. |
+| **Personal communications** | Yes | Prompts and AI responses are chat messages. They are processed for the requested workflow and stored only in the user's browser; prompts go to the selected providers, and the conversation goes to HackMD only when the user explicitly clicks Publish. Never sent to the developer. |
 | **Authentication information** | Yes | The optional HackMD API token the user pastes in Settings, stored locally and sent only to HackMD when publishing. |
-| PII, health, financial, personal communications*, location, web history, user activity | No | Not collected. |
-
-\* The stored conversations live only in the user's browser and are never transmitted to the developer; they are disclosed above under "Website content."
+| PII, health, financial, location, web history, user activity | No | Not collected. |
 
 **Three required certifications — all true:**
 - ☑ I do not sell or transfer user data to third parties outside the approved use cases.
 - ☑ I do not use or transfer user data for purposes unrelated to the item's single purpose.
 - ☑ I do not use or transfer user data to determine creditworthiness or for lending.
 
-**Privacy policy URL:** _(paste the hosted URL of `store/PRIVACY.md`)_ **[you]**
+**Privacy policy URL:** `https://github.com/teddashh/multi-ai-chat/blob/master/store/PRIVACY.md`
 
 ---
 
 ## 5. Screenshots
 
 - Chrome Web Store requires **1280×800** or **640×400** (≥1 screenshot; up to 5).
-- `store/screenshot-1280x800.png` is generated from the repo's `screenshot.png` (letterboxed to fit). It is upload-valid but a purpose-shot 1280×800 capture of the Side Panel in action would look better — ideally one per mode (Free / Debate / Consult).
-- Optional small promo tile: 440×280.
+- `store/screenshot-1280x800.png` is a full-bleed 1280×800 crop of the repo's real browser capture, with the Side Panel and provider tabs in action. It has square canvas edges and no padding.
+- `store/promo-small-440x280.png` is the required **440×280 small promo tile**. It uses the extension's neutral four-circle mark, fills the complete frame, and contains no text or third-party provider logos.
+- Regenerate both listing images with `npm run assets:store` after changing the source screenshot, icon, or brand treatment.
 
 ---
 
@@ -127,12 +130,12 @@ load-unpacked extension, zip its contents:
 
 ```powershell
 # from the repo root
-Compress-Archive -Path dist\* -DestinationPath store\multi-ai-chat-store-v0.2.0.zip -Force
+Compress-Archive -Path dist\* -DestinationPath store\multi-ai-chat-store-v0.2.1.zip -Force
 ```
 
 ```sh
 # or with the zip CLI
-(cd dist && zip -r ../store/multi-ai-chat-store-v0.2.0.zip .)
+(cd dist && zip -r ../store/multi-ai-chat-store-v0.2.1.zip .)
 ```
 
 Always run `npm run verify` first so `dist/` reflects the current source.
@@ -163,6 +166,7 @@ Multi-AI Chat 把你已經登入的 ChatGPT、Claude、Gemini、Grok 分頁組�
 • 輸入 selector 會重試、rich editor 會驗證，送出用 Enter 做最後 fallback。
 • 每次呼叫都有 request ID，晚到的回答不會完成錯誤的流程。
 • Stop 是真的停止——拒絕 waiter，並要求每個 provider 頁面停止生成。
+• 道理辯證中若 provider 失敗，可選擇重試、略過這一棒或取消；重試使用新的 request ID，略過僅在後續圓桌上下文使用安全佔位內容，不會把錯誤文字傳給後續發言。
 • 只有 composer 確認你已登入，分頁才會顯示「就緒」。
 
 還有
@@ -196,6 +200,7 @@ Multi-AI Chat は、ログイン済みの ChatGPT・Claude・Gemini・Grok タ�
 • 入力 selector の再試行、rich editor の検証、最後は Enter fallback。
 • すべての呼び出しに request ID。遅延した回答が誤った workflow を完了させません。
 • Stop は本当に停止——waiter を解除し、各 provider ページに生成停止を要求。
+• 円卓討論で provider が失敗した場合は再試行・この発言をスキップ・中止を選択可能。再試行は新しい request ID を使い、スキップは残りの円卓コンテキストでのみ安全なプレースホルダーを使い、後続の発言へエラー文を渡しません。
 • composer がログインを確認した後にのみ「準備完了」と表示。
 
 その他
@@ -229,6 +234,7 @@ Warum zuverlässig
 • Eingabe-Selektoren mit Retry, geprüfte Rich-Editoren, Enter als Fallback.
 • Jeder Aufruf hat eine Request-ID; verspätete Antworten schließen keinen falschen Workflow ab.
 • Stop stoppt wirklich – löst Waiter auf und bittet jede Provider-Seite, die Generierung zu beenden.
+• Scheitert ein Provider im Rundtisch, stehen Erneut versuchen, Beitrag überspringen oder Abbrechen zur Wahl; Retries erhalten eine neue Request-ID, Skips verwenden nur im verbleibenden Rundtisch-Kontext einen sicheren Platzhalter und geben keinen Fehlertext weiter.
 • „Bereit" erscheint erst, wenn der Composer die Anmeldung bestätigt.
 
 Außerdem
@@ -262,6 +268,7 @@ Multi-AI Chat는 로그인된 ChatGPT, Claude, Gemini, Grok 탭을 Chrome Side P
 • 입력 selector 재시도, rich editor 검증, 마지막엔 Enter fallback.
 • 모든 호출에 request ID가 있어 늦은 응답이 잘못된 workflow를 완료하지 않습니다.
 • Stop은 실제로 중단합니다 — waiter를 해제하고 각 provider 페이지에 생성 중단을 요청.
+• 원탁 토론 중 provider가 실패하면 다시 시도, 이번 발언 건너뛰기, 취소 중 하나를 선택할 수 있습니다. 재시도는 새 request ID를 사용하고, 건너뛰기는 남은 원탁 토론 문맥에서만 안전한 자리 표시자를 사용하며 후속 발언에 오류 문구를 전달하지 않습니다.
 • composer가 로그인 상태를 확인한 후에만 '준비됨'으로 표시.
 
 그 외

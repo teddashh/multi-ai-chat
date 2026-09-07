@@ -4,7 +4,7 @@
 
 ログイン済みの **ChatGPT、Claude、Gemini、Grok** タブを、1つの軽量な Chrome Side Panel から複数AI workflow として操作します。モデルAPIキーも独自の会話backendも必要ありません。
 
-**現在のソース：v0.2.0** · Chrome 114+ · Manifest V3 · MIT
+**現在のソース：v0.2.1** · Chrome 114+ · Manifest V3 · MIT · [プライバシーポリシー](./store/PRIVACY.md)
 
 > 第三者のWeb UIを自動操作するため、providerの変更でselectorが一時的に壊れることがあります。各サービスの利用規約と、利用権限のあるアカウント・コンテンツを使用してください。
 
@@ -14,6 +14,13 @@
 |---|---|
 | **Browser extension（このrepo）** | 普段使っているChromeタブを小さなSide Panelから操作したい |
 | [Desktop app](https://github.com/teddashh/multi-ai-chat-desktop) | 独立profile、ライブWebView、replay、snapshot、ローカルファイルが必要 |
+
+## v0.2.1
+
+- **円卓討論のステップ復旧。** Provider の失敗時に「再試行」「この発言をスキップ」「中止」を選択できます。再試行は新しい request ID を使い、スキップは残りの円卓コンテキストでのみ安全なプレースホルダーを使います。遅延・期限切れの応答が transcript や後続ステップへ混入することはありません。
+- **厳格な provider URL 検証。** 標準 URL parser と正確な HTTPS hostname で provider タブを判定し、類似ドメイン、query string、user-info を使った偽装を拒否します。
+- **CI と release のガードレール。** Node.js 22.18.0 と GitHub Actions を固定し、dependency audit、typecheck、テスト、production build、バージョン整合性、commit 済み `dist/` の鮮度を検証します。
+- **Build dependencies の保守。** 脆弱性のある間接パッケージと `@types/chrome`、PostCSS、Sharp、css-loader を更新し、Dependabot が npm と GitHub Actions を毎週確認します。
 
 ## v0.2.0
 

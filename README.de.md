@@ -4,7 +4,7 @@
 
 Steuere deine angemeldeten **ChatGPT-, Claude-, Gemini- und Grok-Tabs** als gemeinsamen Multi-AI-Workflow in einem leichten Chrome Side Panel. Keine Modell-API-Schlüssel und kein separater Gesprächsserver.
 
-**Aktueller Quellstand: v0.2.0** · Chrome 114+ · Manifest V3 · MIT
+**Aktueller Quellstand: v0.2.1** · Chrome 114+ · Manifest V3 · MIT · [Datenschutz](./store/PRIVACY.md)
 
 > Die Erweiterung automatisiert Weboberflächen Dritter. Änderungen eines Providers können Selektoren vorübergehend beschädigen. Beachte die jeweiligen Bedingungen und verwende nur berechtigte Konten und Inhalte.
 
@@ -14,6 +14,13 @@ Steuere deine angemeldeten **ChatGPT-, Claude-, Gemini- und Grok-Tabs** als geme
 |---|---|
 | **Browser-Erweiterung (dieses Repo)** | vorhandene Chrome-Tabs in einem kleinen Side Panel gesteuert werden sollen |
 | [Desktop-App](https://github.com/teddashh/multi-ai-chat-desktop) | getrennte Profile, Live-WebViews, Replay, Snapshots und lokale Dateien benötigt werden |
+
+## v0.2.1
+
+- **Wiederaufnahme einzelner Rundtisch-Schritte.** Bei einem Provider-Fehler stehen „Erneut versuchen“, „Beitrag überspringen“ und „Abbrechen“ zur Wahl. Ein Retry erhält eine neue Request-ID, ein Skip verwendet einen sicheren Platzhalter nur im verbleibenden Rundtisch-Kontext, und verspätete oder veraltete Antworten gelangen weder ins Transkript noch in spätere Schritte.
+- **Strikte Provider-URL-Prüfung.** Provider-Tabs werden mit dem Standard-URL-Parser und exakten unterstützten HTTPS-Hostnamen erkannt; ähnlich aussehende Domains sowie Query- und User-Info-Tricks werden abgewiesen.
+- **CI- und Release-Leitplanken.** CI fixiert Node.js 22.18.0 und GitHub Actions, prüft Abhängigkeiten, Typen und Tests, baut Production Assets, vergleicht Versionsangaben und lehnt veraltete eingecheckte `dist/`-Dateien ab.
+- **Aktualisierte Build-Abhängigkeiten.** Verwundbare transitive Pakete sowie `@types/chrome`, PostCSS, Sharp und css-loader wurden aktualisiert. Dependabot prüft npm und GitHub Actions nun wöchentlich.
 
 ## v0.2.0
 
