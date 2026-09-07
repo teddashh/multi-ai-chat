@@ -19,6 +19,7 @@ import {
 } from '../shared/constants';
 import { questionWithConversationContext } from '../shared/conversationContinuity';
 import { encodeError } from '../shared/errors';
+import { getProviderFromUrl } from '../shared/providerUrl';
 
 interface ResponseWaiter {
   provider: AIProvider;
@@ -233,14 +234,6 @@ async function deliverToTab(provider: AIProvider, tabId: number, message: Extens
       throw firstError;
     }
   }
-}
-
-function getProviderFromUrl(url: string): AIProvider | null {
-  if (url.includes('chatgpt.com') || url.includes('chat.openai.com')) return 'chatgpt';
-  if (url.includes('claude.ai')) return 'claude';
-  if (url.includes('gemini.google.com')) return 'gemini';
-  if (url.includes('grok.com')) return 'grok';
-  return null;
 }
 
 function broadcastConnections(): void {
