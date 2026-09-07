@@ -5,14 +5,15 @@
   "private": true,
   "license": "MIT",
   "engines": {
-    "node": ">=22.6.0"
+    "node": ">=22.18.0"
   },
   "scripts": {
     "dev": "webpack --watch --mode development",
     "build": "webpack --mode production",
+    "check:version": "node scripts/check-version.js",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/*.test.mts\"",
-    "verify": "npm run typecheck && npm run test && npm run build",
+    "verify": "npm run typecheck && npm run test && npm run build && npm run check:version",
     "clean": "rimraf dist"
   },
   "devDependencies": {

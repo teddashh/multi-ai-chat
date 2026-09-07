@@ -41,7 +41,7 @@
 
 ## 從原始碼安裝
 
-需要 Chrome 114+、Node.js 20+ 與 npm。
+需要 Chrome 114+、Node.js 22.18+ 與 npm。
 
 ```sh
 git clone https://github.com/teddashh/multi-ai-chat.git
