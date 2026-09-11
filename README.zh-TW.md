@@ -2,55 +2,72 @@
 
 [English](./README.md) · **繁體中文** · [日本語](./README.ja.md) · [Deutsch](./README.de.md) · [한국어](./README.ko.md)
 
-用一個輕量 Chrome 外掛，把你原本已登入的 **ChatGPT、Claude、Gemini、Grok** 分頁組成多 AI workflow。它直接操作 provider 網頁，不需模型 API Key，也沒有額外的對話後端。
+[官方網站](https://teddashh.github.io/multi-ai-chat/?lang=zh-TW) · [下載 v0.2.1](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.1) · [桌面版](https://teddashh.github.io/multi-ai-chat-desktop/?lang=zh-TW)
 
-**目前原始碼：v0.2.1** · Chrome 114+ · Manifest V3 · MIT · [隱私權政策](./store/PRIVACY.md)
+只問一次，讓四個 AI 一起工作。Multi-AI Chat 是輕量的 Chrome Side Panel，能協調你已登入的 **ChatGPT、Claude、Gemini、Grok** 分頁。它直接使用你原本就能存取的 provider 網頁，不需要模型 API Key，也沒有額外的對話後端。
 
-> 外掛會自動操作第三方網頁介面。Provider 改版可能暫時使 selector 失效；自動化也可能受各服務條款約束。請只使用你有權使用的帳號與內容。
+**目前版本：v0.2.1** · Chrome 114+ · Manifest V3 · 五種介面語言 · MIT
 
-## Desktop 還是瀏覽器版？
+> Multi-AI Chat 會自動操作第三方網頁介面。Provider 改版可能暫時使頁面 selector 失效，自動化也可能受各服務條款約束。請只使用你有權使用的帳號與內容。
+
+![Multi-AI Chat 在 Chrome 中執行多 provider workflow](./store/screenshot-1280x800.png)
+
+## 選擇適合的版本
 
 | 版本 | 適合情境 |
 |---|---|
-| **瀏覽器外掛（本 repo）** | 想用小巧 Side Panel 控制平常就在使用的 Chrome 分頁 |
-| [Desktop app](https://github.com/teddashh/multi-ai-chat-desktop) | 需要獨立 profile、聚焦 WebView、replay、snapshot 與本機檔案 workflow |
+| **瀏覽器外掛（本 repository）** | 用小巧的 Chrome Side Panel 控制平常就在使用的 provider 分頁 |
+| [Multi-AI Chat Desktop](https://teddashh.github.io/multi-ai-chat-desktop/?lang=zh-TW) | 需要獨立 provider profile、聚焦即時 WebView、snapshot、replay、checkpoint 與本機檔案 workflow |
 
-## v0.2.1 更新
+兩個版本都使用 provider 的網頁 session，皆不需要模型 API Key。
 
-- **道理辯證可從單步失敗恢復。** Provider 失敗時可選擇「重試」、「略過這一棒」或「取消」；重試使用新的 request ID，略過僅在後續圓桌上下文使用安全佔位內容，晚到或過期的回應不會混入 transcript 或後續步驟。
-- **嚴格驗證 provider URL。** 使用標準 URL parser 與精確的 HTTPS hostname 辨識 provider 分頁，拒絕相似網域、query string 與 user-info 欺騙。
-- **CI 與 release guardrail。** CI 固定 Node.js 22.18.0 與 GitHub Actions 版本，執行 dependency audit、typecheck、測試與 production build，檢查版本一致性，並拒絕過期的已提交 `dist/`。
-- **維護 build dependencies。** 更新有弱點的間接套件，以及 `@types/chrome`、PostCSS、Sharp、css-loader；Dependabot 現在每週檢查 npm 與 GitHub Actions。
+## 特色
 
-## v0.2.0 更新
+- 一個問題同時交給 ChatGPT、Claude、Gemini、Grok，並在執行前顯示各家的就緒狀態。
+- Request ID 隔離晚到的回應；Stop 會取消等待中的請求，並要求 provider 頁面停止生成。
+- 最多 30 個對話只存在本機，支援安全 Markdown、後續追問與「新對話」。
+- English、繁體中文、日本語、Deutsch、한국어 五種介面語言。
+- 淺色、深色或跟隨系統，文字對比通過 WCAG 檢查。
+- 可選擇用自己的 Token，經明確操作後發佈到 HackMD。
 
-- **可靠送出。** Selector 會重試、rich editor 會驗證文字、送出按鈕優先限制在 composer，並用 Enter 做最後驗證 fallback。
-- **不必手動點進分頁。** Service worker 重啟後會重新尋找 provider tab；舊分頁缺 content script 時會自動補注入。
-- **Request 隔離。** 每次 provider 呼叫都有 ID，晚到的舊回答不會完成錯誤流程。
-- **真正停止。** Stop 會拒絕 waiter，並要求 provider 頁面停止生成。
-- **修好圖片與 Gemini。** ChatGPT 只有圖片也會完成；Gemini 不再用 `innerHTML` 觸發 Trusted Types 錯誤。
-- **真實連線狀態。** 只有 composer 確認已登入時才顯示「就緒」。
-- **本機對話記錄。** 最多保存 30 個 session，可新對話，也可在 workflow 後繼續追問。
-- **Markdown transcript。** 使用安全 React renderer，不再只是整片純文字。
-- **五種 UI 語言。** English、繁體中文、日本語、Deutsch、한국어。
-- **新版 Side Panel。** 精簡模式卡、模式說明、自由模式目標、連線引導與小型流程追蹤。
-- **淺色、深色或跟隨系統。** 深色模式預設跟隨系統，並可在設定手動切換淺色／深色／跟隨系統，對比度皆通過 WCAG。
-
-## 模式
+## 模式與失敗恢復
 
 | 模式 | 流程 |
 |---|---|
-| **自由分送** | 所有已勾選且就緒的 provider 平行回答 |
+| **自由分送** | 平行送給所有已勾選且就緒的 provider |
 | **四方辯證** | 正方 → 反方 → 判官 → 綜合 |
 | **多方諮詢** | 兩份獨立回答 → 審查 → 最終答案 |
-| **Coding** | 八步規格、review、實作、測試、修正與驗收 |
-| **道理辯證** | 五輪 × 四家 = 二十次發言 |
+| **Coding** | 八步完成規格、review、實作、測試、修正與驗收 |
+| **道理辯證** | 五輪 × 四家 AI = 二十次發言 |
 
-道理辯證進行中若 provider 失敗，流程會暫停並讓你選擇「**重試**」、「**略過這一棒**」或「**取消**」。略過時，後續圓桌上下文會以安全佔位內容替代該回覆並繼續下一家 AI，不會把 provider 錯誤文字傳給後續發言。
+道理辯證進行中若 provider 失敗，workflow 會暫停，讓你選擇「**重試**」、「**略過這一棒**」或「**取消**」。重試會使用新的 request ID；略過只會在後續圓桌上下文加入安全佔位內容，因此 provider 錯誤文字與過期回應不會混入 transcript 或後續發言。
 
-## 從原始碼安裝
+## 安裝
 
-需要 Chrome 114+、Node.js 22.18+ 與 npm。
+### Release ZIP（建議）
+
+GitHub Release 套件可以直接當作 unpacked extension 載入，不必建置原始碼。
+
+1. 下載 [`multi-ai-chat-store-v0.2.1.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip) 與它的 [checksum 檔](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip.sha256)。
+2. 驗證壓縮檔；正確的 SHA-256 是 `c840f4e8f3ccca1478271b31d80597622563b64182b3527de786d67d546f6962`。
+
+   ```powershell
+   (Get-FileHash .\multi-ai-chat-store-v0.2.1.zip -Algorithm SHA256).Hash.ToLower()
+   ```
+
+   ```sh
+   shasum -a 256 multi-ai-chat-store-v0.2.1.zip
+   ```
+
+3. 把 ZIP 解壓縮到固定資料夾；該資料夾根目錄中會有 `manifest.json`。
+4. 開啟 `chrome://extensions`、啟用「**開發人員模式**」、選擇「**載入未封裝項目**」，再指定剛才解壓縮的資料夾。
+5. 固定 **Multi-AI Chat**，點圖示開啟 Side Panel，接著把每家 provider 開啟並登入一次。偵測到 composer 後，provider 會顯示「**就緒**」。
+
+更新時，請把新版本解壓縮到另一個固定資料夾，讓「載入未封裝項目」指向新資料夾；確認新版正常後，再移除舊版資料夾。
+
+### 從原始碼建置
+
+需要 Chrome 114+、Node.js 22.18+、npm 與 Git。
 
 ```sh
 git clone https://github.com/teddashh/multi-ai-chat.git
@@ -59,52 +76,65 @@ npm ci
 npm run verify
 ```
 
-接著：
-
-1. 開啟 `chrome://extensions`。
-2. 打開「開發人員模式」。
-3. 選「載入未封裝項目」，指定產生的 `dist/`。
-4. 固定 Multi-AI Chat，點 icon 開啟 Side Panel。
-5. 每家 provider 開啟並登入一次；偵測到 composer 後連線卡會變成「就緒」。
-
-開發時執行 `npm run dev`，在 `chrome://extensions` 重新載入，再重開 Side Panel。
+完成後，從 `chrome://extensions` 載入產生的 `dist/`。開發時執行 `npm run dev`，回到擴充功能頁面重新載入，再重開 Side Panel。
 
 ## 使用方式
 
-1. 選擇 workflow 模式。
+1. 選擇一張 workflow 模式卡。
 2. 自由模式預設四家全選，也可以關掉不需要的 provider。
-3. 展開「AI 連線」，開啟／登入缺少的服務。
-4. 輸入問題，按 Enter 或「送出」。
-5. 看精簡流程狀態；任何時候都能按「停止」。
-6. 結束後直接接著追問，或從選單選「新對話」。
+3. 展開「**AI 連線**」，開啟或登入缺少的 provider。
+4. 輸入問題，按 Enter 或「**送出**」。
+5. 查看 workflow 狀態；任何時候都能按「**停止**」。
+6. 完成後可直接繼續追問，或從選單開始「**新對話**」。
 
-串行 workflow 執行期間請保持 Side Panel 開啟。
+串行 workflow 執行期間，請保持 Side Panel 開啟。
 
-## 已知問題
+## 已知限制
 
-- **Microsoft Edge + Claude。** 在 Edge 上，Claude 卡片可能一直停在「開啟」而無法連線，因為 Edge 可能封鎖擴充功能在 `claude.ai` 上執行（工具列圖示會顯示「不允許此網站上的擴充功能」，且無法授予網站存取權）。ChatGPT、Gemini、Grok 不受影響，同一份 build 在 Google Chrome 上正常。解法：Claude 請改用 Google Chrome。
+- **Microsoft Edge + Claude：**Edge 可能封鎖擴充功能在 `claude.ai` 上執行，使 Claude 卡片一直停在「開啟」，工具列顯示「不允許此網站上的擴充功能」，也沒有可用的網站存取控制。ChatGPT、Gemini、Grok 不受影響；同一份 build 在 Google Chrome 可正常運作，目前 Claude 的解法是改用 Chrome。
 
 ## 權限與隱私
 
-- `sidePanel`：顯示控制介面。
-- `tabs`：尋找與聚焦 provider 分頁。
-- `scripting` 與 provider host 權限：外掛重載後，必要時把已打包 content script 補注入舊分頁。
-- `storage`：設定、最多 30 個本機對話與可選的 HackMD Token。
-- `https://api.hackmd.io/*`：只有使用者明確發佈時使用；發佈筆記可由訪客閱讀，設定畫面會提醒。
+| 存取範圍 | 用途 |
+|---|---|
+| `sidePanel` | 顯示完整控制介面 |
+| `tabs` | 尋找與聚焦 provider 分頁，追蹤載入、導頁、重新整理與關閉狀態；不會用來讀取無關分頁 |
+| `scripting` | Provider 分頁早於外掛重載或 content script 被清除時，只重新注入外掛內建的 script；不執行遠端程式碼 |
+| `storage` | 在你的裝置保存介面設定、最多 30 個本機對話與選填的 HackMD Token |
+| Provider hosts | 在 `chatgpt.com`、`chat.openai.com`、`claude.ai`、`gemini.google.com`、`grok.com` 輸入並送出 prompt，再讀取頁面回答以執行你選擇的 workflow |
+| `api.hackmd.io` | 只有你明確選擇「發佈」後才會連線，用你的 Token 建立可供訪客閱讀的筆記 |
 
-外掛把 `chrome.storage.local` 限制在受信任 extension context，provider content script 讀不到 HackMD Token。Prompt 直接送到 provider 頁面；沒有 Multi-AI Chat server、telemetry 或模型 API credential。
+Prompt 直接送到你選擇的 provider 頁面。這個專案**沒有 Multi-AI Chat 伺服器、分析、追蹤、廣告、telemetry 或模型 API credential**。選填的 HackMD Token 只允許受信任的 extension context 存取，provider content script 無法讀取。本機資料會留在 Chrome，直到你清除資料或移除外掛；移除外掛會刪除它的 local storage。你主動送出的內容仍適用各 provider 與 HackMD 的隱私政策。
+
+請閱讀完整的[隱私權政策](./store/PRIVACY.md)。
 
 ## 開發
 
 ```sh
 npm run typecheck
+npm run test
 npm run build
 npm run verify
 npm audit
 ```
 
-核心模組：`src/background/service-worker.ts`（編排）、`src/content/base.ts`（可靠注入）、`src/content/*.ts`（provider adapter）、`src/sidepanel/`（React UI、session、Markdown、i18n）。
+核心模組：
 
-Sponsored by [AI-Sister.com](https://ai-sister.com)。作者 Ted Huang（[TED@TED-H.com](mailto:TED@TED-H.com)、[ted-h.com](https://ted-h.com)）。MIT License。
+- `src/background/service-worker.ts` — workflow 編排、request 隔離、取消與分頁復原
+- `src/content/base.ts` — 經驗證的輸入、送出與回應引擎
+- `src/content/*.ts` — provider selector 與 editor strategy
+- `src/sidepanel/` — React 介面、本機 session、Markdown、theme 與 localization
 
-特別感謝 [@DaveTseng2019](https://github.com/DaveTseng2019) 對 v0.2.x 的大量貢獻——送出／回應可靠性、連線恢復、i18n 錯誤處理、深色模式、側邊欄 UX、圖示去背，以及補上 LICENSE。
+開 Pull Request 前請執行 `npm run verify`。遇到 provider 頁面失效時，可到 [Issues](https://github.com/teddashh/multi-ai-chat/issues) 提供 provider 與瀏覽器版本；請先從截圖或 log 移除 prompt、回答、帳號資料與 Token。
+
+## 專案與致謝
+
+- [官方網站](https://teddashh.github.io/multi-ai-chat/?lang=zh-TW)
+- [GitHub Releases](https://github.com/teddashh/multi-ai-chat/releases)
+- [原始碼與 Issue tracker](https://github.com/teddashh/multi-ai-chat)
+- [Multi-AI Chat Desktop](https://teddashh.github.io/multi-ai-chat-desktop/?lang=zh-TW)
+- [MIT License](./LICENSE)
+
+Sponsored by [AI-Sister.com](https://ai-sister.com)。作者 Ted Huang（[TED@TED-H.com](mailto:TED@TED-H.com)、[ted-h.com](https://ted-h.com)）。
+
+特別感謝 [@DaveTseng2019](https://github.com/DaveTseng2019) 對 v0.2.x 的大量貢獻：送出／回應可靠性、連線恢復、在地化錯誤處理、深色模式、Side Panel UX、透明圖示與專案授權。

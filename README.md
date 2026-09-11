@@ -2,55 +2,72 @@
 
 **English** · [繁體中文](./README.zh-TW.md) · [日本語](./README.ja.md) · [Deutsch](./README.de.md) · [한국어](./README.ko.md)
 
-A lightweight Chrome extension that turns your existing **ChatGPT, Claude, Gemini, and Grok** tabs into one multi-AI workflow. It uses the provider pages you are already logged into—no model API keys and no separate chat backend.
+[Official website](https://teddashh.github.io/multi-ai-chat/) · [Download v0.2.1](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.1) · [Desktop edition](https://teddashh.github.io/multi-ai-chat-desktop/)
 
-**Current source: v0.2.1** · Chrome 114+ · Manifest V3 · MIT · [Privacy Policy](./store/PRIVACY.md)
+Ask once and put four AIs to work. Multi-AI Chat is a lightweight Chrome Side Panel that coordinates your signed-in **ChatGPT, Claude, Gemini, and Grok** tabs. It uses the provider pages you already have access to—there are no model API keys and no separate chat backend.
 
-> This extension automates third-party web interfaces. A provider redesign can temporarily break selectors, and automated use may be governed by each provider’s terms. Use accounts and content you are authorized to use.
+**Current release: v0.2.1** · Chrome 114+ · Manifest V3 · Five interface languages · MIT
 
-## Desktop or browser?
+> Multi-AI Chat automates third-party web interfaces. A provider redesign can temporarily break page selectors, and automated use may be governed by each provider's terms. Use only accounts and content you are authorized to use.
 
-| Edition | Choose it when… |
+![Multi-AI Chat running a multi-provider workflow in Chrome](./store/screenshot-1280x800.png)
+
+## Choose your edition
+
+| Edition | Best for |
 |---|---|
-| **Browser extension (this repo)** | You want a small Chrome Side Panel that controls tabs you already use |
-| [Desktop app](https://github.com/teddashh/multi-ai-chat-desktop) | You want isolated profiles, focused live WebViews, replay, snapshots, and local-file workflows |
+| **Browser extension (this repository)** | A small Chrome Side Panel that works with the provider tabs you already use |
+| [Multi-AI Chat Desktop](https://teddashh.github.io/multi-ai-chat-desktop/) | Isolated provider profiles, focused live WebViews, snapshots, replay, checkpoints, and local-file workflows |
 
-## What changed in v0.2.1
+Both editions use the providers' web sessions and do not require model API keys.
 
-- **Recoverable Roundtable steps.** If a provider fails, choose Retry, Skip this turn, or Cancel. Retries use a fresh request ID, skips use a safe placeholder only in the remaining Roundtable context, and stale or late responses cannot leak into the transcript or a later step.
-- **Strict provider URL validation.** Provider tabs are recognized with the standard URL parser and exact supported HTTPS hostnames, rejecting lookalike domains plus query-string and user-info tricks.
-- **CI and release guardrails.** CI pins Node.js 22.18.0 and GitHub Actions, audits dependencies, type-checks and tests the source, builds production assets, checks version consistency, and rejects stale committed `dist/` output.
-- **Maintained build dependencies.** Vulnerable transitive packages were refreshed, and `@types/chrome`, PostCSS, Sharp, and css-loader were updated. Weekly Dependabot checks now cover npm and GitHub Actions.
+## Highlights
 
-## What changed in v0.2.0
+- One prompt across ChatGPT, Claude, Gemini, and Grok, with per-provider readiness shown before a run.
+- Request IDs isolate late responses; Stop cancels active waiters and asks provider pages to stop generating.
+- Up to 30 conversations are stored locally, with safe Markdown rendering, follow-up messages, and New chat.
+- English, Traditional Chinese, Japanese, German, and Korean UI.
+- Light, dark, or system appearance with WCAG-checked contrast.
+- Optional, explicit publishing to HackMD with your own token.
 
-- **Reliable sends.** Input selectors retry, rich editors are verified, send buttons are scoped to the composer, and Enter is used as a verified fallback.
-- **No manual tab detour.** Existing provider tabs are rediscovered when the service worker restarts; missing content scripts are reinjected automatically.
-- **Request isolation.** Every provider request has an ID, so late responses cannot complete the wrong workflow.
-- **Real cancellation.** Stop rejects active waiters and asks each provider page to stop generating.
-- **Fixed image and Gemini workflows.** Image-only ChatGPT replies finish correctly; Gemini no longer violates Trusted Types by assigning `innerHTML`.
-- **Honest connection state.** A tab is “Ready” only after its composer confirms that the user is logged in.
-- **Conversation history.** Up to 30 sessions are stored locally, with a New chat action and continued follow-up after any workflow.
-- **Readable transcript.** Responses use a safe React Markdown renderer instead of raw plain text.
-- **Five UI languages.** English, Traditional Chinese, Japanese, German, and Korean.
-- **Modern Side Panel.** Compact mode cards, descriptions, selected free-mode targets, connection setup, and a small workflow trace.
-- **Light, dark, or system.** Dark mode follows your OS by default, plus a manual Light / Dark / System switch in Settings, with WCAG-checked contrast.
-
-## Modes
+## Workflows and recovery
 
 | Mode | Workflow |
 |---|---|
-| **Free** | Send to all selected ready providers in parallel |
+| **Free** | Send in parallel to every selected provider that is ready |
 | **Debate** | Pro → Con → Judge → Synthesis |
 | **Consult** | Two independent answers → Review → Final answer |
-| **Coding** | Eight-step specification, review, implementation, test, revision, and acceptance loop |
-| **Roundtable** | Five rounds × four AIs = twenty turns |
+| **Coding** | Eight steps covering specification, review, implementation, testing, revision, and acceptance |
+| **Roundtable** | Five rounds × four AIs = twenty contributions |
 
-If a provider fails during Roundtable, the workflow pauses so you can **Retry**, **Skip this turn**, or **Cancel**. Skip substitutes a safe placeholder in the remaining Roundtable context and continues to the next AI; provider error text is not passed into later turns.
+If a provider fails during Roundtable, the workflow pauses and offers **Retry**, **Skip this turn**, or **Cancel**. Retry uses a fresh request ID. Skip inserts a safe placeholder only into the remaining Roundtable context, so provider error text and stale responses cannot leak into later turns or the transcript.
 
-## Install from source
+## Install
 
-Requirements: Chrome 114+, Node.js 22.18+, and npm.
+### Release ZIP (recommended)
+
+The GitHub Release package is ready to load as an unpacked extension; no source build is required.
+
+1. Download [`multi-ai-chat-store-v0.2.1.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip) and its [checksum file](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip.sha256).
+2. Verify the archive. The expected SHA-256 is `c840f4e8f3ccca1478271b31d80597622563b64182b3527de786d67d546f6962`.
+
+   ```powershell
+   (Get-FileHash .\multi-ai-chat-store-v0.2.1.zip -Algorithm SHA256).Hash.ToLower()
+   ```
+
+   ```sh
+   shasum -a 256 multi-ai-chat-store-v0.2.1.zip
+   ```
+
+3. Extract the ZIP to a permanent folder. Its root contains `manifest.json`.
+4. Open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select that extracted folder.
+5. Pin **Multi-AI Chat**, click its icon to open the Side Panel, then open and sign in to each provider once. A provider becomes **Ready** after its composer is detected.
+
+When updating, extract the new release to its own folder, point **Load unpacked** to that folder, and remove the older unpacked copy after confirming the new version works.
+
+### Build from source
+
+Requirements: Chrome 114+, Node.js 22.18+, npm, and Git.
 
 ```sh
 git clone https://github.com/teddashh/multi-ai-chat.git
@@ -59,61 +76,65 @@ npm ci
 npm run verify
 ```
 
-Then:
-
-1. Open `chrome://extensions`.
-2. Enable **Developer mode**.
-3. Select **Load unpacked** and choose the generated `dist/` folder.
-4. Pin **Multi-AI Chat**, then click its icon to open the Side Panel.
-5. Open each provider once and sign in. The connection card changes to **Ready** after the composer is detected.
-
-During development, use `npm run dev`, reload the extension from `chrome://extensions`, and reopen the Side Panel.
+Then load the generated `dist/` folder from `chrome://extensions`. During development, run `npm run dev`, reload the extension from that page, and reopen the Side Panel.
 
 ## Use
 
 1. Choose a workflow card.
-2. In Free mode, leave all four selected or turn off providers you do not need.
-3. Expand **AI connections** and open/sign in to any missing provider.
-4. Enter one question and press Enter or **Send**.
-5. Follow the compact workflow status. Press **Stop** at any time.
-6. Continue the conversation after completion, or open the menu and choose **New chat**.
+2. In Free mode, keep all four providers selected or turn off any you do not need.
+3. Expand **AI connections** and open or sign in to missing providers.
+4. Enter a question and press Enter or **Send**.
+5. Follow the workflow status; press **Stop** at any time.
+6. Continue the conversation after completion, or use the menu to start a **New chat**.
 
 Keep the Side Panel open while a serial workflow is running.
 
-## Known issues
+## Known limitation
 
-- **Microsoft Edge + Claude.** On Edge, the Claude card can stay stuck at "Open" and never connect, because Edge may block the extension from running on `claude.ai` (the toolbar icon shows "This extension is not allowed on this site" and site access cannot be granted). ChatGPT, Gemini, and Grok are unaffected, and the same build works in Google Chrome. Workaround: use Google Chrome for Claude.
+- **Microsoft Edge + Claude:** Edge may prevent the extension from running on `claude.ai`, leaving the Claude card at **Open** with “This extension is not allowed on this site” and no usable site-access control. ChatGPT, Gemini, and Grok are unaffected. The same build works in Google Chrome, which is the current workaround for Claude.
 
 ## Permissions and privacy
 
-- `sidePanel`: displays the control UI.
-- `tabs`: finds and focuses provider tabs.
-- `scripting` plus provider host permissions: repairs/reinjects the packaged content script when an existing tab predates an extension reload.
-- `storage`: keeps settings, up to 30 local conversations, and the optional HackMD token.
-- `https://api.hackmd.io/*`: used only when the user explicitly publishes. Published notes are guest-readable; the Settings screen warns about this.
+| Access | Why it is needed |
+|---|---|
+| `sidePanel` | Displays the entire control interface |
+| `tabs` | Finds and focuses provider tabs and tracks their load, navigation, reload, and close state; it is not used to read unrelated tabs |
+| `scripting` | Re-injects only the extension's packaged content scripts when a provider tab predates an extension reload or its script was evicted; no remote code is executed |
+| `storage` | Stores interface settings, up to 30 local conversations, and an optional HackMD token on your device |
+| Provider hosts | On `chatgpt.com`, `chat.openai.com`, `claude.ai`, `gemini.google.com`, and `grok.com`, types prompts, sends them, and reads on-page responses for the selected workflow |
+| `api.hackmd.io` | Contacted only after you explicitly choose **Publish**, using your token to create a guest-readable note |
 
-The extension sets `chrome.storage.local` to trusted extension contexts so provider content scripts cannot read the HackMD token. Prompts travel directly to provider pages; there is no Multi-AI Chat server, telemetry, or model API credential.
+Prompts go directly to the provider pages you select. There is **no Multi-AI Chat server, analytics, tracking, advertising, telemetry, or model API credential**. The optional HackMD token is restricted to trusted extension contexts, so provider content scripts cannot read it. Local data remains in Chrome until you clear it or remove the extension; removing the extension deletes its local storage. Provider and HackMD privacy policies still apply to content you choose to send them.
+
+Read the complete [privacy policy](./store/PRIVACY.md).
 
 ## Development
 
 ```sh
 npm run typecheck
+npm run test
 npm run build
 npm run verify
 npm audit
 ```
 
-Main modules:
+Key modules:
 
-- `src/background/service-worker.ts` — workflow orchestration, request IDs, cancellation, tab recovery
-- `src/content/base.ts` — verified input/send/response engine
+- `src/background/service-worker.ts` — workflow orchestration, request isolation, cancellation, and tab recovery
+- `src/content/base.ts` — verified input, send, and response engine
 - `src/content/*.ts` — provider-specific selectors and editor strategies
-- `src/sidepanel/` — React UI, sessions, Markdown, i18n
+- `src/sidepanel/` — React interface, local sessions, Markdown, themes, and localization
 
-## Project
+Please run `npm run verify` before opening a pull request. For a provider-page breakage, [open an issue](https://github.com/teddashh/multi-ai-chat/issues) with the provider and browser version, but remove prompts, responses, account details, and tokens from screenshots or logs.
+
+## Project and credits
+
+- [Official website](https://teddashh.github.io/multi-ai-chat/)
+- [GitHub Releases](https://github.com/teddashh/multi-ai-chat/releases)
+- [Source and issue tracker](https://github.com/teddashh/multi-ai-chat)
+- [Multi-AI Chat Desktop](https://teddashh.github.io/multi-ai-chat-desktop/)
+- [MIT License](./LICENSE)
 
 Sponsored by [AI-Sister.com](https://ai-sister.com). Created by Ted Huang ([TED@TED-H.com](mailto:TED@TED-H.com), [ted-h.com](https://ted-h.com)).
 
-Special thanks to [@DaveTseng2019](https://github.com/DaveTseng2019) for the substantial v0.2.x contributions — send/response reliability, connection recovery, i18n error handling, dark mode, side-panel UX, the transparent icon, and the LICENSE.
-
-MIT License.
+Special thanks to [@DaveTseng2019](https://github.com/DaveTseng2019) for substantial v0.2.x contributions: send and response reliability, connection recovery, localized error handling, dark mode, Side Panel UX, the transparent icon, and the project license.
