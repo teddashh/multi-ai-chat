@@ -746,6 +746,10 @@ pre {
   gap: 2rem;
 }
 
+.source-build-body > * {
+  min-width: 0;
+}
+
 .source-build-body p {
   margin: 0;
 }
