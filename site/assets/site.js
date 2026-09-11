@@ -120,7 +120,7 @@
       navGitHub: "GitHub",
       languageLabel: "語言",
       eyebrow: "開放原始碼 · v0.2.1 · Chrome 114+",
-      heroTitle: "一個問題。\n四種觀點。\n更清楚的答案。",
+      heroTitle: "一個問題。\n四種觀點。\n答案更清楚。",
       heroLead: "在專注的 Side Panel 中協調 ChatGPT、Claude、Gemini、Grok。Multi-AI Chat 使用你已登入的分頁，不需要模型 API Key，也沒有額外的對話後端。",
       downloadButton: "下載 v0.2.1 ZIP",
       installButton: "安裝指南",
