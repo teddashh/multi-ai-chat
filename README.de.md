@@ -2,52 +2,72 @@
 
 [English](./README.md) · [繁體中文](./README.zh-TW.md) · [日本語](./README.ja.md) · **Deutsch** · [한국어](./README.ko.md)
 
-Steuere deine angemeldeten **ChatGPT-, Claude-, Gemini- und Grok-Tabs** als gemeinsamen Multi-AI-Workflow in einem leichten Chrome Side Panel. Keine Modell-API-Schlüssel und kein separater Gesprächsserver.
+[Offizielle Website](https://teddashh.github.io/multi-ai-chat/?lang=de) · [v0.2.1 herunterladen](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.1) · [Desktop-Version](https://teddashh.github.io/multi-ai-chat-desktop/?lang=de)
 
-**Aktueller Quellstand: v0.2.1** · Chrome 114+ · Manifest V3 · MIT · [Datenschutz](./store/PRIVACY.md)
+Einmal fragen, vier KIs gemeinsam einsetzen. Multi-AI Chat ist ein leichtes Chrome Side Panel, das deine angemeldeten **ChatGPT-, Claude-, Gemini- und Grok-Tabs** koordiniert. Es verwendet die Provider-Seiten, auf die du bereits Zugriff hast – ohne Modell-API-Schlüssel und ohne separaten Chat-Server.
 
-> Die Erweiterung automatisiert Weboberflächen Dritter. Änderungen eines Providers können Selektoren vorübergehend beschädigen. Beachte die jeweiligen Bedingungen und verwende nur berechtigte Konten und Inhalte.
+**Aktuelle Version: v0.2.1** · Chrome 114+ · Manifest V3 · Fünf Oberflächensprachen · MIT
 
-## Desktop oder Browser
+> Multi-AI Chat automatisiert Weboberflächen Dritter. Eine Änderung beim Provider kann Seiten-Selektoren vorübergehend unbrauchbar machen. Automatisierte Nutzung kann außerdem den jeweiligen Nutzungsbedingungen unterliegen. Verwende nur Konten und Inhalte, zu deren Nutzung du berechtigt bist.
 
-| Edition | Geeignet wenn… |
+![Multi-AI Chat führt in Chrome einen Workflow mit mehreren Providern aus](./store/screenshot-1280x800.png)
+
+## Die passende Version wählen
+
+| Version | Geeignet für |
 |---|---|
-| **Browser-Erweiterung (dieses Repo)** | vorhandene Chrome-Tabs in einem kleinen Side Panel gesteuert werden sollen |
-| [Desktop-App](https://github.com/teddashh/multi-ai-chat-desktop) | getrennte Profile, Live-WebViews, Replay, Snapshots und lokale Dateien benötigt werden |
+| **Browser-Erweiterung (dieses Repository)** | Ein kleines Chrome Side Panel für die Provider-Tabs, die du ohnehin verwendest |
+| [Multi-AI Chat Desktop](https://teddashh.github.io/multi-ai-chat-desktop/?lang=de) | Getrennte Provider-Profile, fokussierte Live-WebViews, Snapshots, Replay, Checkpoints und Workflows mit lokalen Dateien |
 
-## v0.2.1
+Beide Versionen verwenden die Web-Sitzungen der Provider und benötigen keine Modell-API-Schlüssel.
 
-- **Wiederaufnahme einzelner Rundtisch-Schritte.** Bei einem Provider-Fehler stehen „Erneut versuchen“, „Beitrag überspringen“ und „Abbrechen“ zur Wahl. Ein Retry erhält eine neue Request-ID, ein Skip verwendet einen sicheren Platzhalter nur im verbleibenden Rundtisch-Kontext, und verspätete oder veraltete Antworten gelangen weder ins Transkript noch in spätere Schritte.
-- **Strikte Provider-URL-Prüfung.** Provider-Tabs werden mit dem Standard-URL-Parser und exakten unterstützten HTTPS-Hostnamen erkannt; ähnlich aussehende Domains sowie Query- und User-Info-Tricks werden abgewiesen.
-- **CI- und Release-Leitplanken.** CI fixiert Node.js 22.18.0 und GitHub Actions, prüft Abhängigkeiten, Typen und Tests, baut Production Assets, vergleicht Versionsangaben und lehnt veraltete eingecheckte `dist/`-Dateien ab.
-- **Aktualisierte Build-Abhängigkeiten.** Verwundbare transitive Pakete sowie `@types/chrome`, PostCSS, Sharp und css-loader wurden aktualisiert. Dependabot prüft npm und GitHub Actions nun wöchentlich.
+## Highlights
 
-## v0.2.0
+- Eine Frage an ChatGPT, Claude, Gemini und Grok; der Bereitschaftsstatus jedes Providers ist vor dem Start sichtbar.
+- Request-IDs isolieren verspätete Antworten. Stop bricht aktive Wartevorgänge ab und fordert die Provider-Seiten auf, die Generierung zu beenden.
+- Bis zu 30 Gespräche werden lokal gespeichert, mit sicherer Markdown-Darstellung, Anschlussfragen und „Neuer Chat“.
+- Oberfläche auf Englisch, traditionellem Chinesisch, Japanisch, Deutsch und Koreanisch.
+- Helle, dunkle oder systemabhängige Darstellung mit WCAG-geprüftem Kontrast.
+- Optionale Veröffentlichung auf HackMD mit dem eigenen Token – nur nach ausdrücklicher Auswahl.
 
-- Zuverlässiges Senden mit Selector-Retry, Editor-Prüfung, composer-lokalem Button und Enter-Fallback.
-- Tabs werden nach Service-Worker-Neustart wiedergefunden; Content Scripts werden bei Bedarf erneut injiziert.
-- Request-IDs trennen verspätete Antworten; Stop beendet Waiter und laufende Generierung.
-- Reine ChatGPT-Bildantworten und Geminis Trusted-Types-Problem sind behoben.
-- „Bereit“ erscheint erst nach Bestätigung des Composers.
-- Bis zu 30 lokale Gespräche, Neuer Chat und Folgefragen nach Workflows.
-- Sicheres Markdown, fünf UI-Sprachen und ein kompaktes neues Side Panel.
-- Anzeigemodus Hell/Dunkel/System: Dark Mode folgt standardmäßig dem Betriebssystem, mit manueller Umschaltung in den Einstellungen und WCAG-geprüftem Kontrast.
-
-## Modi
+## Modi und Wiederherstellung
 
 | Modus | Ablauf |
 |---|---|
-| Frei | Parallel an ausgewählte, bereite KIs senden |
-| Debatte | Pro → Contra → Urteil → Synthese |
-| Beratung | Zwei unabhängige Antworten → Prüfung → Ergebnis |
-| Coding | Acht Schritte für Spezifikation, Reviews, Umsetzung, Tests und Abnahme |
-| Rundtisch | 5 Runden × 4 KIs = 20 Beiträge |
+| **Frei** | Parallel an alle ausgewählten und bereiten Provider senden |
+| **Debatte** | Pro → Contra → Urteil → Synthese |
+| **Beratung** | Zwei unabhängige Antworten → Prüfung → Endergebnis |
+| **Coding** | Acht Schritte für Spezifikation, Review, Umsetzung, Tests, Überarbeitung und Abnahme |
+| **Rundtisch** | Fünf Runden × vier KIs = zwanzig Beiträge |
 
-Fällt ein Provider während des Rundtischs aus, pausiert der Workflow und bietet **Erneut versuchen**, **Beitrag überspringen** oder **Abbrechen** an. Beim Überspringen verwendet der verbleibende Rundtisch-Kontext einen sicheren Platzhalter und fährt mit der nächsten KI fort; der Provider-Fehlertext gelangt nicht in spätere Beiträge.
+Fällt ein Provider während des Rundtischs aus, pausiert der Workflow und bietet **Erneut versuchen**, **Beitrag überspringen** oder **Abbrechen** an. Ein Retry erhält eine neue Request-ID. Beim Überspringen wird nur im verbleibenden Rundtisch-Kontext ein sicherer Platzhalter eingesetzt. So gelangen weder Provider-Fehlertexte noch veraltete Antworten ins Transkript oder in spätere Beiträge.
 
-## Aus dem Quellcode installieren
+## Installation
 
-Voraussetzungen: Chrome 114+, Node.js 22.18+ und npm.
+### Release-ZIP (empfohlen)
+
+Das Paket aus GitHub Releases kann direkt als entpackte Erweiterung geladen werden; ein Build aus dem Quellcode ist nicht erforderlich.
+
+1. Lade [`multi-ai-chat-store-v0.2.1.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip) und die zugehörige [Prüfsummendatei](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip.sha256) herunter.
+2. Prüfe das Archiv. Die erwartete SHA-256-Prüfsumme lautet `c840f4e8f3ccca1478271b31d80597622563b64182b3527de786d67d546f6962`.
+
+   ```powershell
+   (Get-FileHash .\multi-ai-chat-store-v0.2.1.zip -Algorithm SHA256).Hash.ToLower()
+   ```
+
+   ```sh
+   shasum -a 256 multi-ai-chat-store-v0.2.1.zip
+   ```
+
+3. Entpacke die ZIP-Datei in einen dauerhaften Ordner. Direkt darin befindet sich `manifest.json`.
+4. Öffne `chrome://extensions`, aktiviere den **Entwicklermodus**, wähle **Entpackte Erweiterung laden** und gib den entpackten Ordner an.
+5. Hefte **Multi-AI Chat** an und öffne über das Symbol das Side Panel. Öffne anschließend jeden Provider einmal und melde dich an. Sobald der Composer erkannt wurde, zeigt der Provider „**Bereit**“ an.
+
+Für ein Update entpackst du das neue Release in einen eigenen dauerhaften Ordner und stellst die geladene Erweiterung auf diesen Ordner um. Entferne den alten Ordner erst, wenn die neue Version funktioniert.
+
+### Aus dem Quellcode bauen
+
+Voraussetzungen: Chrome 114+, Node.js 22.18+, npm und Git.
 
 ```sh
 git clone https://github.com/teddashh/multi-ai-chat.git
@@ -56,41 +76,65 @@ npm ci
 npm run verify
 ```
 
-1. `chrome://extensions` öffnen und **Entwicklermodus** aktivieren.
-2. **Entpackte Erweiterung laden** wählen und `dist/` angeben.
-3. Multi-AI Chat anheften und über das Icon das Side Panel öffnen.
-4. Jeden Provider einmal öffnen und anmelden. Die Karte wechselt dann zu „Bereit“.
-
-Für Entwicklung `npm run dev` ausführen, die Erweiterung neu laden und das Side Panel erneut öffnen.
+Lade anschließend den erzeugten Ordner `dist/` über `chrome://extensions`. Während der Entwicklung startest du `npm run dev`, lädst die Erweiterung dort neu und öffnest das Side Panel erneut.
 
 ## Verwendung
 
-1. Workflow-Modus wählen.
-2. Im freien Modus sind standardmäßig alle vier Provider gewählt.
-3. Unter **KI-Verbindungen** fehlende Provider öffnen/anmelden.
-4. Frage eingeben und Enter oder **Senden** drücken.
-5. Status verfolgen und bei Bedarf jederzeit **Stopp** wählen.
-6. Danach weiterfragen oder über das Menü **Neuer Chat** starten.
+1. Wähle eine Workflow-Karte.
+2. Im freien Modus bleiben alle vier Provider ausgewählt; nicht benötigte Provider kannst du abwählen.
+3. Klappe **KI-Verbindungen** auf und öffne fehlende Provider oder melde dich an.
+4. Gib eine Frage ein und drücke Enter oder **Senden**.
+5. Verfolge den Workflow-Status; mit **Stopp** kannst du jederzeit abbrechen.
+6. Stelle nach Abschluss weitere Fragen oder starte über das Menü einen **Neuen Chat**.
 
-Das Side Panel während eines seriellen Workflows geöffnet lassen.
+Lass das Side Panel geöffnet, solange ein serieller Workflow läuft.
 
-## Bekannte Probleme
+## Bekannte Einschränkung
 
-- **Microsoft Edge + Claude.** Unter Edge bleibt die Claude-Karte möglicherweise bei „Öffnen“ hängen und verbindet sich nie, weil Edge die Ausführung der Erweiterung auf `claude.ai` blockieren kann (das Symbol in der Symbolleiste zeigt „Diese Erweiterung ist auf dieser Website nicht zulässig“, und der Websitezugriff lässt sich nicht erteilen). ChatGPT, Gemini und Grok sind nicht betroffen, und derselbe Build funktioniert in Google Chrome. Problemumgehung: Verwenden Sie für Claude Google Chrome.
+- **Microsoft Edge + Claude:** Edge kann die Ausführung der Erweiterung auf `claude.ai` blockieren. Die Claude-Karte bleibt dann bei „Öffnen“, das Symbol zeigt „Diese Erweiterung ist auf dieser Website nicht zulässig“, und der Websitezugriff lässt sich nicht freigeben. ChatGPT, Gemini und Grok sind nicht betroffen. Derselbe Build funktioniert in Google Chrome; Chrome ist daher die aktuelle Problemumgehung für Claude.
 
 ## Berechtigungen und Datenschutz
 
-`sidePanel` zeigt die UI, `tabs` findet Provider-Tabs, `scripting` plus Hostrechte repariert vorhandene Tabs, und `storage` speichert Einstellungen, 30 Gespräche sowie den optionalen HackMD-Token. HackMD wird nur nach ausdrücklichem Veröffentlichen verwendet; die Notiz ist für Gäste lesbar.
+| Zugriff | Warum er benötigt wird |
+|---|---|
+| `sidePanel` | Zeigt die gesamte Bedienoberfläche an |
+| `tabs` | Findet und fokussiert Provider-Tabs und verfolgt Laden, Navigation, Neuladen und Schließen; Inhalte anderer Tabs werden nicht gelesen |
+| `scripting` | Injiziert ausschließlich die mitgelieferten Content Scripts erneut, wenn ein Provider-Tab schon vor dem Neuladen der Erweiterung geöffnet war oder sein Script entfernt wurde; Remote-Code wird nie ausgeführt |
+| `storage` | Speichert Oberflächeneinstellungen, bis zu 30 lokale Gespräche und einen optionalen HackMD-Token auf deinem Gerät |
+| Provider-Hosts | Gibt auf `chatgpt.com`, `chat.openai.com`, `claude.ai`, `gemini.google.com` und `grok.com` Prompts ein, sendet sie und liest die sichtbaren Antworten für den gewählten Workflow |
+| `api.hackmd.io` | Wird nur kontaktiert, nachdem du ausdrücklich **Veröffentlichen** gewählt hast, um mit deinem Token eine für Gäste lesbare Notiz anzulegen |
 
-`chrome.storage.local` ist auf vertrauenswürdige Erweiterungskontexte beschränkt, sodass Provider-Content-Scripts den HackMD-Token nicht lesen können. Prompts gehen direkt zu den Provider-Seiten; es gibt keinen Multi-AI-Chat-Server, keine Telemetrie und keine Modell-API-Zugangsdaten.
+Prompts gehen direkt an die von dir ausgewählten Provider-Seiten. Es gibt **keinen Multi-AI-Chat-Server, keine Analyse, kein Tracking, keine Werbung, keine Telemetrie und keine Modell-API-Zugangsdaten**. Der optionale HackMD-Token ist auf vertrauenswürdige Erweiterungskontexte beschränkt und kann von Provider-Content-Scripts nicht gelesen werden. Lokale Daten bleiben in Chrome, bis du sie löschst oder die Erweiterung entfernst; beim Entfernen wird ihr lokaler Speicher gelöscht. Für Inhalte, die du selbst versendest, gelten weiterhin die Datenschutzrichtlinien der Provider und von HackMD.
+
+Lies die vollständige [Datenschutzrichtlinie](./store/PRIVACY.md).
+
+## Entwicklung
 
 ```sh
 npm run typecheck
+npm run test
 npm run build
 npm run verify
 npm audit
 ```
 
-Sponsored by [AI-Sister.com](https://ai-sister.com). Erstellt von Ted Huang ([TED@TED-H.com](mailto:TED@TED-H.com), [ted-h.com](https://ted-h.com)). MIT License.
+Wichtige Module:
 
-Besonderer Dank an [@DaveTseng2019](https://github.com/DaveTseng2019) für die umfangreichen Beiträge zu v0.2.x — Zuverlässigkeit von Senden/Antwort, Verbindungswiederherstellung, i18n-Fehlerbehandlung, Dark Mode, Side-Panel-UX, das transparente Icon und die LICENSE.
+- `src/background/service-worker.ts` — Workflow-Steuerung, Request-Isolation, Abbruch und Tab-Wiederherstellung
+- `src/content/base.ts` — geprüfte Eingabe-, Sende- und Antwortlogik
+- `src/content/*.ts` — Provider-spezifische Selektoren und Editor-Strategien
+- `src/sidepanel/` — React-Oberfläche, lokale Sitzungen, Markdown, Themes und Lokalisierung
+
+Führe vor einem Pull Request `npm run verify` aus. Wenn eine Provider-Seite nicht mehr funktioniert, erstelle ein [Issue](https://github.com/teddashh/multi-ai-chat/issues) mit Provider und Browser-Version. Entferne zuvor Prompts, Antworten, Kontodaten und Tokens aus Screenshots oder Logs.
+
+## Projekt und Danksagung
+
+- [Offizielle Website](https://teddashh.github.io/multi-ai-chat/?lang=de)
+- [GitHub Releases](https://github.com/teddashh/multi-ai-chat/releases)
+- [Quellcode und Issue-Tracker](https://github.com/teddashh/multi-ai-chat)
+- [Multi-AI Chat Desktop](https://teddashh.github.io/multi-ai-chat-desktop/?lang=de)
+- [MIT-Lizenz](./LICENSE)
+
+Gesponsert von [AI-Sister.com](https://ai-sister.com). Erstellt von Ted Huang ([TED@TED-H.com](mailto:TED@TED-H.com), [ted-h.com](https://ted-h.com)).
+
+Besonderer Dank gilt [@DaveTseng2019](https://github.com/DaveTseng2019) für umfangreiche Beiträge zu v0.2.x: Zuverlässigkeit beim Senden und Empfangen, Verbindungswiederherstellung, lokalisierte Fehlerbehandlung, Dark Mode, Side-Panel-UX, das transparente Symbol und die Projektlizenz.

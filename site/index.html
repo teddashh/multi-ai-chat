@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0b1020">
+    <meta name="color-scheme" content="light dark">
+    <meta name="description" content="Run reliable multi-AI workflows across ChatGPT, Claude, Gemini, and Grok from one Chrome Side Panel.">
+    <meta name="robots" content="index, follow">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Multi-AI Chat — One prompt. Four perspectives.">
+    <meta property="og:description" content="A private-by-design Chrome Side Panel for reliable workflows across the AI tabs you already use.">
+    <meta property="og:url" content="https://teddashh.github.io/multi-ai-chat/">
+    <meta property="og:image" content="https://teddashh.github.io/multi-ai-chat/assets/product-screenshot.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="canonical" href="https://teddashh.github.io/multi-ai-chat/">
+    <link rel="alternate" hreflang="en" href="./">
+    <link rel="alternate" hreflang="zh-TW" href="./?lang=zh-TW">
+    <link rel="alternate" hreflang="ja" href="./?lang=ja">
+    <link rel="alternate" hreflang="de" href="./?lang=de">
+    <link rel="alternate" hreflang="ko" href="./?lang=ko">
+    <link rel="alternate" hreflang="x-default" href="./">
+    <link rel="icon" href="./assets/app-icon.png" type="image/png">
+    <link rel="stylesheet" href="./assets/styles.css">
+    <title>Multi-AI Chat — One prompt. Four perspectives.</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
+
+    <header class="site-header">
+      <div class="shell nav-shell">
+        <a class="brand" href="./" aria-label="Multi-AI Chat home" data-i18n-aria="homeAria">
+          <img src="./assets/app-icon.png" width="44" height="44" alt="">
+          <span>
+            <strong>Multi-AI Chat</strong>
+            <small data-i18n="edition">Chrome Side Panel</small>
+          </span>
+        </a>
+
+        <nav class="header-links" aria-label="Primary navigation" data-i18n-aria="navAria">
+          <a href="#workflows" data-i18n="navWorkflows">Workflows</a>
+          <a href="#install" data-i18n="navInstall">Install</a>
+          <a href="#privacy" data-i18n="navPrivacy">Privacy</a>
+          <a href="https://teddashh.github.io/multi-ai-chat-desktop/" data-desktop-link data-i18n="navDesktop">Desktop</a>
+          <a href="https://github.com/teddashh/multi-ai-chat" data-i18n="navGitHub">GitHub</a>
+        </nav>
+
+        <label class="language-control">
+          <span class="sr-only" data-i18n="languageLabel">Language</span>
+          <select id="language-select" aria-label="Language" data-i18n-aria="languageLabel">
+            <option value="en">English</option>
+            <option value="zh-TW">繁體中文</option>
+            <option value="ja">日本語</option>
+            <option value="de">Deutsch</option>
+            <option value="ko">한국어</option>
+          </select>
+        </label>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero shell" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span><span data-i18n="eyebrow">Open-source · v0.2.1 · Chrome 114+</span></p>
+          <h1 id="hero-title" data-i18n="heroTitle">One prompt.<br>Four perspectives.<br>A clearer answer.</h1>
+          <p class="hero-lead" data-i18n="heroLead">Coordinate ChatGPT, Claude, Gemini, and Grok from one focused Side Panel. Multi-AI Chat uses the tabs you are already signed into—no model API keys and no separate chat backend.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip">
+              <span data-i18n="downloadButton">Download v0.2.1 ZIP</span>
+              <span aria-hidden="true">↓</span>
+            </a>
+            <a class="button button-secondary" href="#install" data-i18n="installButton">Installation guide</a>
+          </div>
+          <ul class="trust-list" aria-label="Product principles" data-i18n-aria="principlesAria">
+            <li data-i18n="trustKeys">No model API keys</li>
+            <li data-i18n="trustServer">No developer server</li>
+            <li data-i18n="trustTracking">No tracking or telemetry</li>
+          </ul>
+        </div>
+
+        <figure class="product-shot">
+          <div class="browser-bar" aria-hidden="true">
+            <span></span><span></span><span></span>
+            <div>Multi-AI Chat / Side Panel</div>
+          </div>
+          <img src="./assets/product-screenshot.png" width="1280" height="800" alt="Multi-AI Chat coordinating provider tabs in Chrome" data-i18n-alt="screenshotAlt">
+          <figcaption data-i18n="screenshotCaption">A real Roundtable run: one Side Panel coordinating live provider tabs.</figcaption>
+        </figure>
+      </section>
+
+      <section class="provider-strip" aria-label="Supported providers" data-i18n-aria="providersAria">
+        <div class="shell provider-row">
+          <span><i class="provider-dot chatgpt" aria-hidden="true"></i>ChatGPT</span>
+          <span><i class="provider-dot claude" aria-hidden="true"></i>Claude</span>
+          <span><i class="provider-dot gemini" aria-hidden="true"></i>Gemini</span>
+          <span><i class="provider-dot grok" aria-hidden="true"></i>Grok</span>
+        </div>
+      </section>
+
+      <section class="section shell" id="workflows" aria-labelledby="workflows-title">
+        <div class="section-heading">
+          <p class="kicker" data-i18n="workflowsKicker">Five ways to think</p>
+          <h2 id="workflows-title" data-i18n="workflowsTitle">Choose the conversation, not the plumbing.</h2>
+          <p data-i18n="workflowsLead">Compare answers in parallel or let the models challenge, review, and refine one another in a structured sequence.</p>
+        </div>
+
+        <div class="workflow-grid">
+          <article class="workflow-card free-card">
+            <span class="mode-number">01</span>
+            <h3 data-i18n="modeFree">Free</h3>
+            <p data-i18n="modeFreeDesc">Send to every selected, ready provider in parallel. The fastest way to compare independent answers.</p>
+            <div class="mode-flow" data-i18n="modeFreeFlow">You → selected AIs</div>
+          </article>
+          <article class="workflow-card debate-card">
+            <span class="mode-number">02</span>
+            <h3 data-i18n="modeDebate">Debate</h3>
+            <p data-i18n="modeDebateDesc">Assign opposing positions, ask a judge to weigh them, then synthesize the strongest result.</p>
+            <div class="mode-flow" data-i18n="modeDebateFlow">Pro → Con → Judge → Synthesis</div>
+          </article>
+          <article class="workflow-card consult-card">
+            <span class="mode-number">03</span>
+            <h3 data-i18n="modeConsult">Consult</h3>
+            <p data-i18n="modeConsultDesc">Gather two independent answers, have another AI review them, then produce one final response.</p>
+            <div class="mode-flow" data-i18n="modeConsultFlow">2 answers → Review → Final</div>
+          </article>
+          <article class="workflow-card coding-card">
+            <span class="mode-number">04</span>
+            <h3 data-i18n="modeCoding">Coding</h3>
+            <p data-i18n="modeCodingDesc">An eight-step loop for specification, review, implementation, testing, revision, and acceptance.</p>
+            <div class="mode-flow" data-i18n="modeCodingFlow">Plan → Build → Test → Accept</div>
+          </article>
+          <article class="workflow-card roundtable-card">
+            <span class="mode-number">05</span>
+            <h3 data-i18n="modeRoundtable">Roundtable</h3>
+            <p data-i18n="modeRoundtableDesc">Four AIs build on the shared discussion across five rounds—twenty contributions in total.</p>
+            <div class="mode-flow" data-i18n="modeRoundtableFlow">5 rounds × 4 AIs</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="recovery-section">
+        <div class="shell recovery-grid">
+          <div>
+            <p class="kicker" data-i18n="recoveryKicker">Built for the imperfect web</p>
+            <h2 data-i18n="recoveryTitle">A failed turn does not have to end the table.</h2>
+          </div>
+          <div>
+            <p data-i18n="recoveryLead">If a provider fails during Roundtable, the run pauses and gives you three explicit choices.</p>
+            <ol class="recovery-options">
+              <li><strong data-i18n="retryTitle">Retry</strong><span data-i18n="retryDesc">Start a clean request with a fresh ID.</span></li>
+              <li><strong data-i18n="skipTitle">Skip this turn</strong><span data-i18n="skipDesc">Continue with a safe placeholder, never the provider's error text.</span></li>
+              <li><strong data-i18n="cancelTitle">Cancel</strong><span data-i18n="cancelDesc">Stop the workflow and reject active waiters.</span></li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell" aria-labelledby="reliable-title">
+        <div class="section-heading compact-heading">
+          <p class="kicker" data-i18n="reliableKicker">Small panel, deliberate engineering</p>
+          <h2 id="reliable-title" data-i18n="reliableTitle">Reliable enough for real workflows.</h2>
+        </div>
+        <div class="feature-grid">
+          <article>
+            <span class="feature-icon" aria-hidden="true">↻</span>
+            <h3 data-i18n="featureRecoveryTitle">Connection recovery</h3>
+            <p data-i18n="featureRecoveryDesc">Provider tabs are rediscovered after service-worker restarts, and packaged content scripts are repaired when needed.</p>
+          </article>
+          <article>
+            <span class="feature-icon" aria-hidden="true">#</span>
+            <h3 data-i18n="featureIsolationTitle">Request isolation</h3>
+            <p data-i18n="featureIsolationDesc">Each request has its own ID, so a late answer cannot complete the wrong step or a later workflow.</p>
+          </article>
+          <article>
+            <span class="feature-icon" aria-hidden="true">✓</span>
+            <h3 data-i18n="featureReadyTitle">Honest readiness</h3>
+            <p data-i18n="featureReadyDesc">A provider becomes Ready only after its composer confirms that the signed-in page can accept input.</p>
+          </article>
+          <article>
+            <span class="feature-icon" aria-hidden="true">◐</span>
+            <h3 data-i18n="featureLocalTitle">Local by default</h3>
+            <p data-i18n="featureLocalDesc">Settings and up to 30 conversations stay in Chrome. Follow up, start fresh, or remove the extension to delete its storage.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section install-section" id="install" aria-labelledby="install-title">
+        <div class="shell">
+          <div class="section-heading">
+            <p class="kicker" data-i18n="installKicker">Install the versioned GitHub Release</p>
+            <h2 id="install-title" data-i18n="installTitle">From download to Side Panel in a few minutes.</h2>
+            <p data-i18n="installLead">The release ZIP is already built. Verify it, extract it, and load the folder in Chrome.</p>
+          </div>
+
+          <div class="install-grid">
+            <article class="install-step">
+              <span class="step-number">1</span>
+              <h3 data-i18n="installStepOneTitle">Download and verify</h3>
+              <p data-i18n="installStepOneDesc">Download the v0.2.1 ZIP and its checksum file from GitHub Releases.</p>
+              <div class="inline-actions">
+                <a class="text-link" href="https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip" data-i18n="zipLink">Release ZIP ↓</a>
+                <a class="text-link" href="https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip.sha256" data-i18n="checksumLink">Checksum file ↓</a>
+              </div>
+              <p class="code-label">SHA-256</p>
+              <code class="hash">c840f4e8f3ccca1478271b31d80597622563b64182b3527de786d67d546f6962</code>
+              <details>
+                <summary data-i18n="verifyCommands">Show verification commands</summary>
+                <p class="code-label">Windows PowerShell</p>
+                <pre><code>(Get-FileHash .\multi-ai-chat-store-v0.2.1.zip -Algorithm SHA256).Hash.ToLower()</code></pre>
+                <p class="code-label">macOS / Linux</p>
+                <pre><code>shasum -a 256 multi-ai-chat-store-v0.2.1.zip</code></pre>
+              </details>
+            </article>
+
+            <article class="install-step">
+              <span class="step-number">2</span>
+              <h3 data-i18n="installStepTwoTitle">Extract and load</h3>
+              <p data-i18n="installStepTwoDesc">Extract the ZIP to a permanent folder. Open chrome://extensions, enable Developer mode, choose Load unpacked, and select that folder. Its root contains manifest.json.</p>
+              <div class="path-chip">chrome://extensions</div>
+            </article>
+
+            <article class="install-step">
+              <span class="step-number">3</span>
+              <h3 data-i18n="installStepThreeTitle">Sign in and ask</h3>
+              <p data-i18n="installStepThreeDesc">Pin Multi-AI Chat, open the Side Panel, then open and sign in to each provider once. When a composer is detected, that provider shows Ready.</p>
+              <a class="text-link" href="https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.1" data-i18n="releaseNotes">Read the v0.2.1 release notes →</a>
+            </article>
+          </div>
+
+          <details class="source-build">
+            <summary data-i18n="sourceSummary">Prefer to build from source?</summary>
+            <div class="source-build-body">
+              <p data-i18n="sourceRequirements">Requires Chrome 114+, Node.js 22.18+, npm, and Git. After the build, load the generated dist/ folder.</p>
+              <pre><code>git clone https://github.com/teddashh/multi-ai-chat.git
+cd multi-ai-chat
+npm ci
+npm run verify</code></pre>
+            </div>
+          </details>
+
+          <aside class="known-limit" aria-labelledby="known-title">
+            <span aria-hidden="true">!</span>
+            <div>
+              <h3 id="known-title" data-i18n="knownTitle">Known limitation: Microsoft Edge + Claude</h3>
+              <p data-i18n="knownDesc">Edge may block the extension on claude.ai, leaving Claude at Open with no usable site-access control. ChatGPT, Gemini, and Grok are unaffected. Use Google Chrome when Claude is required.</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section shell privacy-section" id="privacy" aria-labelledby="privacy-title">
+        <div class="privacy-intro">
+          <p class="kicker" data-i18n="privacyKicker">Private by architecture</p>
+          <h2 id="privacy-title" data-i18n="privacyTitle">Your conversations are not our product.</h2>
+          <p data-i18n="privacyLead">There is no Multi-AI Chat backend, analytics, tracking, advertising, or telemetry. Prompts go directly to the provider pages you select.</p>
+          <a class="button button-secondary" href="https://github.com/teddashh/multi-ai-chat/blob/master/store/PRIVACY.md" data-i18n="privacyButton">Read the full privacy policy</a>
+        </div>
+        <div class="privacy-details">
+          <article>
+            <h3 data-i18n="localTitle">What stays local</h3>
+            <p data-i18n="localDesc">Interface settings, up to 30 conversations, and an optional HackMD token live in chrome.storage.local. Provider content scripts cannot read that token.</p>
+          </article>
+          <article>
+            <h3 data-i18n="accessTitle">What the extension accesses</h3>
+            <p data-i18n="accessDesc">sidePanel, tabs, scripting, and storage; host access is limited to ChatGPT, Claude, Gemini, Grok, and—only when you publish—api.hackmd.io.</p>
+          </article>
+          <article>
+            <h3 data-i18n="sentTitle">What leaves your device</h3>
+            <p data-i18n="sentDesc">The prompts you send to selected providers, plus the current conversation and your own token only if you explicitly publish to HackMD. Nothing is sent to the developer.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="edition-cta">
+        <div class="shell edition-cta-inner">
+          <div>
+            <p class="kicker" data-i18n="desktopKicker">Need a dedicated workspace?</p>
+            <h2 data-i18n="desktopTitle">Meet Multi-AI Chat Desktop.</h2>
+            <p data-i18n="desktopDesc">Choose the desktop edition for isolated provider profiles, focused live WebViews, snapshots, replay, checkpoints, and local-file workflows.</p>
+          </div>
+          <a class="button button-light" href="https://teddashh.github.io/multi-ai-chat-desktop/" data-desktop-link data-i18n="desktopButton">Explore the desktop edition →</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-grid">
+        <div>
+          <a class="brand footer-brand" href="./">
+            <img src="./assets/app-icon.png" width="40" height="40" alt="">
+            <strong>Multi-AI Chat</strong>
+          </a>
+          <p data-i18n="footerLine">Open source under the MIT License. Built for the web sessions you already use.</p>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/teddashh/multi-ai-chat/releases" data-i18n="footerReleases">Releases</a>
+          <a href="https://github.com/teddashh/multi-ai-chat/issues" data-i18n="footerIssues">Issues</a>
+          <a href="https://github.com/teddashh/multi-ai-chat/blob/master/README.md" data-i18n="footerDocs">Documentation</a>
+          <a href="https://github.com/teddashh/multi-ai-chat/blob/master/LICENSE" data-i18n="footerLicense">MIT License</a>
+        </div>
+        <p class="credits" data-i18n="credits">Sponsored by AI-Sister.com. Created by Ted Huang, with substantial v0.2.x contributions from DaveTseng2019.</p>
+      </div>
+    </footer>
+
+    <script src="./assets/site.js" defer></script>
+  </body>
+</html>
