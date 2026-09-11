@@ -944,6 +944,12 @@ pre {
   margin-top: 2rem;
 }
 
+@media (min-width: 50.0625rem) {
+  html[lang="zh-TW"] .hero h1 {
+    font-size: clamp(3rem, 5.7vw, 5.1rem);
+  }
+}
+
 @media (max-width: 68rem) {
   .header-links a:nth-child(-n + 3) {
     display: none;
@@ -965,6 +971,11 @@ pre {
   .product-shot {
     width: min(52rem, 100%);
     transform: none;
+  }
+
+  .product-shot::before,
+  .product-shot::after {
+    display: none;
   }
 
   .feature-grid {
