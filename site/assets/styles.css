@@ -950,6 +950,13 @@ pre {
   }
 }
 
+@media (max-width: 84rem) {
+  .product-shot::before,
+  .product-shot::after {
+    display: none;
+  }
+}
+
 @media (max-width: 68rem) {
   .header-links a:nth-child(-n + 3) {
     display: none;
@@ -971,11 +978,6 @@ pre {
   .product-shot {
     width: min(52rem, 100%);
     transform: none;
-  }
-
-  .product-shot::before,
-  .product-shot::after {
-    display: none;
   }
 
   .feature-grid {
