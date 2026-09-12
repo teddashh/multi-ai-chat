@@ -2,15 +2,21 @@
 
 [English](./README.md) · [繁體中文](./README.zh-TW.md) · **日本語** · [Deutsch](./README.de.md) · [한국어](./README.ko.md)
 
-[公式サイト](https://teddashh.github.io/multi-ai-chat/?lang=ja) · [v0.2.1 をダウンロード](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.1) · [デスクトップ版](https://teddashh.github.io/multi-ai-chat-desktop/?lang=ja)
+[公式サイト](https://teddashh.github.io/multi-ai-chat/?lang=ja) · [v0.2.2 をダウンロード](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.2) · [デスクトップ版](https://teddashh.github.io/multi-ai-chat-desktop/?lang=ja)
 
 質問は一度だけ。4つのAIをまとめて動かせます。Multi-AI Chat は、ログイン済みの **ChatGPT、Claude、Gemini、Grok** タブを連携させる軽量な Chrome Side Panel です。普段アクセスしている provider ページをそのまま利用するため、モデルAPIキーも独自のチャットbackendも必要ありません。
 
-**最新リリース：v0.2.1** · Chrome 114+ · Manifest V3 · 5言語UI · MIT
+**最新リリース：v0.2.2** · Chrome 114+ · Manifest V3 · 5言語UI · MIT
 
 > Multi-AI Chat は第三者のWeb UIを自動操作します。Provider 側のデザイン変更によってページ selector が一時的に動作しなくなることがあります。また、自動化は各サービスの利用規約の対象となる場合があります。利用権限のあるアカウントとコンテンツのみを使用してください。
 
 ![Chrome で複数 provider の workflow を実行する Multi-AI Chat](./store/screenshot-1280x800.png)
+
+## v0.2.2 の変更点
+
+- **安定した provider タブと SPA 状態。** Provider ごとに担当タブを1つに固定し、重複タブ、route だけが変わる SPA 遷移、遅れて届く status probe による接続の奪取や表示の点滅を防ぎます。
+- **ChatGPT composer の耐障害性を向上。** 再マウント後に composer を再検出し、ログイン判定を安定化。フォーカス時のスクロールを防ぎ、現行の composer／送信／停止 selector に対応しました。
+- **凍結／破棄されたタブの復旧。** Chrome が凍結または破棄した provider タブを検出し、復帰・再接続してから workflow を再開します。
 
 ## エディションを選ぶ
 
@@ -48,15 +54,17 @@
 
 GitHub Release のパッケージは unpacked extension として直接読み込めます。ソースの build は不要です。
 
-1. [`multi-ai-chat-store-v0.2.1.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip) と [checksum ファイル](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip.sha256)をダウンロードします。
-2. アーカイブを検証します。正しい SHA-256 は `c840f4e8f3ccca1478271b31d80597622563b64182b3527de786d67d546f6962` です。
+> v0.2.2 は現在の正式リリースです。以下の ZIP と checksum は GitHub Release に添付された正式なファイルです。
+
+1. [`multi-ai-chat-store-v0.2.2.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.2/multi-ai-chat-store-v0.2.2.zip) と [checksum ファイル](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.2/multi-ai-chat-store-v0.2.2.zip.sha256)をダウンロードします。
+2. アーカイブを検証します。正しい SHA-256 は `425bd80abc4618908ef184e75d7ee57e384364e7ed784924deb624a700361919` です。
 
    ```powershell
-   (Get-FileHash .\multi-ai-chat-store-v0.2.1.zip -Algorithm SHA256).Hash.ToLower()
+   (Get-FileHash .\multi-ai-chat-store-v0.2.2.zip -Algorithm SHA256).Hash.ToLower()
    ```
 
    ```sh
-   shasum -a 256 multi-ai-chat-store-v0.2.1.zip
+   shasum -a 256 multi-ai-chat-store-v0.2.2.zip
    ```
 
 3. ZIP を常設フォルダーへ展開します。その直下に `manifest.json` があります。
