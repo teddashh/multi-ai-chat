@@ -2,15 +2,21 @@
 
 **English** · [繁體中文](./README.zh-TW.md) · [日本語](./README.ja.md) · [Deutsch](./README.de.md) · [한국어](./README.ko.md)
 
-[Official website](https://teddashh.github.io/multi-ai-chat/) · [Download v0.2.1](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.1) · [Desktop edition](https://teddashh.github.io/multi-ai-chat-desktop/)
+[Official website](https://teddashh.github.io/multi-ai-chat/) · [Download v0.2.2](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.2) · [Desktop edition](https://teddashh.github.io/multi-ai-chat-desktop/)
 
 Ask once and put four AIs to work. Multi-AI Chat is a lightweight Chrome Side Panel that coordinates your signed-in **ChatGPT, Claude, Gemini, and Grok** tabs. It uses the provider pages you already have access to—there are no model API keys and no separate chat backend.
 
-**Current release: v0.2.1** · Chrome 114+ · Manifest V3 · Five interface languages · MIT
+**Current release: v0.2.2** · Chrome 114+ · Manifest V3 · Five interface languages · MIT
 
 > Multi-AI Chat automates third-party web interfaces. A provider redesign can temporarily break page selectors, and automated use may be governed by each provider's terms. Use only accounts and content you are authorized to use.
 
 ![Multi-AI Chat running a multi-provider workflow in Chrome](./store/screenshot-1280x800.png)
+
+## What changed in v0.2.2
+
+- **Stable provider tabs and SPA status.** Each provider keeps one owner tab; duplicate tabs, route-only SPA navigation, and late status probes no longer steal or flicker the connection.
+- **Resilient ChatGPT composer.** Remounted composers are rediscovered, login detection is stabilized, focus no longer scrolls the page, and current composer, send, and stop selectors are supported.
+- **Frozen/discarded tab recovery.** Chrome-frozen or discarded provider tabs are detected, woken, and reconnected before the workflow resumes.
 
 ## Choose your edition
 
@@ -48,15 +54,17 @@ If a provider fails during Roundtable, the workflow pauses and offers **Retry**,
 
 The GitHub Release package is ready to load as an unpacked extension; no source build is required.
 
-1. Download [`multi-ai-chat-store-v0.2.1.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip) and its [checksum file](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip.sha256).
-2. Verify the archive. The expected SHA-256 is `c840f4e8f3ccca1478271b31d80597622563b64182b3527de786d67d546f6962`.
+> v0.2.2 is the current release. The ZIP and checksum below are the official files attached to its GitHub Release.
+
+1. Download [`multi-ai-chat-store-v0.2.2.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.2/multi-ai-chat-store-v0.2.2.zip) and its [checksum file](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.2/multi-ai-chat-store-v0.2.2.zip.sha256).
+2. Verify the archive. The expected SHA-256 is `425bd80abc4618908ef184e75d7ee57e384364e7ed784924deb624a700361919`.
 
    ```powershell
-   (Get-FileHash .\multi-ai-chat-store-v0.2.1.zip -Algorithm SHA256).Hash.ToLower()
+   (Get-FileHash .\multi-ai-chat-store-v0.2.2.zip -Algorithm SHA256).Hash.ToLower()
    ```
 
    ```sh
-   shasum -a 256 multi-ai-chat-store-v0.2.1.zip
+   shasum -a 256 multi-ai-chat-store-v0.2.2.zip
    ```
 
 3. Extract the ZIP to a permanent folder. Its root contains `manifest.json`.

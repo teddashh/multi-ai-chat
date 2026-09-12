@@ -2,15 +2,21 @@
 
 [English](./README.md) · **繁體中文** · [日本語](./README.ja.md) · [Deutsch](./README.de.md) · [한국어](./README.ko.md)
 
-[官方網站](https://teddashh.github.io/multi-ai-chat/?lang=zh-TW) · [下載 v0.2.1](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.1) · [桌面版](https://teddashh.github.io/multi-ai-chat-desktop/?lang=zh-TW)
+[官方網站](https://teddashh.github.io/multi-ai-chat/?lang=zh-TW) · [下載 v0.2.2](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.2) · [桌面版](https://teddashh.github.io/multi-ai-chat-desktop/?lang=zh-TW)
 
 只問一次，讓四個 AI 一起工作。Multi-AI Chat 是輕量的 Chrome Side Panel，能協調你已登入的 **ChatGPT、Claude、Gemini、Grok** 分頁。它直接使用你原本就能存取的 provider 網頁，不需要模型 API Key，也沒有額外的對話後端。
 
-**目前版本：v0.2.1** · Chrome 114+ · Manifest V3 · 五種介面語言 · MIT
+**目前正式版本：v0.2.2** · Chrome 114+ · Manifest V3 · 五種介面語言 · MIT
 
 > Multi-AI Chat 會自動操作第三方網頁介面。Provider 改版可能暫時使頁面 selector 失效，自動化也可能受各服務條款約束。請只使用你有權使用的帳號與內容。
 
 ![Multi-AI Chat 在 Chrome 中執行多 provider workflow](./store/screenshot-1280x800.png)
+
+## v0.2.2 更新
+
+- **穩定的 provider 分頁與 SPA 狀態。** 每家 provider 固定由一個分頁負責；重複分頁、僅路由變更的 SPA 導頁與晚到的狀態檢查，不再搶走連線或讓狀態反覆閃動。
+- **更耐改版的 ChatGPT composer。** Composer 重新掛載後會重新尋找元素，登入偵測更穩定，聚焦不再捲動頁面，並支援目前的 composer、送出與停止 selector。
+- **凍結／捨棄分頁復原。** Chrome 凍結或捨棄的 provider 分頁會先被偵測、喚醒並重新連線，再繼續 workflow。
 
 ## 選擇適合的版本
 
@@ -48,15 +54,17 @@
 
 GitHub Release 套件可以直接當作 unpacked extension 載入，不必建置原始碼。
 
-1. 下載 [`multi-ai-chat-store-v0.2.1.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip) 與它的 [checksum 檔](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip.sha256)。
-2. 驗證壓縮檔；正確的 SHA-256 是 `c840f4e8f3ccca1478271b31d80597622563b64182b3527de786d67d546f6962`。
+> v0.2.2 是目前的正式發佈版本；下方 ZIP 與 checksum 是 GitHub Release 所附的正式檔案。
+
+1. 下載 [`multi-ai-chat-store-v0.2.2.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.2/multi-ai-chat-store-v0.2.2.zip) 與它的 [checksum 檔](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.2/multi-ai-chat-store-v0.2.2.zip.sha256)。
+2. 驗證壓縮檔；正確的 SHA-256 是 `425bd80abc4618908ef184e75d7ee57e384364e7ed784924deb624a700361919`。
 
    ```powershell
-   (Get-FileHash .\multi-ai-chat-store-v0.2.1.zip -Algorithm SHA256).Hash.ToLower()
+   (Get-FileHash .\multi-ai-chat-store-v0.2.2.zip -Algorithm SHA256).Hash.ToLower()
    ```
 
    ```sh
-   shasum -a 256 multi-ai-chat-store-v0.2.1.zip
+   shasum -a 256 multi-ai-chat-store-v0.2.2.zip
    ```
 
 3. 把 ZIP 解壓縮到固定資料夾；該資料夾根目錄中會有 `manifest.json`。

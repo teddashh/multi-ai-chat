@@ -1,15 +1,27 @@
 import type { AIProvider, ExtensionMessage } from '../shared/types';
 import { encodeError } from '../shared/errors';
 import { longerResponseText, serializeResponseText } from './responseSerializer';
-import { shouldStopActiveRequest } from '../shared/requestScope';
+import { isActiveContentRequest, shouldStopActiveRequest } from '../shared/requestScope';
+import { decideLoginStatus, type LoginStatusState } from './loginStatusStability';
+import { focusWithoutScroll } from './focusWithoutScroll';
+import { firstAcceptedCandidate } from './elementSelection';
+import { clearedComposerConfirmsSend, contentMatchesPrompt } from './sendConfirmation';
 
 export interface ContentScriptConfig {
   provider: AIProvider;
   inputSelectors: string[];
+  requireVisibleInput?: boolean;
+  inputFilter?: (element: Element) => boolean;
   sendButtonSelectors: string[];
+  sendButtonFilter?: (element: Element) => boolean;
+  userMessageSelectors?: string[];
+  requireSameComposerForClearConfirmation?: boolean;
   responseSelectors: string[];
   stopButtonSelectors?: string[];
+  stopButtonFilter?: (element: Element) => boolean;
   loginDetector: () => boolean;
+  loggedOutDetector?: () => boolean;
+  loginLossDelay?: number;
   isThinking?: () => boolean;
   injectInput?: (element: Element, text: string) => void | Promise<void>;
   doneDelay?: number;
@@ -27,6 +39,7 @@ const INPUT_TIMEOUT_MS = 2500;
 const SEND_BUTTON_TIMEOUT_MS = 800;
 const PRE_SEND_DELAY_MS = 800;
 const SEND_RETRY_DELAY_MS = 1500;
+const SEND_CONFIRMATION_GRACE_MS = 2000;
 const SEND_VERIFY_DELAY_MS = 1500;
 // 送出成功但完全抓不到回應時，至少等這麼久才放棄。慢的模型（深度思考、搜尋）
 // 常常好幾十秒才吐出第一個字，而 isThinking() 只靠硬寫的選擇器，漏判是常態。
@@ -48,8 +61,12 @@ export function createContentScript(config: ContentScriptConfig): void {
   const {
     provider,
     inputSelectors,
+    requireVisibleInput = false,
+    inputFilter = () => true,
     responseSelectors,
     loginDetector,
+    loggedOutDetector = () => false,
+    loginLossDelay = 0,
     isThinking = () => false,
     injectInput = defaultInjectInput,
     doneDelay = 3000,
@@ -61,6 +78,7 @@ export function createContentScript(config: ContentScriptConfig): void {
   let checkDoneInterval: ReturnType<typeof setInterval> | undefined;
   let pollInterval: ReturnType<typeof setInterval> | undefined;
   let responseBaselineEls = new Set<Element>();
+  let userMessageBaselineEls = new Set<Element>();
   let waitingForResponse = false;
   let lastResponseText = '';
   let lastChunkTime = 0;
@@ -68,11 +86,23 @@ export function createContentScript(config: ContentScriptConfig): void {
   let activeWorkflowId: string | undefined;
   let responseObserver: MutationObserver | undefined;
   let sawGenerationActivity = false;
-  let lastReportedLoggedIn: boolean | undefined;
+  let loginStatusState: LoginStatusState = {};
+  let loginStatusTimeout: ReturnType<typeof setTimeout> | undefined;
   let responseWaitStartedAt = 0;
+  let activePromptText = '';
+  let lastActivatedInput: Element | undefined;
+  let disposed = false;
   const sendTimeouts = new Set<number>();
 
+  const queryInput = (): Element | null => queryFirst(
+    inputSelectors,
+    document,
+    requireVisibleInput,
+    inputFilter,
+  );
+
   function isContextValid(): boolean {
+    if (disposed || scope[marker] !== runtimeState) return false;
     try {
       return Boolean(chrome.runtime?.id);
     } catch {
@@ -89,9 +119,18 @@ export function createContentScript(config: ContentScriptConfig): void {
   }
 
   function cleanup(): void {
+    if (disposed) return;
+    disposed = true;
+    waitingForResponse = false;
+    activeRequestId = undefined;
+    activeWorkflowId = undefined;
+    activePromptText = '';
+    lastActivatedInput = undefined;
     clearResponseTimers();
     if (statusInterval !== undefined) clearInterval(statusInterval);
     statusInterval = undefined;
+    if (loginStatusTimeout !== undefined) clearTimeout(loginStatusTimeout);
+    loginStatusTimeout = undefined;
     responseObserver?.disconnect();
     responseObserver = undefined;
     try {
@@ -100,20 +139,34 @@ export function createContentScript(config: ContentScriptConfig): void {
     if (scope[marker] === runtimeState) delete scope[marker];
   }
 
-  function reportStatus(): void {
+  function reportStatus(force = false): void {
     if (!isContextValid()) {
       cleanup();
       return;
     }
-    lastReportedLoggedIn = loginDetector();
-    safeSendMessage({ action: 'STATUS_REPORT', provider, payload: { loggedIn: lastReportedLoggedIn } });
+    const decision = decideLoginStatus(loginStatusState, {
+      ready: loginDetector(),
+      explicitlyLoggedOut: loggedOutDetector(),
+      now: Date.now(),
+      lossDelayMs: loginLossDelay,
+    });
+    loginStatusState = decision.state;
+
+    if (loginStatusTimeout !== undefined) clearTimeout(loginStatusTimeout);
+    loginStatusTimeout = undefined;
+    if (decision.retryInMs !== undefined) {
+      loginStatusTimeout = setTimeout(reportStatus, decision.retryInMs);
+    }
+    const statusToReport = decision.report ?? (force ? decision.state.reported : undefined);
+    if (statusToReport === undefined) return;
+    safeSendMessage({ action: 'STATUS_REPORT', provider, payload: { loggedIn: statusToReport } });
   }
 
   async function sendMessage(text: string, requestId?: string, workflowId?: string): Promise<void> {
     if (!text.trim()) throw new Error(encodeError('error.empty_message'));
     if (waitingForResponse) throw new Error(encodeError('error.response_in_progress', { provider }));
 
-    const input = await retryLookup(() => queryFirst(inputSelectors), INPUT_TIMEOUT_MS);
+    const input = await retryLookup(queryInput, INPUT_TIMEOUT_MS, isContextValid);
     if (!input) {
       const reason = encodeError('error.input_not_found', { provider });
       finishWithError(reason, requestId, workflowId);
@@ -122,18 +175,23 @@ export function createContentScript(config: ContentScriptConfig): void {
 
     const existingResponses = Array.from(document.querySelectorAll(responseSelectors.join(', ')));
     responseBaselineEls = new Set(existingResponses);
+    userMessageBaselineEls = new Set(queryUserMessages());
     waitingForResponse = true;
     activeRequestId = requestId;
     activeWorkflowId = workflowId;
     lastResponseText = '';
     sawGenerationActivity = false;
     responseWaitStartedAt = Date.now();
+    activePromptText = text;
+    lastActivatedInput = undefined;
     startResponsePolling();
 
     const injectionStartedAt = Date.now();
     try {
+      if (!isActiveRequest(requestId)) throw new Error('request cancelled before input injection');
       await injectInput(input, text);
       await Promise.resolve();
+      if (!isActiveRequest(requestId)) throw new Error('request cancelled during input injection');
       assertInputLanded(input, text);
     } catch (error) {
       finishWithError(encodeError('error.input_injection_failed', { provider, detail: errorMessage(error) }), requestId, workflowId);
@@ -143,42 +201,59 @@ export function createContentScript(config: ContentScriptConfig): void {
     const delay = Math.max(0, PRE_SEND_DELAY_MS - (Date.now() - injectionStartedAt));
     scheduleForRequest(() => {
       void (async () => {
-        const firstAttempt = await activateSend(input, requestId);
-        scheduleForRequest(() => void retrySendIfStillPending(input, firstAttempt, requestId), SEND_RETRY_DELAY_MS, requestId);
+        const firstAttempt = await activateSend(text, requestId);
+        scheduleForRequest(
+          () => void retrySendIfStillPending(text, firstAttempt, requestId),
+          SEND_RETRY_DELAY_MS,
+          requestId,
+        );
       })();
     }, delay, requestId);
   }
 
-  async function retrySendIfStillPending(originalInput: Element, firstAttempt: SendActivationResult, requestId?: string): Promise<void> {
+  async function retrySendIfStillPending(text: string, firstAttempt: SendActivationResult, requestId?: string): Promise<void> {
     if (!isActiveRequest(requestId) || sendStarted()) return;
-    const currentInput = queryFirst(inputSelectors);
-    if (!currentInput) {
-      if (!firstAttempt.ok) finishWithError(encodeError('error.input_disappeared', { provider }));
-      return;
-    }
-    if (!getInputText(currentInput).trim()) return;
-
-    if (firstAttempt.ok && firstAttempt.path === 'button-click') {
-      const firstButton = querySendButton(currentInput);
-      if (!firstButton || isDisabled(firstButton)) return;
-    }
-
-    const retryAttempt = await activateSend(currentInput ?? originalInput, requestId);
+    if (firstAttempt.ok && await waitForSendConfirmation(requestId, SEND_CONFIRMATION_GRACE_MS)) return;
+    if (!isActiveRequest(requestId)) return;
+    const retryAttempt = await activateSend(text, requestId);
     if (!isActiveRequest(requestId)) return;
     if (!retryAttempt.ok) {
       finishWithError(encodeError('error.send_failed', { provider, detail: retryAttempt.detail ?? firstAttempt.detail ?? retryAttempt.path }));
       return;
     }
-    scheduleForRequest(() => verifySendAfterRetry(retryAttempt, requestId), SEND_VERIFY_DELAY_MS, requestId);
+    scheduleForRequest(
+      () => void verifySendAfterRetry(text, requestId),
+      SEND_VERIFY_DELAY_MS,
+      requestId,
+    );
   }
 
-  function verifySendAfterRetry(retryAttempt: SendActivationResult, requestId?: string): void {
+  async function waitForSendConfirmation(requestId: string | undefined, timeoutMs: number): Promise<boolean> {
+    const startedAt = Date.now();
+    while (isActiveRequest(requestId) && Date.now() - startedAt < timeoutMs) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      if (isActiveRequest(requestId) && sendStarted()) return true;
+    }
+    return false;
+  }
+
+  async function verifySendAfterRetry(text: string, requestId?: string): Promise<void> {
     if (!isActiveRequest(requestId) || sendStarted()) return;
-    const currentInput = queryFirst(inputSelectors);
-    if (!currentInput) return;
-    const sendButton = querySendButton(currentInput);
-    if (retryAttempt.path === 'button-click' && (!sendButton || isDisabled(sendButton))) return;
-    const hadSendButton = Boolean(sendButton);
+    if (await waitForSendConfirmation(requestId, SEND_CONFIRMATION_GRACE_MS)) return;
+    if (!isActiveRequest(requestId)) return;
+    let currentInput: Element | null;
+    try {
+      currentInput = await prepareLiveInput(text, requestId);
+    } catch (error) {
+      finishWithError(encodeError('error.send_failed', { provider, detail: errorMessage(error) }));
+      return;
+    }
+    if (!isActiveRequest(requestId)) return;
+    if (!currentInput) {
+      finishWithError(encodeError('error.input_disappeared', { provider }));
+      return;
+    }
+    lastActivatedInput = currentInput;
     const enterOk = dispatchEnter(currentInput);
     if (!enterOk) {
       finishWithError(encodeError('error.send_failed', { provider, detail: 'Enter dispatch failed' }));
@@ -186,29 +261,67 @@ export function createContentScript(config: ContentScriptConfig): void {
     }
     scheduleForRequest(() => {
       if (!isActiveRequest(requestId) || sendStarted()) return;
-      const finalInput = queryFirst(inputSelectors);
-      const finalButton = finalInput ? querySendButton(finalInput) : null;
-      if (!finalInput || !getInputText(finalInput).trim()) return;
-      if (hadSendButton && (!finalButton || isDisabled(finalButton))) return;
       finishWithError(encodeError('error.send_rejected', { provider }));
     }, SEND_VERIFY_DELAY_MS, requestId);
   }
 
-  async function activateSend(input: Element, requestId?: string): Promise<SendActivationResult> {
-    const sendButton = await retryLookup(() => querySendButton(input), SEND_BUTTON_TIMEOUT_MS);
+  async function activateSend(text: string, requestId?: string): Promise<SendActivationResult> {
+    let input: Element | null;
+    try {
+      input = await prepareLiveInput(text, requestId);
+    } catch (error) {
+      return { ok: false, path: 'enter-key', detail: errorMessage(error) };
+    }
+    if (!input) return { ok: false, path: 'enter-key', detail: 'input disappeared' };
+    lastActivatedInput = input;
+    const sendButton = await retryLookup(
+      () => querySendButton(input),
+      SEND_BUTTON_TIMEOUT_MS,
+      () => isActiveRequest(requestId),
+    );
     if (!isActiveRequest(requestId)) return { ok: false, path: 'enter-key', detail: 'request cancelled' };
     if (sendButton && !isDisabled(sendButton) && clickElement(sendButton)) return { ok: true, path: 'button-click' };
     const ok = dispatchEnter(input);
     return { ok, path: 'enter-key', detail: ok ? undefined : 'Enter dispatch failed' };
   }
 
+  async function prepareLiveInput(text: string, requestId?: string): Promise<Element | null> {
+    if (!isActiveRequest(requestId)) return null;
+    const input = await retryLookup(
+      queryInput,
+      INPUT_TIMEOUT_MS,
+      () => isActiveRequest(requestId),
+    );
+    if (!input || !isActiveRequest(requestId)) return null;
+    if (composerTextMatches(input, text)) return input;
+    if (getInputText(input).trim()) throw new Error('live editor contains different text');
+    if (!isActiveRequest(requestId)) return null;
+    await injectInput(input, text);
+    await Promise.resolve();
+    if (!isActiveRequest(requestId)) return null;
+    assertInputLanded(input, text);
+    return input;
+  }
+
   function querySendButton(input: Element): Element | null {
     const container = input.closest?.('form, fieldset, [data-testid*="composer"], [class*="composer"], [class*="input-area"]');
     if (container) {
-      const local = queryFirst(config.sendButtonSelectors, container, true);
+      const local = queryFirst(config.sendButtonSelectors, container, true, config.sendButtonFilter);
       if (local) return local;
     }
-    return queryFirst(config.sendButtonSelectors, document, true);
+    return queryFirst(config.sendButtonSelectors, document, true, config.sendButtonFilter);
+  }
+
+  function queryUserMessages(): Element[] {
+    const selectors = config.userMessageSelectors ?? [];
+    return selectors.length ? Array.from(document.querySelectorAll(selectors.join(', '))) : [];
+  }
+
+  function hasNewMatchingUserMessage(): boolean {
+    return queryUserMessages().some((element) => (
+      !userMessageBaselineEls.has(element)
+      && contentMatchesPrompt(element.textContent ?? '', activePromptText)
+    ));
   }
 
   function sendStarted(): boolean {
@@ -222,10 +335,21 @@ export function createContentScript(config: ContentScriptConfig): void {
       sawGenerationActivity = true;
       return true;
     }
-    const input = queryFirst(inputSelectors);
+    const hasNewUserMessage = hasNewMatchingUserMessage();
+    if (hasNewUserMessage) {
+      sawGenerationActivity = true;
+      return true;
+    }
+    const input = queryInput();
     const cleared = Boolean(input && !getInputText(input).trim());
-    if (cleared) sawGenerationActivity = true;
-    return cleared;
+    const confirmedByClear = cleared && clearedComposerConfirmsSend(
+      lastActivatedInput,
+      input,
+      Boolean(config.requireSameComposerForClearConfirmation),
+      hasNewUserMessage,
+    );
+    if (confirmedByClear) sawGenerationActivity = true;
+    return confirmedByClear;
   }
 
   function getLatestResponseText(): string | null {
@@ -255,7 +379,7 @@ export function createContentScript(config: ContentScriptConfig): void {
     responseObserver = new MutationObserver(() => {
       // Claude/SPA composers mount several seconds after load; re-report the moment
       // login state flips so the card reaches "ready" without waiting for the 10s poll.
-      if (lastReportedLoggedIn !== undefined && loginDetector() !== lastReportedLoggedIn) reportStatus();
+      reportStatus();
       if (!waitingForResponse || isThinking()) return;
       updateResponse();
     });
@@ -350,7 +474,12 @@ export function createContentScript(config: ContentScriptConfig): void {
 
   function stopGeneration(requestId?: string, workflowId?: string): boolean {
     if (!shouldStopActiveRequest(activeRequestId, activeWorkflowId, requestId, workflowId)) return false;
-    const stopButton = queryFirst(config.stopButtonSelectors ?? [], document, true);
+    const stopButton = queryFirst(
+      config.stopButtonSelectors ?? [],
+      document,
+      true,
+      config.stopButtonFilter,
+    );
     if (stopButton) clickElement(stopButton);
     resetResponseState();
     return true;
@@ -360,13 +489,23 @@ export function createContentScript(config: ContentScriptConfig): void {
     waitingForResponse = false;
     clearResponseTimers();
     responseBaselineEls.clear();
+    userMessageBaselineEls.clear();
     activeRequestId = undefined;
     activeWorkflowId = undefined;
+    activePromptText = '';
+    lastActivatedInput = undefined;
     sawGenerationActivity = false;
   }
 
   function isActiveRequest(requestId?: string): boolean {
-    return waitingForResponse && activeRequestId === requestId;
+    return isActiveContentRequest(
+      disposed,
+      runtimeState,
+      scope[marker],
+      waitingForResponse,
+      activeRequestId,
+      requestId,
+    );
   }
 
   function scheduleForRequest(callback: () => void, delay: number, requestId = activeRequestId): void {
@@ -401,7 +540,9 @@ export function createContentScript(config: ContentScriptConfig): void {
       return true;
     }
     if (message.action === 'CHECK_STATUS') {
-      reportStatus();
+      // A service worker can restart while this content script survives. Always answer its
+      // explicit probe even when our locally observed status has not changed.
+      reportStatus(true);
       sendResponse({ ok: true });
       return true;
     }
@@ -416,14 +557,19 @@ export function createContentScript(config: ContentScriptConfig): void {
   runtimeState.dispose = cleanup;
   chrome.runtime.onMessage.addListener(runtimeListener);
 
-  reportStatus();
-  statusInterval = setInterval(reportStatus, 10_000);
+  reportStatus(true);
+  statusInterval = setInterval(() => reportStatus(true), 10_000);
   observeResponses();
 }
 
-async function retryLookup<T>(lookup: () => T | null | undefined, timeoutMs: number): Promise<T | null> {
+async function retryLookup<T>(
+  lookup: () => T | null | undefined,
+  timeoutMs: number,
+  shouldContinue: () => boolean = () => true,
+): Promise<T | null> {
   const startedAt = Date.now();
   while (true) {
+    if (!shouldContinue()) return null;
     const value = lookup();
     if (value) return value;
     const elapsed = Date.now() - startedAt;
@@ -432,14 +578,17 @@ async function retryLookup<T>(lookup: () => T | null | undefined, timeoutMs: num
   }
 }
 
-function queryFirst(selectors: string[], root: ParentNode = document, requireVisible = false): Element | null {
-  for (const selector of selectors) {
-    const candidates = root.querySelectorAll(selector);
-    for (const candidate of candidates) {
-      if (!requireVisible || isVisible(candidate)) return candidate;
-    }
-  }
-  return null;
+function queryFirst(
+  selectors: readonly string[],
+  root: ParentNode = document,
+  requireVisible = false,
+  filter: (element: Element) => boolean = () => true,
+): Element | null {
+  return firstAcceptedCandidate(
+    selectors,
+    (selector) => Array.from(root.querySelectorAll(selector)),
+    (candidate) => (!requireVisible || isVisible(candidate)) && filter(candidate),
+  );
 }
 
 function isVisible(element: Element): boolean {
@@ -465,7 +614,7 @@ function composerTextMatches(input: Element, expected: string): boolean {
 
 function defaultInjectInput(input: Element, text: string): void {
   const element = input as HTMLElement;
-  element.focus();
+  focusWithoutScroll(element);
   if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) {
     const prototype = input instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
@@ -496,7 +645,7 @@ function clickElement(element: Element): boolean {
   if (isDisabled(element)) return false;
   const target = element as HTMLElement;
   try {
-    target.focus();
+    focusWithoutScroll(target);
     target.click();
     return true;
   } catch {
@@ -510,7 +659,7 @@ function isDisabled(element: Element): boolean {
 }
 
 function dispatchEnter(input: Element): boolean {
-  (input as HTMLElement).focus?.();
+  focusWithoutScroll(input as HTMLElement);
   const target = document.activeElement ?? input;
   const options = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };
   try {

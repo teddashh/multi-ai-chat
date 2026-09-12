@@ -34,6 +34,18 @@ import {
   transferStepRecoveryOwnership,
 } from './roundtableRecovery';
 import { assertCurrentWorkflow, WorkflowStartGate } from './workflowStartGate';
+import {
+  canRetryStatusProbe,
+  compareProviderTabPriority,
+  connectionAfterProbeFailure,
+  connectionAfterRefresh,
+  connectionAfterTabRelease,
+  connectionForStatusReport,
+  connectionForTabEvent,
+  isProviderTabUnavailable,
+  providerForTabEvent,
+  sameConnection,
+} from './providerTabOwnership';
 
 interface ResponseWaiter {
   provider: AIProvider;
@@ -57,6 +69,7 @@ interface SendParams {
 
 const PROVIDERS: AIProvider[] = ['chatgpt', 'claude', 'gemini', 'grok'];
 const ACTIVE_WORKFLOW_STORAGE_KEY = 'multiAiActiveWorkflow';
+const STATUS_PROBE_RETRY_MS = 1000;
 const CONTENT_SCRIPT_FILES: Record<AIProvider, string> = {
   chatgpt: 'content/chatgpt.js',
   claude: 'content/claude.js',
@@ -67,6 +80,9 @@ const CONTENT_SCRIPT_FILES: Record<AIProvider, string> = {
 const connections: Record<AIProvider, AIConnection> = Object.fromEntries(
   PROVIDERS.map((provider) => [provider, { provider, status: 'disconnected' }]),
 ) as Record<AIProvider, AIConnection>;
+let connectionsRevision = 0;
+let lastBroadcastConnectionsRevision = -1;
+const statusProbeRetries = new Map<AIProvider, { tabId: number; timer: ReturnType<typeof setTimeout> }>();
 
 const responseWaiters = new Map<string, ResponseWaiter>();
 const stepRecovery = new StepRecoveryCoordinator();
@@ -93,39 +109,86 @@ chrome.runtime.onInstalled.addListener(() => void refreshConnections());
 chrome.runtime.onStartup.addListener(() => void refreshConnections());
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (!tab.url) return;
-  const provider = getProviderFromUrl(tab.url);
+  // onUpdated 也會因為標題、favicon 等變化觸發，此時 changeInfo 沒有 status 或 url。
+  // 那類事件不該影響連線或分頁 ownership。
+  const availabilityChanged = changeInfo.discarded !== undefined || changeInfo.frozen !== undefined;
+  if (changeInfo.status === undefined && changeInfo.url === undefined && !availabilityChanged) return;
+
+  const ownerForTab = PROVIDERS.find((candidate) => connections[candidate].tabId === tabId);
+  const provider = providerForTabEvent(changeInfo.url, tab.url, ownerForTab, getProviderFromUrl);
+  let releasedOwner = false;
+  for (const candidate of PROVIDERS) {
+    if (candidate === provider || connections[candidate].tabId !== tabId) continue;
+    rejectWaitersForProvider(candidate, new Error(encodeError('error.navigated_away', { provider: candidate })));
+    releasedOwner = updateConnection(candidate, connectionAfterTabRelease(connections[candidate], candidate, tabId)) || releasedOwner;
+  }
+
   if (!provider) {
-    let changed = false;
-    for (const candidate of PROVIDERS) {
-      if (connections[candidate].tabId !== tabId) continue;
-      rejectWaitersForProvider(candidate, new Error(encodeError('error.navigated_away', { provider: candidate })));
-      connections[candidate] = { provider: candidate, status: 'disconnected' };
-      changed = true;
+    if (releasedOwner) {
+      broadcastConnections();
+      void refreshConnections();
     }
-    if (changed) broadcastConnections();
     return;
   }
-  // onUpdated 也會因為標題、favicon 等變化觸發，此時 changeInfo 沒有 status 或 url。
-  // 那類事件不該影響連線狀態，否則已就緒的連線會被打回 checking 且不再重新查詢。
-  if (changeInfo.status === undefined && changeInfo.url === undefined) return;
-  if (changeInfo.status === 'loading' && !changeInfo.url && connections[provider].tabId === tabId) {
+
+  const current = connections[provider];
+  const isOwner = current.tabId === tabId;
+  // Once a provider owns a live tab, unrelated tabs on the same provider cannot
+  // steal it merely by navigating or finishing a load.
+  if (current.tabId !== undefined && !isOwner) {
+    if (releasedOwner) {
+      broadcastConnections();
+      void refreshConnections();
+    }
+    return;
+  }
+
+  const unavailable = changeInfo.discarded === true
+    || changeInfo.frozen === true
+    || isProviderTabUnavailable(tab);
+  if (unavailable) {
+    if (isOwner) {
+      rejectWaitersForProvider(provider, new Error(encodeError('error.reloaded', { provider })));
+      updateConnection(provider, connectionAfterTabRelease(current, provider, tabId));
+      broadcastConnections();
+    }
+    // Prefer another live provider tab. If this is the only candidate, refresh keeps
+    // its id as disconnected so clicking the provider card can wake it back up.
+    void refreshConnections();
+    return;
+  }
+
+  if (changeInfo.status === 'loading' && isOwner) {
     rejectWaitersForProvider(provider, new Error(encodeError('error.reloaded', { provider })));
   }
-  connections[provider] = { provider, status: 'checking', tabId };
+
+  const becameAvailable = changeInfo.discarded === false || changeInfo.frozen === false;
+  const urlOnly = changeInfo.url !== undefined && changeInfo.status === undefined && !becameAvailable;
+  const markChecking = !isOwner || changeInfo.status === 'loading' || becameAvailable;
+  updateConnection(provider, connectionForTabEvent(current, provider, tabId, markChecking));
   broadcastConnections();
-  // url 變化涵蓋 SPA 內部導覽，那時不會有 status: 'complete' 可等
-  if (changeInfo.status === 'complete' || changeInfo.url) void requestTabStatus(provider, tabId);
+  // URL-only events are SPA navigation. Keep an already-ready owner ready while
+  // confirming it in the background; a transient probe must not create flicker.
+  if (changeInfo.status === 'complete' || urlOnly || becameAvailable) {
+    void requestTabStatus(provider, tabId, {
+      preserveConnectedOnFailure: urlOnly && isOwner && current.status === 'connected',
+    });
+  }
+  if (releasedOwner) void refreshConnections();
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
+  let releasedOwner = false;
   for (const provider of PROVIDERS) {
     if (connections[provider].tabId === tabId) {
       rejectWaitersForProvider(provider, new Error(encodeError('error.tab_closed', { provider })));
-      connections[provider] = { provider, status: 'disconnected' };
+      releasedOwner = updateConnection(provider, connectionAfterTabRelease(connections[provider], provider, tabId)) || releasedOwner;
     }
   }
-  broadcastConnections();
+  if (releasedOwner) {
+    broadcastConnections();
+    void refreshConnections();
+  }
 });
 
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendResponse) => {
@@ -157,14 +220,20 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
 
     case 'STATUS_REPORT': {
       if (!message.provider || !sender.tab?.id) return false;
+      if (sender.tab.url && getProviderFromUrl(sender.tab.url) !== message.provider) return false;
       const { loggedIn = false } = (message.payload as { loggedIn?: boolean } | undefined) ?? {};
       const current = connections[message.provider];
-      if (current.status === 'connected' && current.tabId !== sender.tab.id) return false;
-      connections[message.provider] = {
-        provider: message.provider,
-        status: loggedIn ? 'connected' : 'login-required',
-        tabId: sender.tab.id,
-      };
+      if (current.tabId !== undefined && current.tabId !== sender.tab.id) return false;
+      const next = connectionForStatusReport(
+        current,
+        message.provider,
+        sender.tab.id,
+        loggedIn,
+        isProviderTabUnavailable(sender.tab),
+      );
+      if (next === current) return false;
+      clearStatusProbeRetry(message.provider, sender.tab.id);
+      if (!updateConnection(message.provider, next)) return false;
       broadcastConnections();
       return false;
     }
@@ -234,32 +303,95 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
 });
 
 async function refreshConnections(): Promise<void> {
+  const connectionsAtStart = Object.fromEntries(
+    PROVIDERS.map((provider) => [provider, connections[provider]]),
+  ) as Record<AIProvider, AIConnection>;
   const tabs = await chrome.tabs.query({});
-  for (const provider of PROVIDERS) connections[provider] = { provider, status: 'disconnected' };
-
+  const candidates = Object.fromEntries(
+    PROVIDERS.map((provider) => [provider, [] as chrome.tabs.Tab[]]),
+  ) as Record<AIProvider, chrome.tabs.Tab[]>;
+  const unavailableCandidateIds = Object.fromEntries(
+    PROVIDERS.map((provider) => [provider, new Set<number>()]),
+  ) as Record<AIProvider, Set<number>>;
   for (const tab of tabs) {
     if (!tab.id || !tab.url) continue;
     const provider = getProviderFromUrl(tab.url);
     if (!provider) continue;
-    connections[provider] = { provider, status: 'checking', tabId: tab.id };
+    candidates[provider].push(tab);
+    if (isProviderTabUnavailable(tab)) unavailableCandidateIds[provider].add(tab.id);
+  }
+  for (const provider of PROVIDERS) {
+    if (connections[provider] !== connectionsAtStart[provider]) continue;
+    const candidateIds = candidates[provider]
+      .sort(compareProviderTabPriority)
+      .flatMap((tab) => tab.id === undefined ? [] : [tab.id]);
+    const next = connectionAfterRefresh(
+      connections[provider],
+      provider,
+      connectionsAtStart[provider],
+      candidateIds,
+      [...unavailableCandidateIds[provider]],
+    );
+    updateConnection(provider, next);
   }
   broadcastConnections();
 
   await Promise.all(
     PROVIDERS.map(async (provider) => {
       const tabId = connections[provider].tabId;
-      if (tabId) await requestTabStatus(provider, tabId);
+      if (tabId && !unavailableCandidateIds[provider].has(tabId)) {
+        await requestTabStatus(provider, tabId);
+      }
     }),
   );
 }
 
-async function requestTabStatus(provider: AIProvider, tabId: number): Promise<void> {
+async function requestTabStatus(
+  provider: AIProvider,
+  tabId: number,
+  options: { preserveConnectedOnFailure?: boolean } = {},
+): Promise<void> {
+  if (connections[provider].tabId !== tabId) return;
+  const connectionAtStart = connections[provider];
   try {
     await deliverToTab(provider, tabId, { action: 'CHECK_STATUS', provider });
+    clearStatusProbeRetry(provider, tabId);
   } catch {
-    connections[provider] = { provider, status: 'disconnected', tabId };
+    // A probe started for an older connection generation must never demote a
+    // status or owner established while message delivery was in flight.
+    if (connections[provider] !== connectionAtStart) return;
+    const next = connectionAfterProbeFailure(
+      connectionAtStart,
+      provider,
+      tabId,
+      options.preserveConnectedOnFailure,
+    );
+    updateConnection(provider, next);
     broadcastConnections();
+    if (options.preserveConnectedOnFailure && canRetryStatusProbe(next, tabId)) {
+      scheduleStatusProbeRetry(provider, tabId);
+    }
   }
+}
+
+function scheduleStatusProbeRetry(provider: AIProvider, tabId: number): void {
+  clearStatusProbeRetry(provider);
+  const timer = setTimeout(() => {
+    const scheduled = statusProbeRetries.get(provider);
+    if (!scheduled || scheduled.tabId !== tabId || scheduled.timer !== timer) return;
+    statusProbeRetries.delete(provider);
+    if (canRetryStatusProbe(connections[provider], tabId)) {
+      void requestTabStatus(provider, tabId);
+    }
+  }, STATUS_PROBE_RETRY_MS);
+  statusProbeRetries.set(provider, { tabId, timer });
+}
+
+function clearStatusProbeRetry(provider: AIProvider, tabId?: number): void {
+  const scheduled = statusProbeRetries.get(provider);
+  if (!scheduled || (tabId !== undefined && scheduled.tabId !== tabId)) return;
+  clearTimeout(scheduled.timer);
+  statusProbeRetries.delete(provider);
 }
 
 async function deliverToTab(provider: AIProvider, tabId: number, message: ExtensionMessage): Promise<unknown> {
@@ -280,22 +412,41 @@ async function deliverToTab(provider: AIProvider, tabId: number, message: Extens
   }
 }
 
+function updateConnection(provider: AIProvider, next: AIConnection): boolean {
+  if (sameConnection(connections[provider], next)) return false;
+  const previous = connections[provider];
+  connections[provider] = next;
+  if (previous.tabId !== next.tabId || next.status !== 'connected') {
+    clearStatusProbeRetry(provider);
+  }
+  connectionsRevision += 1;
+  return true;
+}
+
 function broadcastConnections(): void {
+  if (lastBroadcastConnectionsRevision === connectionsRevision) return;
+  lastBroadcastConnectionsRevision = connectionsRevision;
   chrome.runtime.sendMessage({ action: 'CONNECTIONS_UPDATE', payload: connections }).catch(() => {});
 }
 
 async function focusOrOpenProvider(provider: AIProvider): Promise<void> {
   const connection = connections[provider];
   if (connection.tabId) {
+    const attemptedTabId = connection.tabId;
     try {
-      const tab = await chrome.tabs.update(connection.tabId, { active: true });
+      const tab = await chrome.tabs.update(attemptedTabId, { active: true });
       if (tab?.windowId !== undefined) await chrome.windows.update(tab.windowId, { focused: true });
       // 分頁已經載入完成時不會再有載入事件，必須主動重新查詢；
       // deliverToTab 在訊息送不到時會用 chrome.scripting 重新注入 content script。
-      await requestTabStatus(provider, connection.tabId);
+      await requestTabStatus(provider, attemptedTabId);
       return;
     } catch {
-      connections[provider] = { provider, status: 'disconnected' };
+      if (connections[provider] !== connection) return;
+      updateConnection(provider, connectionAfterTabRelease(connections[provider], provider, attemptedTabId));
+      broadcastConnections();
+      // Ownership may have moved while the focus request was in flight. Do not
+      // clear that newer owner or open a redundant login tab.
+      if (connections[provider].tabId !== undefined) return;
     }
   }
   await chrome.tabs.create({ url: AI_PROVIDERS[provider].loginUrl });
@@ -318,7 +469,7 @@ async function resetProviderSessions(targets: AIProvider[] = PROVIDERS): Promise
   await Promise.all(targets.map(async (provider) => {
     const tabId = connections[provider].tabId;
     if (!tabId) return;
-    connections[provider] = { provider, status: 'checking', tabId };
+    updateConnection(provider, { provider, status: 'checking', tabId });
     await chrome.tabs.update(tabId, { url: AI_PROVIDERS[provider].url });
   }));
   broadcastConnections();
@@ -329,7 +480,7 @@ async function restoreProviderSessions(urls: Partial<Record<AIProvider, string>>
     const url = urls[provider];
     const tabId = connections[provider].tabId;
     if (!url || !tabId || getProviderFromUrl(url) !== provider) return;
-    connections[provider] = { provider, status: 'checking', tabId };
+    updateConnection(provider, { provider, status: 'checking', tabId });
     await chrome.tabs.update(tabId, { url });
   }));
   broadcastConnections();

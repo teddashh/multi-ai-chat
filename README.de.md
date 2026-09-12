@@ -2,15 +2,21 @@
 
 [English](./README.md) · [繁體中文](./README.zh-TW.md) · [日本語](./README.ja.md) · **Deutsch** · [한국어](./README.ko.md)
 
-[Offizielle Website](https://teddashh.github.io/multi-ai-chat/?lang=de) · [v0.2.1 herunterladen](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.1) · [Desktop-Version](https://teddashh.github.io/multi-ai-chat-desktop/?lang=de)
+[Offizielle Website](https://teddashh.github.io/multi-ai-chat/?lang=de) · [v0.2.2 herunterladen](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.2) · [Desktop-Version](https://teddashh.github.io/multi-ai-chat-desktop/?lang=de)
 
 Einmal fragen, vier KIs gemeinsam einsetzen. Multi-AI Chat ist ein leichtes Chrome Side Panel, das deine angemeldeten **ChatGPT-, Claude-, Gemini- und Grok-Tabs** koordiniert. Es verwendet die Provider-Seiten, auf die du bereits Zugriff hast – ohne Modell-API-Schlüssel und ohne separaten Chat-Server.
 
-**Aktuelle Version: v0.2.1** · Chrome 114+ · Manifest V3 · Fünf Oberflächensprachen · MIT
+**Aktuelle Version: v0.2.2** · Chrome 114+ · Manifest V3 · Fünf Oberflächensprachen · MIT
 
 > Multi-AI Chat automatisiert Weboberflächen Dritter. Eine Änderung beim Provider kann Seiten-Selektoren vorübergehend unbrauchbar machen. Automatisierte Nutzung kann außerdem den jeweiligen Nutzungsbedingungen unterliegen. Verwende nur Konten und Inhalte, zu deren Nutzung du berechtigt bist.
 
 ![Multi-AI Chat führt in Chrome einen Workflow mit mehreren Providern aus](./store/screenshot-1280x800.png)
+
+## Änderungen in v0.2.2
+
+- **Stabile Provider-Tabs und SPA-Status.** Jeder Provider behält genau einen zuständigen Tab; doppelte Tabs, reine SPA-Routenwechsel und verspätete Statusprüfungen übernehmen die Verbindung nicht mehr und lassen den Status nicht mehr flackern.
+- **Robusterer ChatGPT-Composer.** Nach Remounts wird der Composer neu ermittelt, die Anmeldung stabiler erkannt, das Fokussieren verschiebt die Seite nicht mehr, und aktuelle Selektoren für Composer, Senden und Stoppen werden unterstützt.
+- **Wiederherstellung eingefrorener oder verworfener Tabs.** Von Chrome eingefrorene oder verworfene Provider-Tabs werden erkannt, reaktiviert und neu verbunden, bevor der Workflow fortgesetzt wird.
 
 ## Die passende Version wählen
 
@@ -48,15 +54,17 @@ Fällt ein Provider während des Rundtischs aus, pausiert der Workflow und biete
 
 Das Paket aus GitHub Releases kann direkt als entpackte Erweiterung geladen werden; ein Build aus dem Quellcode ist nicht erforderlich.
 
-1. Lade [`multi-ai-chat-store-v0.2.1.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip) und die zugehörige [Prüfsummendatei](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.1/multi-ai-chat-store-v0.2.1.zip.sha256) herunter.
-2. Prüfe das Archiv. Die erwartete SHA-256-Prüfsumme lautet `c840f4e8f3ccca1478271b31d80597622563b64182b3527de786d67d546f6962`.
+> v0.2.2 ist die aktuelle Veröffentlichung. Die folgende ZIP-Datei und Prüfsumme sind die offiziellen Dateien aus dem GitHub Release.
+
+1. Lade [`multi-ai-chat-store-v0.2.2.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.2/multi-ai-chat-store-v0.2.2.zip) und die zugehörige [Prüfsummendatei](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.2/multi-ai-chat-store-v0.2.2.zip.sha256) herunter.
+2. Prüfe das Archiv. Die erwartete SHA-256-Prüfsumme lautet `425bd80abc4618908ef184e75d7ee57e384364e7ed784924deb624a700361919`.
 
    ```powershell
-   (Get-FileHash .\multi-ai-chat-store-v0.2.1.zip -Algorithm SHA256).Hash.ToLower()
+   (Get-FileHash .\multi-ai-chat-store-v0.2.2.zip -Algorithm SHA256).Hash.ToLower()
    ```
 
    ```sh
-   shasum -a 256 multi-ai-chat-store-v0.2.1.zip
+   shasum -a 256 multi-ai-chat-store-v0.2.2.zip
    ```
 
 3. Entpacke die ZIP-Datei in einen dauerhaften Ordner. Direkt darin befindet sich `manifest.json`.

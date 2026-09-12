@@ -1,6 +1,6 @@
 {
   "name": "multi-ai-chat",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Chrome Side Panel for reliable multi-AI workflows across ChatGPT, Claude, Gemini, and Grok",
   "private": true,
   "license": "MIT",

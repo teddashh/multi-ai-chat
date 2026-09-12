@@ -1,6 +1,6 @@
 # Chrome Web Store — submission pack
 
-Everything needed for the Developer Dashboard listing of **Multi-AI Chat** (v0.2.1).
+Everything needed for the Developer Dashboard listing of **Multi-AI Chat** (v0.2.2).
 Copy each block into the matching field. Items marked **[you]** can only be done by the
 publishing Google account.
 
@@ -10,7 +10,7 @@ publishing Google account.
 
 1. **Register a developer account** at https://chrome.google.com/webstore/devconsole — one-time **US$5** fee (Google account + card). New accounts may need identity verification (can take a few days), and the publishing Google account must have **2-Step Verification** enabled.
 2. **Privacy policy.** Use the public repository copy at `https://github.com/teddashh/multi-ai-chat/blob/master/store/PRIVACY.md` (or mirror it on the developer's own domain). A privacy-policy URL is **required** because the extension reads page content.
-3. **Upload the package** `multi-ai-chat-store-v0.2.1.zip` (see §6 to regenerate).
+3. **Upload the package** `multi-ai-chat-store-v0.2.2.zip` (see §6 to regenerate).
 4. **Add the screenshot and small promo tile** from `store/` (see §5).
 5. Fill the fields below, complete the **Privacy practices** tab (§4), then **Submit for review**.
 
@@ -130,12 +130,12 @@ load-unpacked extension, zip its contents:
 
 ```powershell
 # from the repo root
-Compress-Archive -Path dist\* -DestinationPath store\multi-ai-chat-store-v0.2.1.zip -Force
+Compress-Archive -Path dist\* -DestinationPath store\multi-ai-chat-store-v0.2.2.zip -Force
 ```
 
 ```sh
 # or with the zip CLI
-(cd dist && zip -r ../store/multi-ai-chat-store-v0.2.1.zip .)
+(cd dist && zip -r ../store/multi-ai-chat-store-v0.2.2.zip .)
 ```
 
 Always run `npm run verify` first so `dist/` reflects the current source.
