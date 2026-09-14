@@ -35,6 +35,27 @@ export function longerResponseText(cached: string, fresh: string | null): string
   return fresh && fresh.length > cached.length ? fresh : cached;
 }
 
+export type ResponseContentRoot = (response: Element) => Element;
+
+export function extractResponseContent(
+  response: Element,
+  selectContentRoot: ResponseContentRoot = (root) => root,
+): string | null {
+  const contentRoot = selectContentRoot(response);
+  const text = serializeResponseText(contentRoot);
+  if (text) return text;
+
+  // Generated media may live next to (rather than inside) the provider's Markdown root.
+  // Search the stable outer turn so selecting a narrow text root never loses image output.
+  const responseTag = typeof response.tagName === 'string' ? response.tagName.toUpperCase() : '';
+  const asset = ['IMG', 'CANVAS', 'VIDEO'].includes(responseTag)
+    ? response
+    : response.querySelector?.('img, canvas, video') ?? null;
+  if (!asset) return null;
+  const alt = asset.getAttribute?.('alt')?.trim() ?? '';
+  return alt ? `[Image generated: ${alt}]` : '[Image generated]';
+}
+
 export function serializeResponseText(root: Element): string {
   const context: SerializationContext = { protectedBlocks: [] };
   const serialized = normalizeDocument(serializeNode(root, context));
