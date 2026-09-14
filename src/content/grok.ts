@@ -1,15 +1,58 @@
 import { createContentScript } from './base';
+import {
+  GROK_ANCHOR_RESPONSES_AFTER_MATCHING_USER_MESSAGE,
+  GROK_INPUT_SELECTORS,
+  GROK_REQUIRE_MATCHING_USER_MESSAGE_FOR_GENERATION_SIGNALS,
+  GROK_REQUIRE_SAME_COMPOSER_FOR_CLEAR_CONFIRMATION,
+  GROK_STOP_SELECTORS,
+  isGrokComposerInput,
+  isGrokGenerationActive,
+  isGrokStopControl,
+  grokResponseContentRoot,
+  grokSessionReady,
+  updateGrokTextControl,
+} from './grokDom';
+
+function isVisible(element: Element): boolean {
+  if (!(element instanceof HTMLElement)) return true;
+  const style = window.getComputedStyle(element);
+  return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
+}
+
+function queryAll(selectors: readonly string[]): Element[] {
+  return Array.from(document.querySelectorAll(selectors.join(', ')));
+}
+
+function grokGenerationActive(): boolean {
+  return isGrokGenerationActive(
+    queryAll(GROK_STOP_SELECTORS).filter(isGrokStopControl),
+    queryAll(['[data-testid="assistant-message"]', '.message-bubble.assistant']),
+    isVisible,
+    (turn) => {
+      const streamingCandidates = [
+        turn,
+        ...Array.from(turn.querySelectorAll('[data-streaming="true"], [data-is-streaming="true"]')),
+      ];
+      const thinkingContainers = Array.from(turn.querySelectorAll('.thinking-container'))
+        .filter(isVisible);
+      return {
+        streaming: streamingCandidates.some((candidate) => (
+          isVisible(candidate)
+          && (candidate.getAttribute('data-streaming') === 'true'
+            || candidate.getAttribute('data-is-streaming') === 'true')
+        )),
+        thinkingTexts: thinkingContainers.map((container) => container.textContent ?? ''),
+      };
+    },
+  );
+}
 
 createContentScript({
   provider: 'grok',
 
-  inputSelectors: [
-    '[data-testid="chat-input"] .ProseMirror[contenteditable="true"]',
-    '[data-testid="chat-input"] [contenteditable="true"]',
-    '.ProseMirror[contenteditable="true"]',
-    '[contenteditable="true"].ProseMirror',
-    'div.ProseMirror[contenteditable="true"]',
-  ],
+  inputSelectors: GROK_INPUT_SELECTORS,
+  requireVisibleInput: true,
+  inputFilter: isGrokComposerInput,
 
   sendButtonSelectors: [
     'button[data-testid="chat-submit"]',
@@ -18,55 +61,67 @@ createContentScript({
     'button[type="submit"]',
   ],
 
+  userMessageSelectors: [
+    '[data-testid="user-message"]',
+  ],
+  // Retry sends the exact same prompt again. Count matching turns so a React remount of the
+  // failed turn cannot masquerade as confirmation for the new attempt.
+  userMessageTracking: 'semantic-count',
+  requireSameComposerForClearConfirmation: GROK_REQUIRE_SAME_COMPOSER_FOR_CLEAR_CONFIRMATION,
+
   responseSelectors: [
     // Grok marks assistant bubbles with data-testid (most stable)
-    '[data-testid="assistant-message"] .response-content-markdown',
     '[data-testid="assistant-message"]',
+    '[data-testid="assistant-message"] .response-content-markdown',
     // Fallbacks
     '.response-content-markdown',
     '.message-bubble.assistant',
   ],
+  // Grok sometimes reuses/remounts its newest assistant bubble. Compare the ordered turn
+  // count and latest text instead of relying on Element identity from before the send. A
+  // matching new user turn is required before Stop/Thinking/response signals can belong to
+  // this request, because a stopped attempt may continue updating the DOM during Retry.
+  responseTracking: 'semantic-latest',
+  requireMatchingUserMessageForGenerationSignals: GROK_REQUIRE_MATCHING_USER_MESSAGE_FOR_GENERATION_SIGNALS,
+  anchorSemanticResponsesAfterMatchingUserMessage: GROK_ANCHOR_RESPONSES_AFTER_MATCHING_USER_MESSAGE,
+  responseContentRoot: grokResponseContentRoot,
 
-  stopButtonSelectors: [
-    'button[data-testid="chat-stop"]',
-    'button[aria-label="Stop"]',
-    'button[aria-label="Stop generating"]',
-    'button[aria-label="Stop response"]',
-  ],
+  stopButtonSelectors: GROK_STOP_SELECTORS,
+  stopButtonFilter: isGrokStopControl,
 
   loginDetector: () => {
-    return !!(
-      document.querySelector('[data-testid="chat-input"] .ProseMirror[contenteditable="true"]') ||
-      document.querySelector('.ProseMirror[contenteditable="true"]') ||
-      document.querySelector('[data-testid="chat-submit"]')
+    return grokSessionReady(
+      queryAll(GROK_INPUT_SELECTORS).some(
+        (element) => isVisible(element) && isGrokComposerInput(element),
+      ),
+      grokGenerationActive(),
     );
   },
+  loginLossDelay: 2500,
 
-  isThinking: () => {
-    // 1. Explicit stop button (when Grok is generating, submit may be replaced)
-    if (document.querySelector('button[data-testid="chat-stop"]')) return true;
-    if (document.querySelector('button[aria-label="Stop"]')) return true;
-    if (document.querySelector('button[aria-label="Stop generating"]')) return true;
-    if (document.querySelector('button[aria-label="Stop response"]')) return true;
+  isThinking: grokGenerationActive,
 
-    // 2. Streaming attribute on response container
-    if (document.querySelector('[data-streaming="true"]')) return true;
-
-    // 3. "Thinking" container exists but no "Thought for Xs" yet → still thinking
-    //    Grok shows "Thinking..." while reasoning, swaps to "Thought for Ns" when done
-    const thinkingContainers = document.querySelectorAll('.thinking-container');
-    for (const container of thinkingContainers) {
-      const text = container.textContent || '';
-      if (text.includes('Thinking') && !text.includes('Thought for')) return true;
-    }
-
-    return false;
-  },
-
-  // ProseMirror injection — same approach as Claude (Grok also uses tiptap)
+  // Grok currently has both textarea and ProseMirror cohorts.
   injectInput: async (el: Element, text: string) => {
     const editor = el as HTMLElement;
     editor.focus();
+    if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
+      const prototype = el instanceof HTMLTextAreaElement
+        ? window.HTMLTextAreaElement.prototype
+        : window.HTMLInputElement.prototype;
+      const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+      updateGrokTextControl(
+        el,
+        text,
+        (value) => setter ? setter.call(el, value) : (el.value = value),
+        (value) => el.dispatchEvent(new InputEvent('input', {
+          bubbles: true,
+          inputType: 'insertText',
+          data: value,
+        })),
+      );
+      return;
+    }
     const selection = window.getSelection();
     const range = document.createRange();
     range.selectNodeContents(editor);

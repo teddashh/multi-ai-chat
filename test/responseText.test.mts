@@ -2,7 +2,12 @@
 // directly, which needs Node 22.18+ native type stripping.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { longerResponseText, serializeResponseText } from '../src/content/responseSerializer.ts';
+import { grokResponseContentRoot } from '../src/content/grokDom.ts';
+import {
+  extractResponseContent,
+  longerResponseText,
+  serializeResponseText,
+} from '../src/content/responseSerializer.ts';
 
 // Why this matters: ChatGPT's "still generating" signal (the stop button) ends before the last
 // render commits. Finalizing with only the text cached mid-stream hands the user half an answer,
@@ -30,6 +35,26 @@ test("code blocks containing $& / $' / $` are restored verbatim", () => {
   assert.equal(serializeResponseText(root), '```bash\n' + code + '\n```');
 });
 
+test('Grok uses the outer assistant turn for identity but serializes only its Markdown answer', () => {
+  const thinking = element('DIV', [text('Thought for 4s')], { class: 'thinking-container' });
+  const answer = element('DIV', [text('Final answer only')], { class: 'response-content-markdown' });
+  const outer = element('DIV', [thinking, answer], { 'data-testid': 'assistant-message' });
+
+  assert.equal(extractResponseContent(
+    outer as unknown as Element,
+    grokResponseContentRoot,
+  ), 'Final answer only');
+});
+
+test('response content extraction preserves plain-text and generated-image fallbacks', () => {
+  const plain = element('DIV', [text('Plain answer')]);
+  const image = element('IMG', [], { alt: 'A blue bird' });
+  const imageTurn = element('DIV', [image], { 'data-testid': 'assistant-message' });
+
+  assert.equal(extractResponseContent(plain as unknown as Element), 'Plain answer');
+  assert.equal(extractResponseContent(imageTurn as unknown as Element), '[Image generated: A blue bird]');
+});
+
 // serializeResponseText only touches nodeType / tagName / childNodes / textContent /
 // getAttribute, so these few fields are enough — no DOM implementation needed.
 function text(value: string) {
@@ -37,11 +62,35 @@ function text(value: string) {
 }
 
 function element(tagName: string, childNodes: unknown[], attrs: Record<string, string> = {}) {
-  return {
+  const result = {
     nodeType: 1,
     tagName,
     childNodes,
     textContent: childNodes.map((child) => (child as { textContent: string }).textContent).join(''),
     getAttribute: (name: string) => attrs[name] ?? null,
+    matches: (selector: string) => selector.split(',').some((part) => {
+      const candidate = part.trim();
+      if (candidate === '.response-content-markdown') {
+        return attrs.class?.split(/\s+/).includes('response-content-markdown');
+      }
+      return candidate.toUpperCase() === tagName;
+    }),
+    querySelector: (selector: string): unknown => {
+      const visit = (node: unknown): unknown => {
+        const candidate = node as ReturnType<typeof element>;
+        if (candidate.matches?.(selector)) return candidate;
+        for (const child of candidate.childNodes ?? []) {
+          const match = visit(child);
+          if (match) return match;
+        }
+        return null;
+      };
+      for (const child of childNodes) {
+        const match = visit(child);
+        if (match) return match;
+      }
+      return null;
+    },
   };
+  return result;
 }

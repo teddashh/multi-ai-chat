@@ -1,11 +1,27 @@
 import type { AIProvider, ExtensionMessage } from '../shared/types';
 import { encodeError } from '../shared/errors';
-import { longerResponseText, serializeResponseText } from './responseSerializer';
-import { isActiveContentRequest, shouldStopActiveRequest } from '../shared/requestScope';
+import {
+  extractResponseContent,
+  longerResponseText,
+  type ResponseContentRoot,
+} from './responseSerializer';
+import { isActiveContentRequest, shouldStopContentRequest } from '../shared/requestScope';
 import { decideLoginStatus, type LoginStatusState } from './loginStatusStability';
 import { focusWithoutScroll } from './focusWithoutScroll';
 import { firstAcceptedCandidate } from './elementSelection';
-import { clearedComposerConfirmsSend, contentMatchesPrompt } from './sendConfirmation';
+import {
+  clearedComposerConfirmsSend,
+  contentMatchesPrompt,
+  generationSignalBelongsToCurrentTurn,
+  matchingPromptCount,
+} from './sendConfirmation';
+import {
+  captureSemanticResponseBaseline,
+  currentSemanticResponseText,
+  isActiveResponseGeneration,
+  responsesFollowingAnchor,
+  type SemanticResponseBaseline,
+} from './responseTracking';
 
 export interface ContentScriptConfig {
   provider: AIProvider;
@@ -15,8 +31,13 @@ export interface ContentScriptConfig {
   sendButtonSelectors: string[];
   sendButtonFilter?: (element: Element) => boolean;
   userMessageSelectors?: string[];
+  userMessageTracking?: 'element-identity' | 'semantic-count';
   requireSameComposerForClearConfirmation?: boolean;
   responseSelectors: string[];
+  responseTracking?: 'element-identity' | 'semantic-latest';
+  requireMatchingUserMessageForGenerationSignals?: boolean;
+  anchorSemanticResponsesAfterMatchingUserMessage?: boolean;
+  responseContentRoot?: ResponseContentRoot;
   stopButtonSelectors?: string[];
   stopButtonFilter?: (element: Element) => boolean;
   loginDetector: () => boolean;
@@ -64,6 +85,11 @@ export function createContentScript(config: ContentScriptConfig): void {
     requireVisibleInput = false,
     inputFilter = () => true,
     responseSelectors,
+    responseTracking = 'element-identity',
+    requireMatchingUserMessageForGenerationSignals = false,
+    anchorSemanticResponsesAfterMatchingUserMessage = false,
+    responseContentRoot = (response) => response,
+    userMessageTracking = 'element-identity',
     loginDetector,
     loggedOutDetector = () => false,
     loginLossDelay = 0,
@@ -78,7 +104,11 @@ export function createContentScript(config: ContentScriptConfig): void {
   let checkDoneInterval: ReturnType<typeof setInterval> | undefined;
   let pollInterval: ReturnType<typeof setInterval> | undefined;
   let responseBaselineEls = new Set<Element>();
+  let semanticResponseBaseline: SemanticResponseBaseline = { count: 0, latestText: '' };
   let userMessageBaselineEls = new Set<Element>();
+  let matchingUserMessageBaselineCount = 0;
+  let sawMatchingUserMessage = false;
+  let matchingUserMessageElement: Element | undefined;
   let waitingForResponse = false;
   let lastResponseText = '';
   let lastChunkTime = 0;
@@ -92,6 +122,8 @@ export function createContentScript(config: ContentScriptConfig): void {
   let activePromptText = '';
   let lastActivatedInput: Element | undefined;
   let disposed = false;
+  let responseGeneration = 0;
+  let failedRequestTombstone: { requestId?: string; workflowId?: string } | undefined;
   const sendTimeouts = new Set<number>();
 
   const queryInput = (): Element | null => queryFirst(
@@ -126,6 +158,7 @@ export function createContentScript(config: ContentScriptConfig): void {
     activeWorkflowId = undefined;
     activePromptText = '';
     lastActivatedInput = undefined;
+    failedRequestTombstone = undefined;
     clearResponseTimers();
     if (statusInterval !== undefined) clearInterval(statusInterval);
     statusInterval = undefined;
@@ -173,12 +206,26 @@ export function createContentScript(config: ContentScriptConfig): void {
       throw new Error(reason);
     }
 
-    const existingResponses = Array.from(document.querySelectorAll(responseSelectors.join(', ')));
+    const existingResponses = queryResponses();
     responseBaselineEls = new Set(existingResponses);
+    matchingUserMessageElement = undefined;
+    semanticResponseBaseline = captureSemanticResponseBaseline(
+      querySemanticResponses(),
+      extractResponseText,
+    );
+    responseGeneration += 1;
     userMessageBaselineEls = new Set(queryUserMessages());
+    matchingUserMessageBaselineCount = matchingPromptCount(
+      Array.from(userMessageBaselineEls, (element) => element.textContent ?? ''),
+      text,
+    );
+    sawMatchingUserMessage = false;
     waitingForResponse = true;
     activeRequestId = requestId;
     activeWorkflowId = workflowId;
+    // This SEND is now the active request. Recovery always consumes a settled failure's
+    // tombstone before starting Retry, and no older cleanup may target this newer request.
+    failedRequestTombstone = undefined;
     lastResponseText = '';
     sawGenerationActivity = false;
     responseWaitStartedAt = Date.now();
@@ -318,20 +365,44 @@ export function createContentScript(config: ContentScriptConfig): void {
   }
 
   function hasNewMatchingUserMessage(): boolean {
-    return queryUserMessages().some((element) => (
+    if (sawMatchingUserMessage) {
+      if (!anchorSemanticResponsesAfterMatchingUserMessage || matchingUserMessageElement?.isConnected) {
+        return true;
+      }
+      // React may remount the confirmed user bubble. Reacquire the actual live element so
+      // compareDocumentPosition keeps anchoring responses to the current conversation tree.
+      sawMatchingUserMessage = false;
+      matchingUserMessageElement = undefined;
+    }
+    const messages = queryUserMessages();
+    if (userMessageTracking === 'semantic-count') {
+      const matchingMessages = messages.filter((element) => (
+        contentMatchesPrompt(element.textContent ?? '', activePromptText)
+      ));
+      sawMatchingUserMessage = matchingMessages.length > matchingUserMessageBaselineCount;
+      if (sawMatchingUserMessage) {
+        matchingUserMessageElement = matchingMessages[matchingMessages.length - 1];
+      }
+      return sawMatchingUserMessage;
+    }
+    matchingUserMessageElement = messages.find((element) => (
       !userMessageBaselineEls.has(element)
       && contentMatchesPrompt(element.textContent ?? '', activePromptText)
     ));
+    sawMatchingUserMessage = Boolean(matchingUserMessageElement);
+    return sawMatchingUserMessage;
   }
 
   function sendStarted(): boolean {
     if (!waitingForResponse) return true;
-    if (isThinking()) {
+    if (isCurrentTurnThinking()) {
       sawGenerationActivity = true;
       return true;
     }
-    const responses = Array.from(document.querySelectorAll(responseSelectors.join(', ')));
-    if (responses.some((element) => !responseBaselineEls.has(element))) {
+    const hasCurrentResponse = responseTracking === 'semantic-latest'
+      ? Boolean(getLatestResponseText())
+      : queryResponses().some((element) => !responseBaselineEls.has(element));
+    if (hasCurrentResponse) {
       sawGenerationActivity = true;
       return true;
     }
@@ -352,8 +423,27 @@ export function createContentScript(config: ContentScriptConfig): void {
     return confirmedByClear;
   }
 
+  function isCurrentTurnThinking(): boolean {
+    return generationSignalBelongsToCurrentTurn(
+      isThinking(),
+      requireMatchingUserMessageForGenerationSignals,
+      hasNewMatchingUserMessage(),
+    );
+  }
+
   function getLatestResponseText(): string | null {
-    const responses = Array.from(document.querySelectorAll(responseSelectors.join(', ')));
+    const currentTurnConfirmed = !requireMatchingUserMessageForGenerationSignals
+      || hasNewMatchingUserMessage();
+    if (responseTracking === 'semantic-latest') {
+      return currentSemanticResponseText(
+        querySemanticResponses(),
+        semanticResponseBaseline,
+        extractResponseText,
+        currentTurnConfirmed,
+      );
+    }
+    if (!currentTurnConfirmed) return null;
+    const responses = queryResponses();
     for (let index = responses.length - 1; index >= 0; index -= 1) {
       const response = responses[index];
       if (waitingForResponse && responseBaselineEls.has(response)) continue;
@@ -363,16 +453,26 @@ export function createContentScript(config: ContentScriptConfig): void {
     return null;
   }
 
+  function queryResponses(): Element[] {
+    return Array.from(document.querySelectorAll(responseSelectors.join(', ')));
+  }
+
+  function querySemanticResponses(): Element[] {
+    // In semantic mode selectors are ordered primary-first. Taking the first selector with
+    // matches avoids counting both an assistant wrapper and its nested markdown as two turns.
+    for (const selector of responseSelectors) {
+      const responses = Array.from(document.querySelectorAll(selector));
+      if (!responses.length) continue;
+      if (!anchorSemanticResponsesAfterMatchingUserMessage) return responses;
+      if (!matchingUserMessageElement) return [];
+      const anchoredResponses = responsesFollowingAnchor<Element>(responses, matchingUserMessageElement);
+      if (anchoredResponses.length) return anchoredResponses;
+    }
+    return [];
+  }
+
   function extractResponseText(response: Element): string | null {
-    const text = serializeResponseText(response);
-    if (text) return text;
-    const responseTag = typeof response.tagName === 'string' ? response.tagName.toUpperCase() : '';
-    const asset = ['IMG', 'CANVAS', 'VIDEO'].includes(responseTag)
-      ? response
-      : response.querySelector?.('img, canvas, video') ?? null;
-    if (!asset) return null;
-    const alt = asset instanceof HTMLImageElement ? asset.alt.trim() : '';
-    return alt ? `[Image generated: ${alt}]` : '[Image generated]';
+    return extractResponseContent(response, responseContentRoot);
   }
 
   function observeResponses(): void {
@@ -380,7 +480,7 @@ export function createContentScript(config: ContentScriptConfig): void {
       // Claude/SPA composers mount several seconds after load; re-report the moment
       // login state flips so the card reaches "ready" without waiting for the 10s poll.
       reportStatus();
-      if (!waitingForResponse || isThinking()) return;
+      if (!waitingForResponse || isCurrentTurnThinking()) return;
       updateResponse();
     });
     responseObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
@@ -403,18 +503,19 @@ export function createContentScript(config: ContentScriptConfig): void {
       });
     }
     if (responseTimeout !== undefined) clearTimeout(responseTimeout);
-    responseTimeout = setTimeout(checkIfDone, doneDelay);
+    scheduleResponseTimeout(checkIfDone, doneDelay);
   }
 
   function startResponsePolling(): void {
     if (pollInterval !== undefined) return;
-    pollInterval = setInterval(() => {
-      if (!waitingForResponse) {
-        if (pollInterval !== undefined) clearInterval(pollInterval);
-        pollInterval = undefined;
+    const generation = responseGeneration;
+    const timer = setInterval(() => {
+      if (!isCurrentResponseGeneration(generation)) {
+        clearInterval(timer);
+        if (pollInterval === timer) pollInterval = undefined;
         return;
       }
-      if (isThinking()) {
+      if (isCurrentTurnThinking()) {
         sawGenerationActivity = true;
         return;
       }
@@ -427,7 +528,7 @@ export function createContentScript(config: ContentScriptConfig): void {
       // 所以這條路徑必須等滿寬限期才收尾，否則慢的模型會在送出後幾秒就被判定沒有回應。
       if (!sawGenerationActivity || responseTimeout !== undefined) return;
       if (Date.now() - responseWaitStartedAt < NO_RESPONSE_GRACE_MS) return;
-      responseTimeout = setTimeout(() => {
+      scheduleResponseTimeout(() => {
         const finalText = getLatestResponseText();
         if (finalText) {
           lastResponseText = finalText;
@@ -436,44 +537,65 @@ export function createContentScript(config: ContentScriptConfig): void {
         }
         // 報錯而非填佔位字串：假答案會被背景當成正常結果，餵進下一棒的 prompt。
         finishWithError(encodeError('error.no_response_text', { provider }));
-      }, doneDelay);
+      }, doneDelay, generation);
     }, 3000);
+    pollInterval = timer;
   }
 
-  function checkIfDone(): void {
-    if (!waitingForResponse) return;
-    if (isThinking()) {
+  function checkIfDone(generation = responseGeneration): void {
+    if (!isCurrentResponseGeneration(generation)) return;
+    if (isCurrentTurnThinking()) {
       if (checkDoneInterval === undefined) {
-        checkDoneInterval = setInterval(() => {
-          if (!waitingForResponse) return clearDoneCheck();
-          if (!isThinking()) {
-            clearDoneCheck();
-            responseTimeout = setTimeout(finishResponse, doneDelay);
+        const timer = setInterval(() => {
+          if (!isCurrentResponseGeneration(generation)) return clearDoneCheck(timer);
+          if (!isCurrentTurnThinking()) {
+            clearDoneCheck(timer);
+            scheduleResponseTimeout(finishResponse, doneDelay, generation);
           }
         }, 1000);
+        checkDoneInterval = timer;
       }
       return;
     }
     finishResponse();
   }
 
-  function finishResponse(): void {
-    if (!waitingForResponse) return;
+  function finishResponse(generation = responseGeneration): void {
+    if (!isCurrentResponseGeneration(generation)) return;
     // Must re-read before resetResponseState(): the baseline filter keys off waitingForResponse.
     const text = longerResponseText(lastResponseText, getLatestResponseText());
     const requestId = activeRequestId;
     const workflowId = activeWorkflowId;
     resetResponseState();
+    failedRequestTombstone = undefined;
     safeSendMessage({ action: 'RESPONSE_DONE', provider, requestId, workflowId, payload: text });
   }
 
   function finishWithError(reason: string, requestId = activeRequestId, workflowId = activeWorkflowId): void {
+    const settlesActiveRequest = waitingForResponse
+      && requestId === activeRequestId
+      && workflowId === activeWorkflowId;
+    const failedRequest = settlesActiveRequest && (requestId !== undefined || workflowId !== undefined)
+      ? { requestId, workflowId }
+      : undefined;
     resetResponseState();
+    // Recovery arrives after RESPONSE_DONE has settled the background waiter. Keep only this
+    // exact failed identity so its later scoped STOP can still click a provider stream that
+    // outlived our local timeout. Starting any newer SEND clears the tombstone first.
+    if (failedRequest) failedRequestTombstone = failedRequest;
     safeSendMessage({ action: 'RESPONSE_DONE', provider, requestId, workflowId, payload: `[Error: ${reason}]` });
   }
 
   function stopGeneration(requestId?: string, workflowId?: string): boolean {
-    if (!shouldStopActiveRequest(activeRequestId, activeWorkflowId, requestId, workflowId)) return false;
+    if (!shouldStopContentRequest(
+      waitingForResponse,
+      activeRequestId,
+      activeWorkflowId,
+      failedRequestTombstone?.requestId,
+      failedRequestTombstone?.workflowId,
+      requestId,
+      workflowId,
+    )) return false;
     const stopButton = queryFirst(
       config.stopButtonSelectors ?? [],
       document,
@@ -482,14 +604,20 @@ export function createContentScript(config: ContentScriptConfig): void {
     );
     if (stopButton) clickElement(stopButton);
     resetResponseState();
+    failedRequestTombstone = undefined;
     return true;
   }
 
   function resetResponseState(): void {
     waitingForResponse = false;
+    responseGeneration += 1;
     clearResponseTimers();
     responseBaselineEls.clear();
+    semanticResponseBaseline = { count: 0, latestText: '' };
     userMessageBaselineEls.clear();
+    matchingUserMessageBaselineCount = 0;
+    sawMatchingUserMessage = false;
+    matchingUserMessageElement = undefined;
     activeRequestId = undefined;
     activeWorkflowId = undefined;
     activePromptText = '';
@@ -516,9 +644,26 @@ export function createContentScript(config: ContentScriptConfig): void {
     sendTimeouts.add(timer);
   }
 
-  function clearDoneCheck(): void {
-    if (checkDoneInterval !== undefined) clearInterval(checkDoneInterval);
-    checkDoneInterval = undefined;
+  function scheduleResponseTimeout(
+    callback: (generation: number) => void,
+    delay: number,
+    generation = responseGeneration,
+  ): void {
+    if (responseTimeout !== undefined) clearTimeout(responseTimeout);
+    const timer = setTimeout(() => {
+      if (responseTimeout === timer) responseTimeout = undefined;
+      if (isCurrentResponseGeneration(generation)) callback(generation);
+    }, delay);
+    responseTimeout = timer;
+  }
+
+  function isCurrentResponseGeneration(generation: number): boolean {
+    return isActiveResponseGeneration(waitingForResponse, responseGeneration, generation);
+  }
+
+  function clearDoneCheck(timer = checkDoneInterval): void {
+    if (timer !== undefined) clearInterval(timer);
+    if (checkDoneInterval === timer) checkDoneInterval = undefined;
   }
 
   function clearResponseTimers(): void {
