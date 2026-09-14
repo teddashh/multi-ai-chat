@@ -2,21 +2,21 @@
 
 [English](./README.md) · **繁體中文** · [日本語](./README.ja.md) · [Deutsch](./README.de.md) · [한국어](./README.ko.md)
 
-[官方網站](https://teddashh.github.io/multi-ai-chat/?lang=zh-TW) · [下載 v0.2.2](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.2) · [桌面版](https://teddashh.github.io/multi-ai-chat-desktop/?lang=zh-TW)
+[從 Chrome 線上應用程式商店安裝](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah) · [官方網站](https://teddashh.github.io/multi-ai-chat/?lang=zh-TW) · [v0.2.3 Release](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.3) · [桌面版](https://teddashh.github.io/multi-ai-chat-desktop/?lang=zh-TW)
 
 只問一次，讓四個 AI 一起工作。Multi-AI Chat 是輕量的 Chrome Side Panel，能協調你已登入的 **ChatGPT、Claude、Gemini、Grok** 分頁。它直接使用你原本就能存取的 provider 網頁，不需要模型 API Key，也沒有額外的對話後端。
 
-**目前正式版本：v0.2.2** · Chrome 114+ · Manifest V3 · 五種介面語言 · MIT
+**目前正式版本：v0.2.3** · Chrome 114+ · Manifest V3 · 五種介面語言 · MIT
 
 > Multi-AI Chat 會自動操作第三方網頁介面。Provider 改版可能暫時使頁面 selector 失效，自動化也可能受各服務條款約束。請只使用你有權使用的帳號與內容。
 
 ![Multi-AI Chat 在 Chrome 中執行多 provider workflow](./store/screenshot-1280x800.png)
 
-## v0.2.2 更新
+## v0.2.3 更新
 
-- **穩定的 provider 分頁與 SPA 狀態。** 每家 provider 固定由一個分頁負責；重複分頁、僅路由變更的 SPA 導頁與晚到的狀態檢查，不再搶走連線或讓狀態反覆閃動。
-- **更耐改版的 ChatGPT composer。** Composer 重新掛載後會重新尋找元素，登入偵測更穩定，聚焦不再捲動頁面，並支援目前的 composer、送出與停止 selector。
-- **凍結／捨棄分頁復原。** Chrome 凍結或捨棄的 provider 分頁會先被偵測、喚醒並重新連線，再繼續 workflow。
+- **可靠辨識 Grok 已完成的回答。** 回應必須出現在本次確切的使用者訊息之後，因此畫面上已完成的回答不會再被誤判為「Grok 無法完成這一棒」。
+- **重試彼此隔離。** Stop、thinking 狀態、計時器、回應追蹤與錯誤復原都綁定單次 request；失敗回合留下的隱藏或歷史訊號，不會讓 Retry 立刻再次失敗。
+- **支援 Grok 現行介面。** 同時支援目前的 textarea composer 與舊版 ProseMirror；生成期間會維持連線，並且只擷取回答正文，不混入 thinking UI。
 
 ## 選擇適合的版本
 
@@ -50,21 +50,25 @@
 
 ## 安裝
 
-### Release ZIP（建議）
+### Chrome 線上應用程式商店（建議）
 
-GitHub Release 套件可以直接當作 unpacked extension 載入，不必建置原始碼。
+[從 Chrome 線上應用程式商店安裝 Multi-AI Chat](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah)。Chrome 會自動安裝審核通過的更新，一般使用建議選這個方式。
 
-> v0.2.2 是目前的正式發佈版本；下方 ZIP 與 checksum 是 GitHub Release 所附的正式檔案。
+### 手動或開發者安裝
 
-1. 下載 [`multi-ai-chat-store-v0.2.2.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.2/multi-ai-chat-store-v0.2.2.zip) 與它的 [checksum 檔](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.2/multi-ai-chat-store-v0.2.2.zip.sha256)。
-2. 驗證壓縮檔；正確的 SHA-256 是 `425bd80abc4618908ef184e75d7ee57e384364e7ed784924deb624a700361919`。
+GitHub Release ZIP 是手動安裝的備援方案，可以直接當作 unpacked extension 載入，不必建置原始碼。
+
+> v0.2.3 是目前的正式發佈版本；下方 ZIP 與 checksum 是 GitHub Release 所附的正式檔案。
+
+1. 下載 [`multi-ai-chat-store-v0.2.3.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.3/multi-ai-chat-store-v0.2.3.zip) 與它的 [checksum 檔](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.3/multi-ai-chat-store-v0.2.3.zip.sha256)。
+2. 驗證壓縮檔；正確的 SHA-256 是 `8fea5b0edbed1b7d818898febef7e2bf4151a0e180ca9dcbc452de1759bd9cca`。
 
    ```powershell
-   (Get-FileHash .\multi-ai-chat-store-v0.2.2.zip -Algorithm SHA256).Hash.ToLower()
+   (Get-FileHash .\multi-ai-chat-store-v0.2.3.zip -Algorithm SHA256).Hash.ToLower()
    ```
 
    ```sh
-   shasum -a 256 multi-ai-chat-store-v0.2.2.zip
+   shasum -a 256 multi-ai-chat-store-v0.2.3.zip
    ```
 
 3. 把 ZIP 解壓縮到固定資料夾；該資料夾根目錄中會有 `manifest.json`。
