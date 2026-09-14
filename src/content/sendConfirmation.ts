@@ -23,7 +23,6 @@ function visibleMarkdownKey(value: string): string {
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
     .replace(/```[^\r\n]*[\r\n]?/g, '')
-    .replace(/<\/?[A-Za-z][^>]*>/g, '')
     .toLowerCase()
     .replace(/[\p{P}\p{S}\s]+/gu, '');
 }
