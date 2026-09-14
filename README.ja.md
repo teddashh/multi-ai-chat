@@ -2,21 +2,21 @@
 
 [English](./README.md) · [繁體中文](./README.zh-TW.md) · **日本語** · [Deutsch](./README.de.md) · [한국어](./README.ko.md)
 
-[公式サイト](https://teddashh.github.io/multi-ai-chat/?lang=ja) · [v0.2.2 をダウンロード](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.2) · [デスクトップ版](https://teddashh.github.io/multi-ai-chat-desktop/?lang=ja)
+[Chrome ウェブストアからインストール](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah) · [公式サイト](https://teddashh.github.io/multi-ai-chat/?lang=ja) · [v0.2.3 リリース](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.3) · [デスクトップ版](https://teddashh.github.io/multi-ai-chat-desktop/?lang=ja)
 
 質問は一度だけ。4つのAIをまとめて動かせます。Multi-AI Chat は、ログイン済みの **ChatGPT、Claude、Gemini、Grok** タブを連携させる軽量な Chrome Side Panel です。普段アクセスしている provider ページをそのまま利用するため、モデルAPIキーも独自のチャットbackendも必要ありません。
 
-**最新リリース：v0.2.2** · Chrome 114+ · Manifest V3 · 5言語UI · MIT
+**最新リリース：v0.2.3** · Chrome 114+ · Manifest V3 · 5言語UI · MIT
 
 > Multi-AI Chat は第三者のWeb UIを自動操作します。Provider 側のデザイン変更によってページ selector が一時的に動作しなくなることがあります。また、自動化は各サービスの利用規約の対象となる場合があります。利用権限のあるアカウントとコンテンツのみを使用してください。
 
 ![Chrome で複数 provider の workflow を実行する Multi-AI Chat](./store/screenshot-1280x800.png)
 
-## v0.2.2 の変更点
+## v0.2.3 の変更点
 
-- **安定した provider タブと SPA 状態。** Provider ごとに担当タブを1つに固定し、重複タブ、route だけが変わる SPA 遷移、遅れて届く status probe による接続の奪取や表示の点滅を防ぎます。
-- **ChatGPT composer の耐障害性を向上。** 再マウント後に composer を再検出し、ログイン判定を安定化。フォーカス時のスクロールを防ぎ、現行の composer／送信／停止 selector に対応しました。
-- **凍結／破棄されたタブの復旧。** Chrome が凍結または破棄した provider タブを検出し、復帰・再接続してから workflow を再開します。
+- **Grok の完了判定を修正。** 応答は今回の正確なユーザー発言より後にあるものだけを採用するため、画面上で回答が完了しているのに「Grok はこのターンを完了できません」と誤判定されなくなりました。
+- **再試行を確実に分離。** Stop、thinking 状態、タイマー、応答追跡、復旧処理を各 request に限定。失敗したターンの非表示または過去のシグナルで Retry が即座に再失敗することを防ぎます。
+- **現行の Grok UI に対応。** 現在の textarea composer と従来の ProseMirror の両方をサポートし、生成中も接続を維持。thinking UI を除いた回答本文だけを取得します。
 
 ## エディションを選ぶ
 
@@ -50,21 +50,25 @@
 
 ## インストール
 
-### Release ZIP（推奨）
+### Chrome ウェブストア（推奨）
 
-GitHub Release のパッケージは unpacked extension として直接読み込めます。ソースの build は不要です。
+[Chrome ウェブストアから Multi-AI Chat をインストール](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah)できます。承認済みの更新は Chrome が自動的に適用するため、通常はこちらをお使いください。
 
-> v0.2.2 は現在の正式リリースです。以下の ZIP と checksum は GitHub Release に添付された正式なファイルです。
+### 手動または開発者向けインストール
 
-1. [`multi-ai-chat-store-v0.2.2.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.2/multi-ai-chat-store-v0.2.2.zip) と [checksum ファイル](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.2/multi-ai-chat-store-v0.2.2.zip.sha256)をダウンロードします。
-2. アーカイブを検証します。正しい SHA-256 は `425bd80abc4618908ef184e75d7ee57e384364e7ed784924deb624a700361919` です。
+GitHub Release の ZIP は手動インストール用のバックアップです。unpacked extension として直接読み込めるため、ソースの build は不要です。
+
+> v0.2.3 は現在の正式リリースです。以下の ZIP と checksum は GitHub Release に添付された正式なファイルです。
+
+1. [`multi-ai-chat-store-v0.2.3.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.3/multi-ai-chat-store-v0.2.3.zip) と [checksum ファイル](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.3/multi-ai-chat-store-v0.2.3.zip.sha256)をダウンロードします。
+2. アーカイブを検証します。正しい SHA-256 は `8fea5b0edbed1b7d818898febef7e2bf4151a0e180ca9dcbc452de1759bd9cca` です。
 
    ```powershell
-   (Get-FileHash .\multi-ai-chat-store-v0.2.2.zip -Algorithm SHA256).Hash.ToLower()
+   (Get-FileHash .\multi-ai-chat-store-v0.2.3.zip -Algorithm SHA256).Hash.ToLower()
    ```
 
    ```sh
-   shasum -a 256 multi-ai-chat-store-v0.2.2.zip
+   shasum -a 256 multi-ai-chat-store-v0.2.3.zip
    ```
 
 3. ZIP を常設フォルダーへ展開します。その直下に `manifest.json` があります。
