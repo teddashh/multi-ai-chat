@@ -22,7 +22,7 @@
   "devDependencies": {
     "@types/chrome": "^0.2.8",
     "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
+    "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.23",
     "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.5",
@@ -40,6 +40,6 @@
   },
   "dependencies": {
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^19.3.0"
   }
 }
