@@ -54,6 +54,8 @@
 
 [Chrome ウェブストアから Multi-AI Chat をインストール](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah)できます。承認済みの更新は Chrome が自動的に適用するため、通常はこちらをお使いください。
 
+Google の審査中は、Chrome ウェブストアの更新が GitHub Release より遅れることがあります。ストアに古いバージョンが表示されている場合は、下記のバージョン付き ZIP をすぐに手動インストールできます。
+
 ### 手動または開発者向けインストール
 
 GitHub Release の ZIP は手動インストール用のバックアップです。unpacked extension として直接読み込めるため、ソースの build は不要です。

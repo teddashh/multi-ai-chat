@@ -54,6 +54,8 @@ If a provider fails during Roundtable, the workflow pauses and offers **Retry**,
 
 [Install Multi-AI Chat from the Chrome Web Store](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah). Chrome installs approved updates automatically, so this is the best option for regular use.
 
+Chrome Web Store updates can trail the GitHub release while Google reviews them. If the listing shows an older version, the versioned ZIP below is available immediately for manual installation.
+
 ### Manual or developer install
 
 The GitHub Release ZIP is a manual backup that can be loaded as an unpacked extension; no source build is required.
