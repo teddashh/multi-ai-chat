@@ -54,6 +54,8 @@
 
 [Chrome 웹 스토어에서 Multi-AI Chat을 설치](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah)하세요. 승인된 업데이트는 Chrome이 자동으로 설치하므로 일반 사용자에게 가장 적합한 방법입니다.
 
+Google 검토 중에는 Chrome 웹 스토어 업데이트가 GitHub 릴리스보다 늦을 수 있습니다. 스토어에 이전 버전이 표시되면 아래의 버전별 ZIP을 즉시 수동 설치할 수 있습니다.
+
 ### 수동 또는 개발자 설치
 
 GitHub Release ZIP은 수동 설치용 대안이며 unpacked extension으로 바로 불러올 수 있어 소스 build가 필요하지 않습니다.

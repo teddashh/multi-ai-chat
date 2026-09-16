@@ -54,6 +54,8 @@
 
 [從 Chrome 線上應用程式商店安裝 Multi-AI Chat](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah)。Chrome 會自動安裝審核通過的更新，一般使用建議選這個方式。
 
+Chrome 線上應用程式商店的更新可能會因 Google 審核而晚於 GitHub Release。如果商店頁仍顯示舊版，可立即使用下方的版本化 ZIP 手動安裝。
+
 ### 手動或開發者安裝
 
 GitHub Release ZIP 是手動安裝的備援方案，可以直接當作 unpacked extension 載入，不必建置原始碼。

@@ -54,6 +54,8 @@ Fällt ein Provider während des Rundtischs aus, pausiert der Workflow und biete
 
 [Installiere Multi-AI Chat aus dem Chrome Web Store](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah). Chrome installiert freigegebene Updates automatisch; für die normale Nutzung ist dies die beste Option.
 
+Während der Google-Prüfung kann die Version im Chrome Web Store hinter dem GitHub Release zurückliegen. Zeigt der Store noch eine ältere Version, steht das versionierte ZIP unten sofort zur manuellen Installation bereit.
+
 ### Manuelle oder Entwickler-Installation
 
 Die ZIP-Datei aus GitHub Releases dient als manuelle Alternative und kann direkt als entpackte Erweiterung geladen werden; ein Build aus dem Quellcode ist nicht erforderlich.
