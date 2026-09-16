@@ -1,0 +1,322 @@
+name: Chrome Web Store
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Required except for status-only; must match public/manifest.json
+        required: false
+        type: string
+      publish_mode:
+        description: Check status, upload only, or submit after a successful upload
+        required: true
+        default: status-only
+        type: choice
+        options:
+          - status-only
+          - upload-only
+          - staged
+          - automatic
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: chrome-web-store
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Check, upload, or submit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: chrome-web-store
+    env:
+      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+      CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+
+    steps:
+      - name: Validate request and configuration
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+          PUBLISH_MODE: ${{ inputs.publish_mode }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$GITHUB_REF" != "refs/heads/master" ]]; then
+            echo "This workflow may run only from master; selected ref: $GITHUB_REF" >&2
+            exit 1
+          fi
+
+          for name in \
+            CWS_EXTENSION_ID \
+            CWS_PUBLISHER_ID \
+            GCP_PROJECT_ID \
+            GCP_SERVICE_ACCOUNT \
+            GCP_WORKLOAD_IDENTITY_PROVIDER; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing required GitHub Actions variable: $name" >&2
+              exit 1
+            fi
+          done
+
+          if [[ "$PUBLISH_MODE" != "status-only" && -z "$EXPECTED_VERSION" ]]; then
+            echo 'A version is required for upload and publish modes.' >&2
+            exit 1
+          fi
+
+      - name: Check out repository
+        if: inputs.publish_mode != 'status-only'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        if: inputs.publish_mode != 'status-only'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.18.0
+          cache: npm
+
+      - name: Validate configuration and version
+        if: inputs.publish_mode != 'status-only'
+        id: package
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          version="$(node -p "require('./public/manifest.json').version")"
+          if [[ "$version" != "$EXPECTED_VERSION" ]]; then
+            echo "Requested version $EXPECTED_VERSION does not match public/manifest.json ($version)." >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "archive=$RUNNER_TEMP/multi-ai-chat-store-v${version}.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        if: inputs.publish_mode != 'status-only'
+        run: npm ci
+
+      - name: Audit dependencies
+        if: inputs.publish_mode != 'status-only'
+        run: npm audit --audit-level=high
+
+      - name: Verify source and production build
+        if: inputs.publish_mode != 'status-only'
+        run: npm run verify
+
+      - name: Confirm committed build is current
+        if: inputs.publish_mode != 'status-only'
+        shell: bash
+        run: |
+          set -euo pipefail
+          changes="$(git status --porcelain --untracked-files=all -- dist)"
+          if [[ -n "$changes" ]]; then
+            printf '%s\n' "$changes" >&2
+            exit 1
+          fi
+
+      - name: Package extension
+        if: inputs.publish_mode != 'status-only'
+        id: bundle
+        shell: bash
+        env:
+          ARCHIVE: ${{ steps.package.outputs.archive }}
+        run: |
+          set -euo pipefail
+          (
+            cd dist
+            zip -qr "$ARCHIVE" .
+          )
+          unzip -l "$ARCHIVE"
+          unzip -p "$ARCHIVE" manifest.json | jq -e \
+            --arg version "${{ steps.package.outputs.version }}" \
+            '.version == $version' >/dev/null
+          sha256="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
+          printf '%s  %s\n' "$sha256" "$(basename "$ARCHIVE")" > "${ARCHIVE}.sha256"
+          echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Upload package artifact
+        if: inputs.publish_mode != 'status-only'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: multi-ai-chat-store-v${{ steps.package.outputs.version }}
+          path: |
+            ${{ steps.package.outputs.archive }}
+            ${{ steps.package.outputs.archive }}.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          access_token_lifetime: 900s
+          create_credentials_file: false
+          export_environment_variables: false
+
+      - name: Upload to Chrome Web Store
+        id: cws
+        shell: bash
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          ARCHIVE: ${{ steps.package.outputs.archive }}
+          EXPECTED_VERSION: ${{ steps.package.outputs.version }}
+          PUBLISH_MODE: ${{ inputs.publish_mode }}
+        run: |
+          set -euo pipefail
+
+          item="publishers/${CWS_PUBLISHER_ID}/items/${CWS_EXTENSION_ID}"
+          api="https://chromewebstore.googleapis.com"
+          auth_header="Authorization: Bearer ${ACCESS_TOKEN}"
+
+          status_response="$(curl --fail-with-body --silent --show-error \
+            --retry 3 \
+            --retry-all-errors \
+            --header "$auth_header" \
+            "$api/v2/$item:fetchStatus")"
+          printf '%s\n' "$status_response" | jq 'del(.publicKey)'
+
+          current_state="$(jq -r \
+            '.submittedItemRevisionStatus.state // .publishedItemRevisionStatus.state // "unknown"' \
+            <<<"$status_response")"
+
+          if [[ "$PUBLISH_MODE" == "status-only" ]]; then
+            echo "upload_state=not-run" >> "$GITHUB_OUTPUT"
+            echo "publish_state=$current_state" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          taken_down="$(jq -r '.takenDown // false' <<<"$status_response")"
+          warned="$(jq -r '.warned // false' <<<"$status_response")"
+          if [[ "$PUBLISH_MODE" != "upload-only" && ( "$taken_down" == "true" || "$warned" == "true" ) ]]; then
+            echo 'The item is taken down or has a policy warning. Use upload-only for a remediation package.' >&2
+            exit 1
+          fi
+
+          submitted_state="$(jq -r '.submittedItemRevisionStatus.state // empty' <<<"$status_response")"
+          if [[ "$submitted_state" == "PENDING_REVIEW" || "$submitted_state" == "STAGED" ]]; then
+            echo "An existing submission is $submitted_state; refusing to replace it." >&2
+            exit 1
+          fi
+
+          mapfile -t current_versions < <(jq -r '
+            [
+              .publishedItemRevisionStatus.distributionChannels[]?.crxVersion,
+              .submittedItemRevisionStatus.distributionChannels[]?.crxVersion
+            ] | unique[]
+          ' <<<"$status_response")
+          for current_version in "${current_versions[@]}"; do
+            if ! node - "$EXPECTED_VERSION" "$current_version" <<'NODE'
+          const [nextVersion, currentVersion] = process.argv.slice(2);
+          const normalize = (version) => version.split('.').map(Number).concat([0, 0, 0, 0]).slice(0, 4);
+          const next = normalize(nextVersion);
+          const current = normalize(currentVersion);
+          const comparison = next.findIndex((part, index) => part !== current[index]);
+          process.exit(comparison >= 0 && next[comparison] > current[comparison] ? 0 : 1);
+          NODE
+            then
+              echo "Version $EXPECTED_VERSION must be newer than existing version $current_version." >&2
+              exit 1
+            fi
+          done
+
+          upload_response="$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "$auth_header" \
+            --header 'Content-Type: application/zip' \
+            --data-binary "@$ARCHIVE" \
+            "$api/upload/v2/$item:upload")"
+          printf '%s\n' "$upload_response" | jq .
+
+          upload_state="$(jq -r '.uploadState // empty' <<<"$upload_response")"
+          uploaded_version="$(jq -r '.crxVersion // empty' <<<"$upload_response")"
+          if [[ -n "$uploaded_version" && "$uploaded_version" != "$EXPECTED_VERSION" ]]; then
+            echo "Chrome Web Store reported version $uploaded_version; expected $EXPECTED_VERSION." >&2
+            exit 1
+          fi
+          for attempt in {1..30}; do
+            case "$upload_state" in
+              SUCCEEDED|FAILED)
+                break
+                ;;
+              IN_PROGRESS|UPLOAD_STATE_UNSPECIFIED|NOT_FOUND|'')
+                sleep 10
+                status_response="$(curl --fail-with-body --silent --show-error \
+                  --retry 3 \
+                  --retry-all-errors \
+                  --header "$auth_header" \
+                  "$api/v2/$item:fetchStatus")"
+                upload_state="$(jq -r '.lastAsyncUploadState // empty' <<<"$status_response")"
+                echo "Upload status ($attempt/30): ${upload_state:-not-reported}"
+                ;;
+              *)
+                echo "Chrome Web Store returned an unknown upload state: $upload_state" >&2
+                exit 1
+                ;;
+            esac
+          done
+
+          if [[ "$upload_state" != "SUCCEEDED" ]]; then
+            echo "Chrome Web Store upload did not succeed (state: ${upload_state:-missing})." >&2
+            exit 1
+          fi
+
+          echo "upload_state=$upload_state" >> "$GITHUB_OUTPUT"
+
+          if [[ "$PUBLISH_MODE" == "upload-only" ]]; then
+            echo "publish_state=not-submitted" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          case "$PUBLISH_MODE" in
+            staged) publish_type="STAGED_PUBLISH" ;;
+            automatic) publish_type="DEFAULT_PUBLISH" ;;
+            *)
+              echo "Unsupported publish mode: $PUBLISH_MODE" >&2
+              exit 1
+              ;;
+          esac
+
+          publish_response="$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "$auth_header" \
+            --header 'Content-Type: application/json' \
+            --data "{\"publishType\":\"$publish_type\",\"blockOnWarnings\":true}" \
+            "$api/v2/$item:publish")"
+          printf '%s\n' "$publish_response" | jq .
+          echo "publish_state=$(jq -r '.state // "unknown"' <<<"$publish_response")" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize result
+        shell: bash
+        env:
+          MODE: ${{ inputs.publish_mode }}
+          PUBLISH_STATE: ${{ steps.cws.outputs.publish_state }}
+          SHA256: ${{ steps.bundle.outputs.sha256 }}
+          UPLOAD_STATE: ${{ steps.cws.outputs.upload_state }}
+          VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          {
+            echo '## Chrome Web Store result'
+            echo
+            if [[ -n "$VERSION" ]]; then
+              echo "- Version: \`$VERSION\`"
+              echo "- SHA-256: \`$SHA256\`"
+            fi
+            echo "- Upload: \`$UPLOAD_STATE\`"
+            echo "- Mode: \`$MODE\`"
+            echo "- Store state: \`$PUBLISH_STATE\`"
+          } >> "$GITHUB_STEP_SUMMARY"

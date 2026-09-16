@@ -10,4 +10,5 @@ browser-session/
 .env.*
 *.pem
 *.key
+gha-creds-*.json
 store/*.zip
