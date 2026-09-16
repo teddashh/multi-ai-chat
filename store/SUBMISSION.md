@@ -1,6 +1,6 @@
 # Chrome Web Store — submission pack
 
-Everything needed for the Developer Dashboard listing of **Multi-AI Chat** (v0.2.2).
+Everything needed for the Developer Dashboard listing of **Multi-AI Chat** (v0.2.3).
 Copy each block into the matching field. Items marked **[you]** can only be done by the
 publishing Google account.
 
@@ -10,7 +10,7 @@ publishing Google account.
 
 1. **Register a developer account** at https://chrome.google.com/webstore/devconsole — one-time **US$5** fee (Google account + card). New accounts may need identity verification (can take a few days), and the publishing Google account must have **2-Step Verification** enabled.
 2. **Privacy policy.** Use the public repository copy at `https://github.com/teddashh/multi-ai-chat/blob/master/store/PRIVACY.md` (or mirror it on the developer's own domain). A privacy-policy URL is **required** because the extension reads page content.
-3. **Upload the package** `multi-ai-chat-store-v0.2.2.zip` (see §6 to regenerate).
+3. **Upload the package** `multi-ai-chat-store-v0.2.3.zip` (see §6 to regenerate).
 4. **Add the screenshot and small promo tile** from `store/` (see §5).
 5. Fill the fields below, complete the **Privacy practices** tab (§4), then **Submit for review**.
 
@@ -130,15 +130,52 @@ load-unpacked extension, zip its contents:
 
 ```powershell
 # from the repo root
-Compress-Archive -Path dist\* -DestinationPath store\multi-ai-chat-store-v0.2.2.zip -Force
+Compress-Archive -Path dist\* -DestinationPath store\multi-ai-chat-store-v0.2.3.zip -Force
 ```
 
 ```sh
 # or with the zip CLI
-(cd dist && zip -r ../store/multi-ai-chat-store-v0.2.2.zip .)
+(cd dist && zip -r ../store/multi-ai-chat-store-v0.2.3.zip .)
 ```
 
 Always run `npm run verify` first so `dist/` reflects the current source.
+
+### Automated updates
+
+Maintainers can run the **Chrome Web Store** workflow from GitHub Actions on
+`master`. Choose one of four modes; for every mode except `status-only`, enter the
+exact `public/manifest.json` version:
+
+- `status-only` makes a read-only API request to verify authentication and item access;
+- `upload-only` uploads the package but does not submit it for review;
+- `staged` submits it for review and holds an approved revision for a later manual release;
+- `automatic` submits it for review and publishes it automatically after approval.
+
+If the item has a policy warning or is taken down, the workflow permits only
+`status-only` and `upload-only`, so a remediation package can be uploaded without
+accidentally submitting it.
+
+The workflow verifies the source, checks that the committed `dist/` build is current,
+and uses short-lived Google Cloud credentials through Workload Identity Federation.
+The `chrome-web-store` GitHub Environment must define these variables:
+
+| Variable | Value |
+|---|---|
+| `GCP_PROJECT_ID` | `gen-lang-client-0134339345` |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/737791843417/locations/global/workloadIdentityPools/github-actions/providers/multi-ai-chat` |
+| `GCP_SERVICE_ACCOUNT` | `multi-ai-chat-cws-publisher@gen-lang-client-0134339345.iam.gserviceaccount.com` |
+| `CWS_PUBLISHER_ID` | `12888b87-afac-40bd-877d-8fb7de1cdf1f` |
+| `CWS_EXTENSION_ID` | `nomhpmmhkmolkmpkjfeainjoifkipdah` |
+
+The service account must also be registered under **Account** in the Chrome Web
+Store Developer Dashboard. Keep the environment limited to the `master` branch and
+use required reviewers when the repository plan supports them.
+
+The Google Workload Identity provider must likewise restrict tokens to the immutable
+repository and owner IDs, `refs/heads/master`, this workflow's `workflow_ref`, the
+`workflow_dispatch` event, and the `chrome-web-store` environment. The service
+account has publisher-wide access, so a repository-wide provider condition is not a
+substitute for these checks.
 
 ---
 
