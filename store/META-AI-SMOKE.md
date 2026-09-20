@@ -72,7 +72,7 @@ A visible login modal or inert login input still reports login required. Missing
 temporarily disabled editors without login evidence report checking rather than Sign in.
 The other four providers retain their existing boolean readiness behavior.
 
-Validation: `npm run verify` passes 123 tests, typecheck, production build and version 0.2.3
+At `42d8454`, `npm run verify` passed 123 tests, typecheck, production build and version 0.2.3
 consistency. A clean Chromium profile loaded the rebuilt extension. Controlled textarea
 and contenteditable fixtures exercised actual content-script/worker readiness transport,
 two distinct sends including Unicode/multiline input, response capture, scoped Stop and
@@ -87,6 +87,32 @@ through VM-05 below; ensure the other active providers are ready before multi-pr
 If it stays checking or shows Sign in, record only composer tag, role, aria-label,
 placeholder, contenteditable, test id, inert state and visible login controls, plus the
 extension status. Do not export the browser profile or account data.
+
+### Input dispatch follow-up
+
+VM re-QC at `42d8454` passed readiness but failed dispatch with
+`editor text did not match the requested prompt`. In a local browser running real Lexical
+0.51.0, the old injector reproduced that error: `execCommand`, its extra synthetic input
+event and the direct-DOM fallback left three copies of the prompt in both DOM and editor
+state. A plain contenteditable fixture had missed this framework behavior.
+
+Meta now selects the editor contents, lets Lexical observe the selection, dispatches one
+plain-text paste, and waits for reconciliation before the unchanged shared text assertion.
+It does not replay the insertion or replace Lexical-owned DOM. Native input/textarea
+controls retain their native value setter and one input event. Rejected paste still fails
+the text assertion rather than sending an unrelated draft; text matching was not loosened.
+
+Validation now passes 127 tests, typecheck, production build and version 0.2.3 consistency.
+The rebuilt unpacked extension was checked against actual Lexical 0.51.0 and textarea
+fixtures over Chrome's content-script transport: exact editor-state text, replacement of
+a leftover draft, single sends, Unicode/blank lines/Markdown/emoji, response chunks/finals,
+scoped Stop and rejection of a blocked paste all passed without page errors. Lexical was
+installed only in a temporary fixture directory, not as an extension dependency. These
+results do not establish Meta's authenticated live send/stream/Stop behavior.
+
+After the extension and Meta tab reload described above, resume VM-03 with only Meta
+selected. Confirm one provider-side prompt, matching streamed/final text and Stop while
+generation is active. Continue VM-04/05 once dispatch passes and all required seats are ready.
 
 ## Manual checks — pending (VM-01 through VM-07)
 
@@ -155,7 +181,7 @@ An unavailable account, regional restriction, or login challenge leaves affected
 blocked, not passed. Do not infer anonymous access from another region's result.
 
 ```text
-Marker: multi-mac-0456ET-meta-ready
+Marker: multi-mac-0529ET-meta-typeinto
 PR / tested full SHA: #42 / ...
 Date / timezone / tester: ...
 VM OS / Chrome version / region: ...

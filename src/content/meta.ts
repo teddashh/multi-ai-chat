@@ -1,4 +1,5 @@
 import { createContentScript } from './base';
+import { injectMetaInput } from './metaInput';
 import {
   META_INPUT_SELECTORS,
   META_RESPONSE_SELECTORS,
@@ -30,6 +31,7 @@ createContentScript({
   inputSelectors: META_INPUT_SELECTORS,
   requireVisibleInput: true,
   inputFilter: isUsableMetaControl,
+  injectInput: injectMetaInput,
   sendButtonSelectors: META_SEND_SELECTORS,
   sendButtonFilter: isUsableMetaControl,
   responseSelectors: META_RESPONSE_SELECTORS,
