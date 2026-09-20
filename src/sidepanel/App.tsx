@@ -25,6 +25,14 @@ import { getLocale, setLocale as setActiveLocale, SUPPORTED_LOCALES, t } from '.
 import { applyTheme, THEME_MODES, watchSystemTheme } from '../shared/theme';
 import { getHackMDToken, publishToHackMD } from '../shared/hackmd';
 import { buildConversationReplayContext } from '../shared/conversationContinuity';
+import {
+  ALL_PROVIDERS,
+  DEFAULT_STANDBY_PROVIDER,
+  activeProviders,
+  normalizeStandbyProvider,
+  repairRoles,
+  selectedActiveTargets,
+} from '../shared/providerSelection';
 import { decodeError, ERROR_MARKER } from '../shared/errors';
 import { createWorkflowCancellation, createWorkflowScope } from '../shared/workflowScope';
 import {
@@ -40,7 +48,7 @@ import ChatArea from './components/ChatArea';
 import InputBar from './components/InputBar';
 import SettingsModal from './components/SettingsModal';
 
-const PROVIDERS: AIProvider[] = ['chatgpt', 'claude', 'gemini', 'grok'];
+const PROVIDERS = ALL_PROVIDERS;
 const MAX_CONVERSATIONS = 30;
 const DEFAULT_ROLES: Record<Exclude<ChatMode, 'free'>, ModeRoles> = {
   debate: DEFAULT_DEBATE_ROLES,
@@ -134,7 +142,10 @@ export default function App() {
   const [mode, setMode] = useState<ChatMode>('free');
   const [roles, setRoles] = useState<ModeRoles>(DEFAULT_DEBATE_ROLES);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [freeTargets, setFreeTargets] = useState<AIProvider[]>(PROVIDERS);
+  const [standbyProvider, setStandbyProvider] = useState<AIProvider>(DEFAULT_STANDBY_PROVIDER);
+  const standbyProviderRef = useRef(DEFAULT_STANDBY_PROVIDER);
+  const providers = activeProviders(standbyProvider);
+  const [freeTargets, setFreeTargets] = useState<AIProvider[]>(() => activeProviders(DEFAULT_STANDBY_PROVIDER));
   const [isProcessing, setIsProcessing] = useState(false);
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatusPayload | null>(null);
   const [stepRecovery, setStepRecovery] = useState<StepRecoveryRequest | null>(null);
@@ -165,6 +176,15 @@ export default function App() {
   const stepRecoveryRef = useRef<StepRecoveryRequest | null>(null);
   const resolvingRecoveryRef = useRef(false);
 
+  const applyProviderSelection = useCallback((next: AIProvider, targets: unknown) => {
+    const previous = standbyProviderRef.current;
+    standbyProviderRef.current = next;
+    setStandbyProvider(next);
+    setFreeTargets(selectedActiveTargets(targets, next));
+    setRoles((current) => repairRoles(current, next, previous));
+    if (next !== previous) setContextNeedsReplay(true);
+  }, []);
+
   useEffect(() => {
     pendingRolesRef.current = pendingRoles;
   }, [pendingRoles]);
@@ -183,7 +203,7 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    chrome.storage.local.get(['language', 'theme', 'conversations', 'activeConversationId', 'freeTargets'], (stored) => {
+    chrome.storage.local.get(['language', 'theme', 'conversations', 'activeConversationId', 'freeTargets', 'standbyProvider'], (stored) => {
       const savedLocale = stored.language as Locale | undefined;
       if (savedLocale && SUPPORTED_LOCALES.includes(savedLocale)) {
         setActiveLocale(savedLocale);
@@ -193,10 +213,11 @@ export default function App() {
       const savedTheme = stored.theme as ThemeMode | undefined;
       if (savedTheme && THEME_MODES.includes(savedTheme)) setTheme(savedTheme);
 
-      const savedTargets = Array.isArray(stored.freeTargets)
-        ? stored.freeTargets.filter((provider): provider is AIProvider => PROVIDERS.includes(provider as AIProvider))
-        : PROVIDERS;
-      setFreeTargets(savedTargets.length ? savedTargets : PROVIDERS);
+      const standby = normalizeStandbyProvider(stored.standbyProvider);
+      standbyProviderRef.current = standby;
+      setStandbyProvider(standby);
+      const savedTargets = selectedActiveTargets(stored.freeTargets, standby);
+      setFreeTargets(savedTargets.length ? savedTargets : activeProviders(standby));
 
       const savedConversations = Array.isArray(stored.conversations) ? stored.conversations as Conversation[] : [];
       const selected = savedConversations.find((conversation) => conversation.id === stored.activeConversationId) ?? savedConversations[0] ?? newConversation();
@@ -204,7 +225,7 @@ export default function App() {
       setConversations(initial);
       setActiveConversationId(selected.id);
       setMode(selected.mode);
-      setRoles(selected.roles ?? (selected.mode === 'free' ? DEFAULT_DEBATE_ROLES : DEFAULT_ROLES[selected.mode]));
+      setRoles(repairRoles(selected.roles ?? (selected.mode === 'free' ? DEFAULT_DEBATE_ROLES : DEFAULT_ROLES[selected.mode]), standby));
       setMessages(selected.messages ?? []);
       setProviderUrls(selected.providerUrls ?? {});
       setContextNeedsReplay(Boolean(selected.messages?.length));
@@ -250,6 +271,11 @@ export default function App() {
   useEffect(() => {
     const listener = (message: { action: string; provider?: AIProvider; requestId?: string; workflowId?: string; payload?: unknown }) => {
       switch (message.action) {
+        case 'PROVIDER_SELECTION_UPDATE': {
+          const selection = message.payload as { standbyProvider?: unknown; freeTargets?: unknown };
+          applyProviderSelection(normalizeStandbyProvider(selection.standbyProvider), selection.freeTargets);
+          break;
+        }
         case 'CONNECTIONS_UPDATE':
           setConnections(message.payload as Record<AIProvider, AIConnection>);
           break;
@@ -339,7 +365,7 @@ export default function App() {
     };
     chrome.runtime.onMessage.addListener(listener);
     return () => chrome.runtime.onMessage.removeListener(listener);
-  }, []);
+  }, [applyProviderSelection]);
 
   useEffect(() => {
     if (!hydrated || !activeConversationId) return;
@@ -376,7 +402,7 @@ export default function App() {
     if (isProcessing) return;
     setMode(nextMode);
     setShowRoleConfig(false);
-    if (nextMode !== 'free') setRoles(DEFAULT_ROLES[nextMode]);
+    if (nextMode !== 'free') setRoles(repairRoles(DEFAULT_ROLES[nextMode], standbyProvider));
   };
 
   const handleSend = useCallback((text: string) => {
@@ -479,7 +505,7 @@ export default function App() {
     setProviderUrls({});
     setContextNeedsReplay(false);
     setMode('free');
-    setRoles(DEFAULT_DEBATE_ROLES);
+    setRoles(repairRoles(DEFAULT_DEBATE_ROLES, standbyProvider));
     setTrace([]);
     setWorkflowStatus(null);
     stepRecoveryRef.current = null;
@@ -502,7 +528,7 @@ export default function App() {
     setProviderUrls(conversation.providerUrls ?? {});
     setContextNeedsReplay(Boolean(conversation.messages?.length));
     setMode(conversation.mode);
-    setRoles(conversation.roles ?? (conversation.mode === 'free' ? DEFAULT_DEBATE_ROLES : DEFAULT_ROLES[conversation.mode]));
+    setRoles(repairRoles(conversation.roles ?? (conversation.mode === 'free' ? DEFAULT_DEBATE_ROLES : DEFAULT_ROLES[conversation.mode]), standbyProvider));
     setTrace([]);
     const action = conversation.providerUrls && Object.keys(conversation.providerUrls).length
       ? { action: 'RESTORE_PROVIDER_SESSIONS', payload: { urls: conversation.providerUrls } }
@@ -532,6 +558,14 @@ export default function App() {
     void chrome.storage.local.set({ theme: nextTheme });
   };
 
+  const changeStandbyProvider = async (next: AIProvider) => {
+    const result = await chrome.runtime.sendMessage({
+      action: 'SET_STANDBY_PROVIDER', payload: { standbyProvider: next },
+    }) as { ok?: boolean; error?: string; standbyProvider?: AIProvider; freeTargets?: AIProvider[] } | undefined;
+    if (!result?.ok || !result.standbyProvider) throw new Error(humanizeError(result?.error ?? t('error.provider_change_failed')));
+    applyProviderSelection(result.standbyProvider, result.freeTargets);
+  };
+
   const toggleTarget = (provider: AIProvider) => {
     if (isProcessing) return;
     setFreeTargets((current) => {
@@ -548,7 +582,7 @@ export default function App() {
   };
 
   const connectAll = () => {
-    const pending = PROVIDERS.filter((provider) => connections[provider].status !== 'connected');
+    const pending = providers.filter((provider) => connections[provider].status !== 'connected');
     Promise.all(pending.map(openLogin))
       .then(() => setConnectionsOpen(false))
       .catch(() => {});
@@ -587,7 +621,7 @@ export default function App() {
     }
   };
 
-  const connectedCount = PROVIDERS.filter((provider) => connections[provider].status === 'connected').length;
+  const connectedCount = providers.filter((provider) => connections[provider].status === 'connected').length;
   const noReadyProvider = connectedCount === 0;
   const serialModeReady = mode === 'free' || Object.values(roles as unknown as Record<string, AIProvider>)
     .every((provider) => connections[provider]?.status === 'connected');
@@ -614,7 +648,7 @@ export default function App() {
           <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t('targets.title')}</div>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {PROVIDERS.map((provider) => {
+              {providers.map((provider) => {
                 const selected = freeTargets.includes(provider);
                 const ready = connections[provider].status === 'connected';
                 return <button key={provider} type="button" disabled={isProcessing} onClick={() => toggleTarget(provider)} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${selected ? 'border-sky-300 bg-sky-50 text-sky-800' : 'border-slate-200 bg-white text-slate-400'}`}><span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${ready ? 'bg-emerald-500' : 'bg-slate-300'}`} />{AI_PROVIDERS[provider].name}</button>;
@@ -626,7 +660,7 @@ export default function App() {
         {mode !== 'free' && (
           <div className="mt-2">
             <button type="button" onClick={() => setShowRoleConfig((current) => !current)} className="text-xs font-medium text-sky-700 hover:text-sky-900">{showRoleConfig ? t('roles.toggle.hide') : t('roles.toggle.show')}</button>
-            {showRoleConfig && <RoleConfig mode={mode} roles={roles} onRolesChange={setRoles} />}
+            {showRoleConfig && <RoleConfig providers={providers} mode={mode} roles={roles} onRolesChange={setRoles} />}
           </div>
         )}
 
@@ -637,7 +671,7 @@ export default function App() {
             <button type="button" onClick={(event) => { event.preventDefault(); connectAll(); }} disabled={connectedCount === 4} className="float-right rounded-lg bg-sky-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500">{t('connection.connect_all')}</button>
           </summary>
           <div className="border-t border-slate-200 p-2.5">
-            <ConnectionBar connections={connections} onOpenLogin={(provider) => { void openLogin(provider).catch(() => {}); }} />
+            <ConnectionBar providers={providers} connections={connections} onOpenLogin={(provider) => { void openLogin(provider).catch(() => {}); }} />
             <p className="mt-2 text-xs leading-relaxed text-slate-500">{t('connection.help')}</p>
           </div>
         </details>
@@ -667,7 +701,7 @@ export default function App() {
           <button type="button" onClick={() => void publishConversation()} disabled={!messages.length || isPublishing} className="hover:text-sky-700 disabled:opacity-30">{isPublishing ? t('publish.publishing') : t('app.publish')}</button>
         </div>
       </div>
-      <InputBar onSend={handleSend} onCancel={stopWorkflow} disabled={isProcessing || noReadyProvider || !serialModeReady} isProcessing={isProcessing} />
+      <InputBar onSend={handleSend} onCancel={stopWorkflow} disabled={!hydrated || isProcessing || noReadyProvider || !serialModeReady} isProcessing={isProcessing} />
 
       {conversationDrawerOpen && (
         <div className="absolute inset-0 z-40 bg-black/30" onClick={closeDrawer}>
@@ -694,7 +728,7 @@ export default function App() {
         </div>
       )}
 
-      <SettingsModal isOpen={isSettingsOpen} locale={locale} onLocaleChange={changeLocale} theme={theme} onThemeChange={changeTheme} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal isOpen={isSettingsOpen} locale={locale} onLocaleChange={changeLocale} theme={theme} onThemeChange={changeTheme} standbyProvider={standbyProvider} onStandbyChange={changeStandbyProvider} providerSelectionDisabled={!hydrated || isProcessing} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 }

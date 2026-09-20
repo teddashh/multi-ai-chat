@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import type { Locale, ThemeMode } from '../../shared/types';
+import type { AIProvider, Locale, ThemeMode } from '../../shared/types';
+import { ALL_PROVIDERS } from '../../shared/providerSelection';
+import { AI_PROVIDERS } from '../../shared/constants';
 import { getHackMDToken, setHackMDToken, clearHackMDToken } from '../../shared/hackmd';
 import { LOCALE_LABELS, SUPPORTED_LOCALES, t } from '../../shared/i18n';
 import { THEME_MODES } from '../../shared/theme';
@@ -10,16 +12,22 @@ interface Props {
   onLocaleChange: (locale: Locale) => void;
   theme: ThemeMode;
   onThemeChange: (theme: ThemeMode) => void;
+  standbyProvider: AIProvider;
+  onStandbyChange: (provider: AIProvider) => Promise<void>;
+  providerSelectionDisabled: boolean;
   onClose: () => void;
 }
 
-export default function SettingsModal({ isOpen, locale, onLocaleChange, theme, onThemeChange, onClose }: Props) {
+export default function SettingsModal({ isOpen, locale, onLocaleChange, theme, onThemeChange, standbyProvider, onStandbyChange, providerSelectionDisabled, onClose }: Props) {
   const [token, setToken] = useState('');
   const [saved, setSaved] = useState(false);
+  const [switchingProvider, setSwitchingProvider] = useState(false);
+  const [providerError, setProviderError] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
     setSaved(false);
+    setProviderError('');
     void getHackMDToken().then((existing) => setToken(existing ?? ''));
   }, [isOpen]);
 
@@ -51,6 +59,25 @@ export default function SettingsModal({ isOpen, locale, onLocaleChange, theme, o
         <select id="theme-select" value={theme} onChange={(event) => onThemeChange(event.target.value as ThemeMode)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-400">
           {THEME_MODES.map((mode) => <option key={mode} value={mode}>{t(`settings.theme.${mode}`)}</option>)}
         </select>
+
+        <label className="mt-4 block text-xs font-semibold text-slate-700" htmlFor="standby-provider">{t('settings.standby')}</label>
+        <select
+          id="standby-provider"
+          value={standbyProvider}
+          disabled={providerSelectionDisabled || switchingProvider}
+          onChange={(event) => {
+            setSwitchingProvider(true);
+            setProviderError('');
+            void onStandbyChange(event.target.value as AIProvider)
+              .catch((error) => setProviderError(String(error.message ?? error)))
+              .finally(() => setSwitchingProvider(false));
+          }}
+          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-400 disabled:opacity-50"
+        >
+          {ALL_PROVIDERS.map((provider) => <option key={provider} value={provider}>{AI_PROVIDERS[provider].name}</option>)}
+        </select>
+        <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t('settings.standby.help')}</p>
+        {providerError && <p role="alert" className="mt-1 text-xs text-red-700">{providerError}</p>}
 
         <label className="mt-4 block text-xs font-semibold text-slate-700" htmlFor="hackmd-token">{t('settings.hackmd.label')}</label>
         <input id="hackmd-token" type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="hmd_xxxxxxxxxxxxxxxx" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400" />

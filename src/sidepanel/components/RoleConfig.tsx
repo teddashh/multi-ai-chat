@@ -4,6 +4,7 @@ import { AI_PROVIDERS } from '../../shared/constants';
 import { t } from '../../shared/i18n';
 
 interface Props {
+  providers: AIProvider[];
   mode: ChatMode;
   roles: ModeRoles;
   onRolesChange: (roles: ModeRoles) => void;
@@ -16,9 +17,7 @@ const ROLE_KEYS: Record<string, Record<string, string>> = {
   roundtable: { first: 'role.first_speaker', second: 'role.second_speaker', third: 'role.third_speaker', fourth: 'role.fourth_speaker' },
 };
 
-const providers: AIProvider[] = ['chatgpt', 'claude', 'gemini', 'grok'];
-
-export default function RoleConfig({ mode, roles, onRolesChange }: Props) {
+export default function RoleConfig({ providers, mode, roles, onRolesChange }: Props) {
   const labels = ROLE_KEYS[mode];
   if (!labels) return null;
 

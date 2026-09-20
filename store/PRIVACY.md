@@ -1,9 +1,11 @@
 # Privacy Policy — Multi-AI Chat (Chrome extension)
 
-**Effective date:** 2026-07-31 · **Last updated:** 2026-09-07
+**Effective date:** 2026-09-20 · **Last updated:** 2026-09-20
 
 Multi-AI Chat is a Chrome Side Panel extension that lets you send one prompt to the
-ChatGPT, Claude, Gemini, and Grok tabs you are already signed into. This policy explains
+ChatGPT, Claude, Gemini, and Grok tabs you are already signed into. Current source also
+supports Meta AI as an experimental replacement, with exactly four providers active at once.
+Meta can use an enabled guest composer when the site offers one. This policy explains
 what it accesses and what it does **not** do.
 
 ## The short version
@@ -21,7 +23,7 @@ what it accesses and what it does **not** do.
   shown in the Side Panel and passed to the next step. This text is processed locally. In the
   Chrome Web Store disclosures, this is declared as both **Website content** and **Personal
   communications** because prompts and AI responses are chat messages.
-- **Local storage.** Your UI language, up to 30 recent conversations, and an optional HackMD API
+- **Local storage.** Your UI language, provider standby selection, selected targets, up to 30 recent conversations, and an optional HackMD API
   token are stored with `chrome.storage.local` on your device. The HackMD token is confined to
   trusted extension pages so provider content scripts cannot read it.
 - **Tab state.** The extension detects when a provider tab loads, navigates, reloads, or closes
@@ -29,7 +31,7 @@ what it accesses and what it does **not** do.
 
 ## What is sent off your device — and only when you ask
 
-- **The provider pages themselves.** Your prompt is delivered to the ChatGPT/Claude/Gemini/Grok
+- **The provider pages themselves.** Your prompt is delivered to the selected ChatGPT/Claude/Gemini/Grok/Meta AI
   page you are already using, exactly as if you had typed it there. Those services' own privacy
   policies apply to what you send them.
 - **HackMD publishing (optional).** If, and only if, you click **Publish**, the current
@@ -58,8 +60,11 @@ including its Limited Use requirements.
 
 `sidePanel` (the UI), `tabs` (find/focus provider tabs and read connection status),
 `scripting` (re-inject the extension's own bundled content script when needed — never remote
-code), `storage` (local settings/conversations/token), host access to the four provider domains
-(to automate their pages) and `api.hackmd.io` (only when you publish).
+code), `storage` (local settings/conversations/token), host access to the provider app domains
+(`chatgpt.com`, `chat.openai.com`, `claude.ai`, `gemini.google.com`, `grok.com`,
+`www.meta.ai`, and `meta.ai`, to automate their pages) and `api.hackmd.io` (only when you publish).
+Meta authentication domains, Facebook, and Instagram do not receive extension content scripts
+or additional host permissions. Normal browser login navigation remains available.
 
 ## Changes
 

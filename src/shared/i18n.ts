@@ -36,6 +36,11 @@ const en: Record<string, string> = {
   'session.untitled': 'New conversation',
   'session.delete': 'Delete',
   'settings.title': 'Settings',
+  'settings.standby': 'Standby provider',
+  'settings.standby.help': 'Four providers stay active. Meta AI is experimental and on standby by default; choose another provider here to activate Meta. Changes apply immediately, between workflows. Guest access depends on Meta.',
+  'error.provider_change_busy': 'Finish or stop the workflow before changing providers.',
+  'error.provider_change_failed': 'Could not save the provider selection. Please try again.',
+  'error.provider_standby': '{provider} is on standby. Activate it in Settings first.',
   'settings.language': 'Language',
   'settings.theme': 'Appearance',
   'settings.theme.system': 'System',
@@ -155,6 +160,11 @@ const en: Record<string, string> = {
 
 const zh: Record<string, string> = {
   ...en,
+  'settings.standby': '備用 AI',
+  'settings.standby.help': '同時啟用四家。Meta AI 為實驗性選項，預設備用；在此選擇另一家即可啟用 Meta。只能在流程之間切換，變更立即生效。訪客使用取決於 Meta 當下政策。',
+  'error.provider_change_busy': '請先完成或停止工作流，再切換 AI。',
+  'error.provider_change_failed': '無法儲存 AI 選擇，請再試一次。',
+  'error.provider_standby': '{provider} 目前為備用，請先在設定啟用。',
   'app.subtitle': '一個問題，四種觀點', 'app.connected': '就緒', 'app.export': '匯出', 'app.publish': '發佈', 'app.settings': '設定', 'app.menu': '對話記錄', 'app.new': '新對話', 'app.close': '關閉',
   'session.history': '對話記錄', 'session.empty': '還沒有儲存的對話', 'session.untitled': '新對話', 'session.delete': '刪除',
   'settings.title': '設定', 'settings.language': '語言', 'settings.theme': '顯示模式', 'settings.theme.system': '跟隨系統', 'settings.theme.light': '淺色', 'settings.theme.dark': '深色', 'settings.hackmd.label': 'HackMD API Token', 'settings.hackmd.help': '選填，可在這裡建立 Token：', 'settings.hackmd.local': '只儲存在受信任的外掛頁面。發佈會建立訪客可讀的 HackMD 筆記。', 'settings.about': '作者資訊', 'settings.sponsored': 'Sponsored by AI-Sister.com', 'settings.author': 'Ted Huang · TED@TED-H.com', 'settings.website': 'ted-h.com', 'settings.save': '儲存', 'settings.cancel': '取消', 'settings.clear': '清除 Token',
@@ -192,6 +202,11 @@ const zh: Record<string, string> = {
 
 const ja: Record<string, string> = {
   ...en,
+  'settings.standby': '待機中の AI',
+  'settings.standby.help': '有効な AI は常に4つです。Meta AI は実験的な選択肢で、初期状態では待機中です。他の AI をここで選ぶと Meta が有効になります。ワークフローの実行中は変更できません。変更は即時反映され、ゲスト利用の可否は Meta によります。',
+  'error.provider_change_busy': 'ワークフローを完了または停止してから AI を変更してください。',
+  'error.provider_change_failed': 'AI の選択を保存できませんでした。もう一度お試しください。',
+  'error.provider_standby': '{provider} は待機中です。設定で有効にしてください。',
   'app.subtitle': '1つの質問、4つの視点', 'app.connected': '準備完了', 'app.export': '書き出し', 'app.publish': '公開', 'app.settings': '設定', 'app.menu': '会話履歴', 'app.new': '新しい会話', 'app.close': '閉じる', 'session.history': '会話履歴', 'session.empty': '保存された会話はありません', 'session.untitled': '新しい会話',
   'settings.title': '設定', 'settings.language': '言語', 'settings.theme': '表示モード', 'settings.theme.system': 'システムに従う', 'settings.theme.light': 'ライト', 'settings.theme.dark': 'ダーク', 'settings.hackmd.help': '任意。トークンの作成：', 'settings.hackmd.local': '信頼された拡張機能ページだけに保存されます。公開するとゲスト閲覧可能な HackMD ノートになります。', 'settings.about': '情報', 'settings.save': '保存', 'settings.cancel': 'キャンセル', 'settings.clear': 'トークンを削除',
   'publish.empty': '公開する内容がありません。', 'publish.no_token': '先に設定で HackMD API トークンを入力してください。', 'publish.publishing': '公開中…', 'publish.success': '公開しました。URLをコピーしました：', 'publish.failed': '公開失敗：',
@@ -208,6 +223,11 @@ const ja: Record<string, string> = {
 
 const de: Record<string, string> = {
   ...en,
+  'settings.standby': 'Inaktiver Anbieter',
+  'settings.standby.help': 'Vier Anbieter bleiben aktiv. Meta AI ist experimentell und anfangs inaktiv. Wähle hier einen anderen Anbieter, um Meta zu aktivieren. Änderungen gelten sofort zwischen Workflows. Der Gastzugang hängt von Meta ab.',
+  'error.provider_change_busy': 'Beende oder stoppe den Workflow, bevor du die Anbieter wechselst.',
+  'error.provider_change_failed': 'Die Anbieterauswahl konnte nicht gespeichert werden. Bitte erneut versuchen.',
+  'error.provider_standby': '{provider} ist inaktiv. Aktiviere den Anbieter zuerst in den Einstellungen.',
   'app.subtitle': 'Eine Frage, vier Perspektiven', 'app.connected': 'bereit', 'app.export': 'Exportieren', 'app.publish': 'Veröffentlichen', 'app.settings': 'Einstellungen', 'app.menu': 'Unterhaltungen', 'app.new': 'Neuer Chat', 'app.close': 'Schließen', 'session.history': 'Gesprächsverlauf', 'session.empty': 'Noch keine gespeicherten Gespräche', 'session.untitled': 'Neues Gespräch',
   'settings.title': 'Einstellungen', 'settings.language': 'Sprache', 'settings.theme': 'Darstellung', 'settings.theme.system': 'System', 'settings.theme.light': 'Hell', 'settings.theme.dark': 'Dunkel', 'settings.hackmd.help': 'Optional. Token erstellen unter', 'settings.hackmd.local': 'Nur in vertrauenswürdigen Erweiterungsseiten gespeichert. Beim Veröffentlichen entsteht eine für Gäste lesbare HackMD-Notiz.', 'settings.about': 'Über', 'settings.save': 'Speichern', 'settings.cancel': 'Abbrechen', 'settings.clear': 'Token löschen',
   'publish.empty': 'Noch nichts zum Veröffentlichen.', 'publish.no_token': 'Zuerst einen HackMD-API-Token in den Einstellungen eintragen.', 'publish.publishing': 'Wird veröffentlicht…', 'publish.success': 'Veröffentlicht. URL wurde kopiert:', 'publish.failed': 'Veröffentlichung fehlgeschlagen:',
@@ -224,6 +244,11 @@ const de: Record<string, string> = {
 
 const ko: Record<string, string> = {
   ...en,
+  'settings.standby': '대기 AI',
+  'settings.standby.help': '항상 네 제공자만 활성화됩니다. Meta AI는 실험적 옵션이며 기본적으로 대기 상태입니다. 여기서 다른 제공자를 선택하면 Meta가 활성화됩니다. 워크플로 사이에 변경할 수 있으며 즉시 적용됩니다. 게스트 이용 가능 여부는 Meta 정책에 따릅니다.',
+  'error.provider_change_busy': '워크플로를 완료하거나 중지한 후 AI를 변경하세요.',
+  'error.provider_change_failed': 'AI 선택을 저장하지 못했습니다. 다시 시도하세요.',
+  'error.provider_standby': '{provider}는 대기 상태입니다. 설정에서 먼저 활성화하세요.',
   'app.subtitle': '하나의 질문, 네 가지 관점', 'app.connected': '준비됨', 'app.export': '내보내기', 'app.publish': '게시', 'app.settings': '설정', 'app.menu': '대화 기록', 'app.new': '새 대화', 'app.close': '닫기', 'session.history': '대화 기록', 'session.empty': '저장된 대화가 없습니다', 'session.untitled': '새 대화',
   'settings.title': '설정', 'settings.language': '언어', 'settings.theme': '표시 모드', 'settings.theme.system': '시스템 설정', 'settings.theme.light': '라이트', 'settings.theme.dark': '다크', 'settings.hackmd.help': '선택 사항. 토큰 만들기:', 'settings.hackmd.local': '신뢰된 확장 페이지에만 저장됩니다. 게시하면 게스트가 읽을 수 있는 HackMD 노트가 생성됩니다.', 'settings.about': '정보', 'settings.save': '저장', 'settings.cancel': '취소', 'settings.clear': '토큰 삭제',
   'publish.empty': '게시할 내용이 없습니다.', 'publish.no_token': '먼저 설정에서 HackMD API 토큰을 입력하세요.', 'publish.publishing': '게시 중…', 'publish.success': '게시했습니다. URL을 복사했습니다:', 'publish.failed': '게시 실패:',

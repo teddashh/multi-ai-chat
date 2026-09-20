@@ -25,6 +25,7 @@ import {
   StepRecoveryCoordinator,
   StepRecoveryReplayCoordinator,
   transferStepRecoveryOwnership,
+  isStepRecoveryDecision,
   type RoundtableWorkflowDependencies,
 } from '../src/background/roundtableRecovery.ts';
 import type {
@@ -41,6 +42,32 @@ const roles: RoundtableRoles = {
   third: 'grok',
   fourth: 'chatgpt',
 };
+
+test('Meta occupies one roundtable seat and can retry its failed turn', async () => {
+  const harness = createHarness({ decisions: ['retry'], failAttempts: new Set([1]) });
+  const history = await runRoundtableWorkflow('question', { ...roles, first: 'meta' }, 'workflow-meta', harness.dependencies);
+  assert.equal(history.length, 20);
+  assert.equal(harness.sends.length, 21);
+  assert.equal(harness.roles[0].provider, 'meta');
+  assert.equal(harness.roles[1].provider, 'meta');
+  assert.equal(harness.roles.filter((entry) => entry.provider === 'meta').length, 6);
+});
+
+test('Meta recovery requests reach the side panel and accept retry, skip and cancel decisions', () => {
+  const request: StepRecoveryRequest = {
+    recoveryId: 'recovery-meta', workflowId: 'workflow-meta', sessionId: 'session', clientId: 'client',
+    provider: 'meta', failedRequestId: 'request-meta', reason: 'quota',
+  };
+  assert.equal(acceptStepRecoveryMessage({
+    provider: 'meta', workflowId: request.workflowId, requestId: request.failedRequestId, payload: request,
+  }, {
+    clientId: 'client', sessionId: 'session', activeWorkflowId: request.workflowId,
+    ignoredWorkflowIds: new Set(), completedWorkflowIds: new Set(), handledRecoveryIds: new Set(),
+  }), request);
+  for (const action of ['retry', 'skip', 'cancel']) {
+    assert.equal(isStepRecoveryDecision({ ...request, action }), true);
+  }
+});
 
 test('Roundtable can skip a failed first turn and still completes all 20 logical turns', async () => {
   const rawError = '[Error: provider rate limited]';

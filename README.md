@@ -8,6 +8,8 @@ Ask once and put four AIs to work. Multi-AI Chat is a lightweight Chrome Side Pa
 
 **Current release: v0.2.3** · Chrome 114+ · Manifest V3 · Five interface languages · MIT
 
+**Unreleased source: experimental Meta AI standby.** The original four remain active by default. In **Settings → Standby provider**, choose one of them to activate Meta AI in its place; exactly four providers stay active. Targets and workflow roles follow the selection, which persists across restarts. Existing tabs and sign-ins are preserved. Meta guest access depends on the current site/region, and an inert or disabled composer is not treated as ready. Authenticated send/receive and completion still need a [live smoke test](./store/META-AI-SMOKE.md); this feature is not included in the v0.2.3 download or existing store listing.
+
 > Multi-AI Chat automates third-party web interfaces. A provider redesign can temporarily break page selectors, and automated use may be governed by each provider's terms. Use only accounts and content you are authorized to use.
 
 ![Multi-AI Chat running a multi-provider workflow in Chrome](./store/screenshot-1280x800.png)

@@ -9,6 +9,8 @@ test('maps only the exact HTTPS provider hosts', () => {
   assert.equal(getProviderFromUrl('https://claude.ai/new'), 'claude');
   assert.equal(getProviderFromUrl('https://gemini.google.com/app'), 'gemini');
   assert.equal(getProviderFromUrl('https://grok.com/'), 'grok');
+  assert.equal(getProviderFromUrl('https://www.meta.ai/prompt/123'), 'meta');
+  assert.equal(getProviderFromUrl('https://meta.ai/'), 'meta');
 });
 
 test('does not trust provider names in an attacker-controlled URL', () => {
@@ -19,6 +21,8 @@ test('does not trust provider names in an attacker-controlled URL', () => {
     'https://chatgpt.com@evil.example/',
     'https://evil.example/gemini.google.com/',
     'https://grok.com.evil.example/',
+    'https://www.meta.ai.evil.example/',
+    'https://meta.ai@evil.example/',
   ];
 
   for (const value of untrusted) assert.equal(getProviderFromUrl(value), null, value);
@@ -29,6 +33,9 @@ test('rejects unsupported protocols, subdomains, and malformed values', () => {
     'http://chatgpt.com/',
     'javascript:location.href="https://claude.ai"',
     'https://www.claude.ai/',
+    'https://auth.meta.com/',
+    'https://auth.meta.ai/',
+    'http://www.meta.ai/',
     'not a URL containing grok.com',
     '',
   ];

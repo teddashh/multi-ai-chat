@@ -11,6 +11,7 @@ module.exports = {
     'content/claude': './src/content/claude.ts',
     'content/gemini': './src/content/gemini.ts',
     'content/grok': './src/content/grok.ts',
+    'content/meta': './src/content/meta.ts',
   },
   output: {
     path: path.resolve(__dirname, 'dist'),

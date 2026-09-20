@@ -250,5 +250,5 @@ export function isStepRecoveryDecision(value: unknown): value is StepRecoveryDec
 }
 
 function isProvider(value: unknown): value is AIProvider {
-  return value === 'chatgpt' || value === 'claude' || value === 'gemini' || value === 'grok';
+  return value === 'chatgpt' || value === 'claude' || value === 'gemini' || value === 'grok' || value === 'meta';
 }

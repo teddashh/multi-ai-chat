@@ -22,6 +22,14 @@ import { questionWithConversationContext } from '../shared/conversationContinuit
 import { encodeError } from '../shared/errors';
 import { getProviderFromUrl } from '../shared/providerUrl';
 import {
+  ALL_PROVIDERS,
+  activeProviders,
+  normalizeStandbyProvider,
+  repairRoles,
+  selectedActiveTargets,
+  swapFreeTargets,
+} from '../shared/providerSelection';
+import {
   activeCancellationTarget,
   WorkflowLifecycleRegistry,
 } from '../shared/workflowScope';
@@ -67,7 +75,7 @@ interface SendParams {
   clientId: string;
 }
 
-const PROVIDERS: AIProvider[] = ['chatgpt', 'claude', 'gemini', 'grok'];
+const PROVIDERS = ALL_PROVIDERS;
 const ACTIVE_WORKFLOW_STORAGE_KEY = 'multiAiActiveWorkflow';
 const STATUS_PROBE_RETRY_MS = 1000;
 const CONTENT_SCRIPT_FILES: Record<AIProvider, string> = {
@@ -75,6 +83,7 @@ const CONTENT_SCRIPT_FILES: Record<AIProvider, string> = {
   claude: 'content/claude.js',
   gemini: 'content/gemini.js',
   grok: 'content/grok.js',
+  meta: 'content/meta.js',
 };
 
 const connections: Record<AIProvider, AIConnection> = Object.fromEntries(
@@ -95,6 +104,10 @@ let workflowAborted = false;
 let activeWorkflowId: string | undefined;
 let activeSessionId: string | undefined;
 let activeClientId: string | undefined;
+let standbyProvider = normalizeStandbyProvider(undefined);
+const providerSelectionReady = chrome.storage.local.get('standbyProvider').then((stored) => {
+  standbyProvider = normalizeStandbyProvider(stored.standbyProvider);
+});
 
 void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 void chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }).catch(() => {});
@@ -193,6 +206,28 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendResponse) => {
   switch (message.action) {
+    case 'SET_STANDBY_PROVIDER': {
+      const requested = (message.payload as { standbyProvider?: unknown } | undefined)?.standbyProvider;
+      if (sender.tab || !ALL_PROVIDERS.includes(requested as AIProvider)) {
+        sendResponse({ ok: false });
+        return false;
+      }
+      void workflowStartGate.run(async () => {
+        await providerSelectionReady;
+        if (activeWorkflowId) throw new Error(encodeError('error.provider_change_busy'));
+        const next = requested as AIProvider;
+        const stored = await chrome.storage.local.get('freeTargets');
+        const freeTargets = swapFreeTargets(stored.freeTargets, next, standbyProvider);
+        await chrome.storage.local.set({ standbyProvider: next, freeTargets });
+        standbyProvider = next;
+        chrome.runtime.sendMessage({
+          action: 'PROVIDER_SELECTION_UPDATE',
+          payload: { standbyProvider, freeTargets },
+        }).catch(() => {});
+        return { ok: true, standbyProvider, freeTargets };
+      }).then(sendResponse).catch((error) => sendResponse({ ok: false, error: errorMessage(error) }));
+      return true;
+    }
     case 'GET_CONNECTIONS':
       sendResponse(connections);
       // 先回快取讓側邊欄立即有內容，再重新探測一次；結果會透過 broadcastConnections 送達。
@@ -430,6 +465,7 @@ function broadcastConnections(): void {
 }
 
 async function focusOrOpenProvider(provider: AIProvider): Promise<void> {
+  await ensureActiveProvider(provider);
   const connection = connections[provider];
   if (connection.tabId) {
     const attemptedTabId = connection.tabId;
@@ -465,8 +501,9 @@ async function getProviderUrls(): Promise<Partial<Record<AIProvider, string>>> {
   return urls;
 }
 
-async function resetProviderSessions(targets: AIProvider[] = PROVIDERS): Promise<void> {
-  await Promise.all(targets.map(async (provider) => {
+async function resetProviderSessions(targets?: AIProvider[]): Promise<void> {
+  await providerSelectionReady;
+  await Promise.all(selectedActiveTargets(targets, standbyProvider).map(async (provider) => {
     const tabId = connections[provider].tabId;
     if (!tabId) return;
     updateConnection(provider, { provider, status: 'checking', tabId });
@@ -476,7 +513,8 @@ async function resetProviderSessions(targets: AIProvider[] = PROVIDERS): Promise
 }
 
 async function restoreProviderSessions(urls: Partial<Record<AIProvider, string>>): Promise<void> {
-  await Promise.all(PROVIDERS.map(async (provider) => {
+  await providerSelectionReady;
+  await Promise.all(activeProviders(standbyProvider).map(async (provider) => {
     const url = urls[provider];
     const tabId = connections[provider].tabId;
     if (!url || !tabId || getProviderFromUrl(url) !== provider) return;
@@ -487,6 +525,8 @@ async function restoreProviderSessions(urls: Partial<Record<AIProvider, string>>
 }
 
 async function sendToProvider(provider: AIProvider, text: string, requestId: string, workflowId: string): Promise<void> {
+  await ensureActiveProvider(provider);
+  checkAborted(workflowId);
   const connection = connections[provider];
   if (connection.status !== 'connected' || !connection.tabId) {
     throw new Error(encodeError('error.not_ready', { provider }));
@@ -500,6 +540,13 @@ async function sendToProvider(provider: AIProvider, text: string, requestId: str
     payload: { text },
   });
   assertContentScriptAccepted(result);
+}
+
+async function ensureActiveProvider(provider: AIProvider): Promise<void> {
+  await providerSelectionReady;
+  if (!activeProviders(standbyProvider).includes(provider)) {
+    throw new Error(encodeError('error.provider_standby', { provider }));
+  }
 }
 
 async function sendAndWait(
@@ -610,16 +657,16 @@ async function handleSendMessage(params: SendParams): Promise<void> {
         await handleFreeMode(question, params.targets, workflowId);
         break;
       case 'debate':
-        await handleDebateMode(question, (params.roles as DebateRoles) ?? DEFAULT_DEBATE_ROLES, workflowId);
+        await handleDebateMode(question, repairRoles((params.roles as DebateRoles) ?? DEFAULT_DEBATE_ROLES, standbyProvider), workflowId);
         break;
       case 'consult':
-        await handleConsultMode(question, (params.roles as ConsultRoles) ?? DEFAULT_CONSULT_ROLES, workflowId);
+        await handleConsultMode(question, repairRoles((params.roles as ConsultRoles) ?? DEFAULT_CONSULT_ROLES, standbyProvider), workflowId);
         break;
       case 'coding':
-        await handleCodingMode(question, (params.roles as CodingRoles) ?? DEFAULT_CODING_ROLES, workflowId);
+        await handleCodingMode(question, repairRoles((params.roles as CodingRoles) ?? DEFAULT_CODING_ROLES, standbyProvider), workflowId);
         break;
       case 'roundtable':
-        await handleRoundtableMode(question, (params.roles as RoundtableRoles) ?? DEFAULT_ROUNDTABLE_ROLES, workflowId);
+        await handleRoundtableMode(question, repairRoles((params.roles as RoundtableRoles) ?? DEFAULT_ROUNDTABLE_ROLES, standbyProvider), workflowId);
         break;
     }
   } catch (error) {
@@ -640,6 +687,7 @@ async function handleSendMessage(params: SendParams): Promise<void> {
 
 async function beginWorkflow(params: SendParams): Promise<void> {
   await workflowStartGate.run(async () => {
+    await providerSelectionReady;
     workflowLifecycle.assertCanStart(params.workflowId);
     if (activeWorkflowId) await abortWorkflow(activeWorkflowId);
     workflowLifecycle.assertCanStart(params.workflowId);
@@ -702,7 +750,7 @@ async function clearPersistedWorkflow(workflowId: string): Promise<void> {
 }
 
 async function handleFreeMode(text: string, requestedTargets: AIProvider[] | undefined, workflowId: string): Promise<void> {
-  const selected = requestedTargets?.length ? requestedTargets : PROVIDERS;
+  const selected = selectedActiveTargets(requestedTargets, standbyProvider);
   const targets = selected.filter((provider) => connections[provider].status === 'connected');
   if (targets.length === 0) throw new Error(encodeError('error.no_target'));
   sendWorkflowStatus({ key: 'workflow.free', params: { providers: targets.map((provider) => AI_PROVIDERS[provider].name).join(' · ') } });
