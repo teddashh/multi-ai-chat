@@ -102,7 +102,7 @@ It does not replay the insertion or replace Lexical-owned DOM. Native input/text
 controls retain their native value setter and one input event. Rejected paste still fails
 the text assertion rather than sending an unrelated draft; text matching was not loosened.
 
-Validation now passes 127 tests, typecheck, production build and version 0.2.3 consistency.
+At `3976212`, validation passed 127 tests, typecheck, production build and version 0.2.3 consistency.
 The rebuilt unpacked extension was checked against actual Lexical 0.51.0 and textarea
 fixtures over Chrome's content-script transport: exact editor-state text, replacement of
 a leftover draft, single sends, Unicode/blank lines/Markdown/emoji, response chunks/finals,
@@ -113,6 +113,22 @@ results do not establish Meta's authenticated live send/stream/Stop behavior.
 After the extension and Meta tab reload described above, resume VM-03 with only Meta
 selected. Confirm one provider-side prompt, matching streamed/final text and Stop while
 generation is active. Continue VM-04/05 once dispatch passes and all required seats are ready.
+
+### Streaming while Stop is visible
+
+A follow-up browser fixture at `3976212` found that Meta emitted no response chunks while
+its Stop button remained visible: both mutation handling and polling treated the button
+as a reason to skip reading answers. Meta now opts into reading response text during that
+busy signal. The signal still delays completion, scoped Stop still cancels pending capture,
+and an actively generating provider with no answer text still keeps its slow-response grace.
+The other four providers retain their existing thinking-text behavior; input matching is unchanged.
+
+Validation passes 132 tests, typecheck, production build and version 0.2.3 consistency.
+The regression suite covers mutation/poll capture during generation, no premature final,
+slow generation without text, cancellation, and unchanged default behavior. The unpacked
+extension fixture also checks chunks arrive **before** Meta's Stop disappears, then captures
+the completed reply. This remains controlled browser evidence; authenticated VM Step3+
+at this revision still needs a result.
 
 ## Manual checks — pending (VM-01 through VM-07)
 
@@ -150,7 +166,8 @@ Compare the extension transcript with what the provider actually produced; model
 format variation is not an extension capture failure. Confirm each prompt appears once on
 the provider page and the second result does not reuse the first response. For Stop, request
 a numbered list of 100 short sentences and stop while generation is visibly active. Record
-whether both the workflow and provider generation stopped. If generation finished before
+whether the extension transcript was already growing while the provider's Stop was visible,
+and whether both the workflow and provider generation stopped. If generation finished before
 the click, mark the Stop check not exercised rather than passed.
 
 ### Reproduce VM-05 recovery without waiting for a timeout
@@ -181,7 +198,7 @@ An unavailable account, regional restriction, or login challenge leaves affected
 blocked, not passed. Do not infer anonymous access from another region's result.
 
 ```text
-Marker: multi-mac-0529ET-meta-typeinto
+Marker: babysit-0554ET-multiext-775b6ba6
 PR / tested full SHA: #42 / ...
 Date / timezone / tester: ...
 VM OS / Chrome version / region: ...

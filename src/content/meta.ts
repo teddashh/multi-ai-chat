@@ -42,6 +42,7 @@ createContentScript({
   loginLossDelay: 2500,
   isThinking: () => Array.from(document.querySelectorAll(META_STOP_SELECTORS.join(', ')))
     .some((element) => isVisibleMetaElement(element) && isUsableMetaControl(element)),
+  streamWhileThinking: true,
   doneDelay: 5000,
   chunkDebounce: 600,
 });
