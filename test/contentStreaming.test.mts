@@ -9,7 +9,36 @@ import ts from 'typescript';
 // Run the actual content engine with a controllable clock and provider DOM.
 // The busy signal remains true while answer text arrives, just like Meta's Stop.
 function content(t: TestContext, streamWhileThinking?: boolean) {
-  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now: 10000 });
+  // Keep browser timer ordering independent of Node's experimental MockTimers,
+  // whose scheduling behavior differs between the CI and local runtimes.
+  let now = 10000;
+  let timerId = 0;
+  const pending = new Map<number, { callback: () => void; at: number; interval?: number }>();
+  function schedule(callback: () => void, delay: number, repeat = false) {
+    const id = ++timerId;
+    pending.set(id, { callback, at: now + delay, interval: repeat ? delay : undefined });
+    return id;
+  }
+  const timers = {
+    setTimeout: (callback: () => void, delay: number) => schedule(callback, delay),
+    setInterval: (callback: () => void, delay: number) => schedule(callback, delay, true),
+    clearTimeout: (id: number) => { pending.delete(id); },
+    clearInterval: (id: number) => { pending.delete(id); },
+  };
+  function tick(ms: number) {
+    const until = now + ms;
+    while (true) {
+      const next = [...pending].filter(([, timer]) => timer.at <= until)
+        .sort(([idA, a], [idB, b]) => a.at - b.at || idA - idB)[0];
+      if (!next) break;
+      const [id, timer] = next;
+      now = timer.at;
+      if (timer.interval !== undefined) timer.at += timer.interval;
+      else pending.delete(id);
+      timer.callback();
+    }
+    now = until;
+  }
   const messages: any[] = [];
   let listener: Function;
   let mutation: Function;
@@ -32,9 +61,9 @@ function content(t: TestContext, streamWhileThinking?: boolean) {
   const stop = Object.assign(new Element(), { click() { stopClicks++; busy = false; } });
   const previous = Object.assign(new Element(), { textContent: 'historical answer' });
   const responses = [previous];
-  const window = { setTimeout, clearTimeout, getComputedStyle: () => ({ display: 'block', visibility: 'visible' }) } as any;
+  const window = { ...timers, getComputedStyle: () => ({ display: 'block', visibility: 'visible' }) } as any;
   const context = vm.createContext({
-    window, Date, setTimeout, clearTimeout, setInterval, clearInterval,
+    window, ...timers, Date: class extends Date { static now() { return now; } },
     HTMLElement: Element, HTMLTextAreaElement: Textarea, HTMLInputElement: class extends Element {},
     document: {
       body: {},
@@ -82,7 +111,7 @@ function content(t: TestContext, streamWhileThinking?: boolean) {
   return {
     async start() {
       assert.equal((await command({ action: 'SEND_MESSAGE', provider: 'meta', requestId: 'request', workflowId: 'workflow', payload: { text: 'prompt' } })).ok, true);
-      t.mock.timers.tick(800);
+      tick(800);
       // The send-button lookup is asynchronous even when the first lookup succeeds.
       for (let i = 0; i < 8; i++) await Promise.resolve();
       assert.equal(busy, true);
@@ -93,7 +122,7 @@ function content(t: TestContext, streamWhileThinking?: boolean) {
       if (notify) mutation();
     },
     end() { busy = false; },
-    tick: (ms: number) => t.mock.timers.tick(ms),
+    tick,
     chunks: () => messages.filter(message => message.action === 'RESPONSE_CHUNK'),
     done: () => messages.filter(message => message.action === 'RESPONSE_DONE'),
     stop: () => command({ action: 'STOP_GENERATION', provider: 'meta', requestId: 'request', workflowId: 'workflow' }),
