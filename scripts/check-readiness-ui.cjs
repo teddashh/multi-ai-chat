@@ -24,6 +24,7 @@ function installChromeDouble({ seed, initialConnections }) {
   let pending = [];
   window.readinessFixture = {
     connections: initialConnections, requests: [], scope: undefined,
+    allowSend: false, sent: [],
     emit(message) { for (const listener of listeners) listener(message); },
     setConnections(connections) {
       this.connections = connections;
@@ -67,7 +68,10 @@ function installChromeDouble({ seed, initialConnections }) {
         } else if (message.action === 'OPEN_LOGIN') {
           return new Promise(resolve => pending.push({ provider: message.provider, resolve }));
         } else if (message.action === 'GET_PROVIDER_URLS') result = {};
-        else throw new Error(`Unexpected runtime action: ${message.action}`);
+        else if (message.action === 'SEND_MESSAGE' && fixture.allowSend) {
+          fixture.sent.push(message.payload);
+          result = { ok: true }; // Sink only: no worker, provider tab or network request.
+        } else throw new Error(`Unexpected runtime action: ${message.action}`);
         if (callback) queueMicrotask(() => callback(result));
         return Promise.resolve(result);
       },
@@ -215,6 +219,29 @@ async function run(browser) {
       passed.push('Readiness changes do not silently change selection; zero Ready and active workflow disable shortcut');
       const requests = await page.evaluate(() => window.readinessFixture.requests);
       assert.equal(requests.some(request => request.action === 'SEND_MESSAGE'), false);
+      await page.evaluate(() => { window.readinessFixture.allowSend = true; });
+      const composedDraft = '輸入法確認 日本語 한국어';
+      await page.locator('textarea').fill(composedDraft);
+      for (const event of [{ isComposing: true, keyCode: 13 }, { isComposing: false, keyCode: 229 }]) {
+        const allowed = await page.locator('textarea').evaluate((input, event) => input.dispatchEvent(new KeyboardEvent('keydown', {
+          ...event, key: 'Enter', code: 'Enter', bubbles: true, cancelable: true,
+        })), event);
+        assert.equal(await page.evaluate(() => window.readinessFixture.sent.length), 0, `${language}: IME confirmation must not send`);
+        assert.equal(allowed, true, `${language}: IME confirmation must not prevent the editor's default action`);
+        assert.equal(await page.locator('textarea').inputValue(), composedDraft, `${language}: IME confirmation must preserve the draft`);
+      }
+      await page.locator('textarea').press('End');
+      await page.locator('textarea').press('Shift+Enter');
+      assert.equal(await page.locator('textarea').inputValue(), `${composedDraft}\n`);
+      assert.equal(await page.evaluate(() => window.readinessFixture.sent.length), 0);
+      await page.locator('textarea').press('Enter');
+      await page.waitForFunction(() => window.readinessFixture.sent.length === 1 && document.querySelector('textarea').disabled);
+      const sent = await page.evaluate(() => window.readinessFixture.sent);
+      assert.equal(sent.length, 1);
+      assert.equal(sent[0].text, composedDraft);
+      assert.deepEqual(sent[0].targets, ['chatgpt', 'meta']);
+      assert.equal(await page.locator('textarea').inputValue(), '');
+      passed.push('Simulated IME confirmation preserves the draft without sending; Shift+Enter adds a newline and plain Enter sends exactly once to the selected targets');
     } catch (error) {
       report.status = 'FAIL';
       report.errors.push(`${language}: ${error.message}`);

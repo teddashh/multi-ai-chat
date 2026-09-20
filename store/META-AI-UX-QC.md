@@ -29,10 +29,15 @@ plus an open-tab failure put Send at y=630.5–662.5 in a 320×600 viewport. The
 controls area now also shrinks and scrolls, keeping the input actions in view.
 The Ready-only shortcut remains reachable by scrolling that area.
 
-Local result on 2026-09-20: **PASS** in en, zh-TW, ja, de and ko (35 assertion groups,
+The input follow-up reproduced an unintended send in `97b1aa4`: Enter with
+`isComposing=true` generated one `SEND_MESSAGE` while confirming an IME candidate.
+The panel now leaves composition Enter events (including legacy key code 229) to
+the editor. Plain Enter still sends once; Shift+Enter still inserts a newline.
+
+Local result on 2026-09-20: **PASS** in en, zh-TW, ja, de and ko (40 assertion groups,
 zero page errors) using Chromium 151.0.7922.34. `npm run verify` under Node 22.18.0
 also passed all 157 tests, typecheck, build and version consistency. Tested panel
-bundle SHA-256: `e4272f40dc4d49821d441ab31bf21ea84cec63753f8048e246141bf8e05e86a1`.
+bundle SHA-256: `3300d9b5b1ae3b7c9976799509c2f0e5515c6554b89db1f7a769a290f4610eae`.
 Actual authenticated VM UX result remains **NOT_RUN** from this seat.
 
 ## Repeatable DOM check
@@ -57,8 +62,12 @@ selection, changing readiness, and disabled actions during a workflow. It checks
 Send at 320×600 and 420×850, a multiline draft plus open-tab error at 320×600 and
 420×600, and visible/enabled Stop during a simulated workflow with a multiline
 draft at 320×480 and 420×600. Draft text must remain intact after resizing.
-All page requests are restricted to
-three local `dist` assets served on the intercepted `https://readiness.test` origin.
+It also dispatches simulated IME Enter events and checks that no send occurs and
+the draft remains intact, then checks Shift+Enter and a single plain-Enter send.
+The send is captured by the Chrome API double; no provider receives it. These
+synthetic events do not establish a pass with an actual operating-system IME.
+All page requests are restricted to three local `dist` assets served on the
+intercepted `https://readiness.test` origin.
 
 Output: `RESULTS.json` (status, checkout SHA, dirty-tree flag, bundle SHA-256, browser,
 per-locale assertions and errors), plus `zh-TW-partial.png`, `zh-TW-reopened.png`
@@ -79,6 +88,7 @@ If another provider is already Ready, record that difference rather than logging
 | Select ready only | Only Meta is selected; hint/open-unready shortcut disappear. |
 | Immediately close and reopen Side Panel | Mode remains Free, Meta remains the only selected target, no skipped-provider hint. |
 | Narrow/short panel with a multiline draft | Hint and shortcuts remain readable; Send is fully visible, including after a tab-open failure if one occurs. Upper controls remain reachable by scrolling. During an actual workflow, Stop stays visible. |
+| IME input with Meta selected | Enter to confirm a Chinese/Japanese/Korean candidate keeps the draft and does not start a workflow. After composition ends, Shift+Enter adds a newline and plain Enter sends once. Record the actual IME used. |
 
 Record each row as PASS/FAIL/BLOCKED with checkout SHA, Chrome version, active/standby
 providers and observed Ready set. An actual docked-panel close/reopen result is still

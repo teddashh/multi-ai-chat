@@ -44,6 +44,8 @@ export default function InputBar({ onSend, onCancel, disabled, isProcessing, rea
           value={text}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
+            // Enter can confirm an IME candidate; 229 also covers composition-boundary events.
+            if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault();
               submit();
