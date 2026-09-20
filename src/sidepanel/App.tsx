@@ -35,6 +35,7 @@ import {
 } from '../shared/providerSelection';
 import { decodeError, ERROR_MARKER } from '../shared/errors';
 import { getProviderReadiness } from '../shared/providerReadiness';
+import { openUnreadyProviders } from './openUnreadyProviders';
 import { createWorkflowCancellation, createWorkflowScope } from '../shared/workflowScope';
 import {
   acceptStepRecoveryMessage,
@@ -164,6 +165,9 @@ export default function App() {
   const [contextNeedsReplay, setContextNeedsReplay] = useState(false);
   const [conversationDrawerOpen, setConversationDrawerOpen] = useState(false);
   const [connectionsOpen, setConnectionsOpen] = useState(true);
+  const [isOpeningUnready, setIsOpeningUnready] = useState(false);
+  const [failedOpenProviders, setFailedOpenProviders] = useState<AIProvider[]>([]);
+  const openingUnreadyRef = useRef(false);
   const [deleteTargetId, setDeleteTargetId] = useState('');
   const [hydrated, setHydrated] = useState(false);
   const pendingRolesRef = useRef<Record<string, string>>({});
@@ -630,6 +634,23 @@ export default function App() {
     providers: readiness.unready.map((provider) => AI_PROVIDERS[provider].name).join(' · '),
     ready: readiness.ready.map((provider) => AI_PROVIDERS[provider].name).join(' · '),
   }) : undefined;
+  const failedUnready = failedOpenProviders.filter((provider) => readiness.unready.includes(provider));
+  const readinessOpenError = failedUnready.length ? t('error.open_unready_failed', {
+    providers: failedUnready.map((provider) => AI_PROVIDERS[provider].name).join(' · '),
+  }) : undefined;
+  const handleOpenUnready = async () => {
+    if (!hydrated || isProcessing || openingUnreadyRef.current) return;
+    openingUnreadyRef.current = true;
+    setIsOpeningUnready(true);
+    setFailedOpenProviders([]);
+    setConnectionsOpen(true);
+    try {
+      setFailedOpenProviders(await openUnreadyProviders(readiness.unready, standbyProviderRef.current, connections, openLogin));
+    } finally {
+      openingUnreadyRef.current = false;
+      setIsOpeningUnready(false);
+    }
+  };
   const currentStatus = workflowStatus ? formatWorkflowStatus(workflowStatus) : t('trace.idle');
 
   return (
@@ -706,7 +727,10 @@ export default function App() {
           <button type="button" onClick={() => void publishConversation()} disabled={!messages.length || isPublishing} className="hover:text-sky-700 disabled:opacity-30">{isPublishing ? t('publish.publishing') : t('app.publish')}</button>
         </div>
       </div>
-      <InputBar onSend={handleSend} onCancel={stopWorkflow} disabled={!hydrated || isProcessing || !readiness.canSend} isProcessing={isProcessing} readinessNotice={readinessNotice} />
+      <InputBar onSend={handleSend} onCancel={stopWorkflow} disabled={!hydrated || isProcessing || !readiness.canSend}
+        isProcessing={isProcessing} readinessNotice={readinessNotice}
+        onOpenUnready={readiness.unready.length ? () => { void handleOpenUnready(); } : undefined}
+        isOpeningUnready={isOpeningUnready} readinessOpenError={readinessOpenError} />
 
       {conversationDrawerOpen && (
         <div className="absolute inset-0 z-40 bg-black/30" onClick={closeDrawer}>

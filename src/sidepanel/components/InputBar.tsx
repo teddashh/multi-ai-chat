@@ -7,9 +7,12 @@ interface Props {
   disabled: boolean;
   isProcessing: boolean;
   readinessNotice?: string;
+  onOpenUnready?: () => void;
+  isOpeningUnready?: boolean;
+  readinessOpenError?: string;
 }
 
-export default function InputBar({ onSend, onCancel, disabled, isProcessing, readinessNotice }: Props) {
+export default function InputBar({ onSend, onCancel, disabled, isProcessing, readinessNotice, onOpenUnready, isOpeningUnready = false, readinessOpenError }: Props) {
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -28,7 +31,13 @@ export default function InputBar({ onSend, onCancel, disabled, isProcessing, rea
 
   return (
     <div className="flex-none border-t border-slate-200 bg-white p-3">
-      {readinessNotice && <p id="input-readiness" role="status" className="mb-2 text-xs leading-relaxed text-amber-800">{readinessNotice}</p>}
+      {readinessNotice && (
+        <div className="mb-2">
+          <p id="input-readiness" role="status" className="text-xs leading-relaxed text-amber-800">{readinessNotice}</p>
+          {onOpenUnready && <button type="button" onClick={onOpenUnready} disabled={isOpeningUnready || isProcessing} aria-describedby="input-readiness" className="mt-1.5 rounded-lg border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50">{t(isOpeningUnready ? 'connection.opening' : 'connection.open_unready')}</button>}
+          {readinessOpenError && <p role="alert" className="mt-1 text-xs leading-relaxed text-red-700">{readinessOpenError}</p>}
+        </div>
+      )}
       <div className="rounded-2xl border border-slate-300 bg-white p-2 shadow-sm focus-within:border-sky-400 focus-within:ring-2 focus-within:ring-sky-100">
         <textarea
           ref={textareaRef}

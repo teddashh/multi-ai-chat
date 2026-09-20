@@ -9,18 +9,20 @@ import { ALL_PROVIDERS, activeProviders } from '../src/shared/providerSelection.
 import { AI_PROVIDERS } from '../src/shared/constants.ts';
 import type { AIProvider } from '../src/shared/types.ts';
 import { decodeError } from '../src/shared/errors.ts';
+import { openUnreadyProviders } from '../src/sidepanel/openUnreadyProviders.ts';
 
 // Run the actual service worker against a Chrome transport double. Transpile its
 // extensionless browser imports without changing production module resolution.
-function worker(stored: Record<string, unknown> = {}, autoRespond = true, readiness: Partial<Record<AIProvider, boolean | null>> = {}) {
+function worker(stored: Record<string, unknown> = {}, autoRespond = true, readiness: Partial<Record<AIProvider, boolean | null>> = {}, missingTabs: AIProvider[] = []) {
   const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
   const sent: any[] = [];
   const broadcasts: any[] = [];
   const navigated: number[] = [];
+  const created: { url: string }[] = [];
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const local = { ...stored };
   const session: Record<string, unknown> = {};
-  const tabs = ALL_PROVIDERS.map((provider, index) => ({ id: index + 1, url: AI_PROVIDERS[provider].url }));
+  const tabs = ALL_PROVIDERS.flatMap((provider, index) => missingTabs.includes(provider) ? [] : [{ id: index + 1, url: AI_PROVIDERS[provider].url }]);
   function event() {
     return { listeners: [] as Function[], addListener(listener: Function) { this.listeners.push(listener); } };
   }
@@ -43,7 +45,7 @@ function worker(stored: Record<string, unknown> = {}, autoRespond = true, readin
       onUpdated: event(), onRemoved: event(),
       query: async () => tabs,
       get: async (id: number) => tabs.find((tab) => tab.id === id),
-      create: async () => {},
+      create: async (options: { url: string }) => { created.push(options); },
       update: async (id: number) => { navigated.push(id); return tabs.find((tab) => tab.id === id); },
       sendMessage: async (id: number, message: any) => {
         if (message.action === 'CHECK_STATUS') {
@@ -93,7 +95,7 @@ function worker(stored: Record<string, unknown> = {}, autoRespond = true, readin
   load(path.join(root, 'src/background/service-worker.ts'));
   const ready = new Promise<void>((resolve) => setImmediate(resolve));
   return {
-    command, sent, broadcasts, local, navigated, ready, complete,
+    command, sent, broadcasts, local, navigated, created, ready, complete,
     close: () => { for (const timer of timers) clearTimeout(timer); },
     send: (mode = 'free', targets?: string[]) => command({ action: 'SEND_MESSAGE', payload: {
       workflowId: crypto.randomUUID(), sessionId: 'session', clientId: 'client', text: 'Hello', mode, targets,
@@ -199,4 +201,44 @@ test('Free worker distinguishes an empty selection from providers that are not R
   assert.equal(app.sent.length, 0);
   const error = app.broadcasts.find((message) => message.provider === 'system');
   assert.equal(decodeError(error?.payload)?.key, 'error.no_selection');
+});
+
+test('shortcut uses OPEN_LOGIN to focus existing unready tabs without opening standby or Ready tabs', async (t) => {
+  const app = worker({ standbyProvider: 'grok' }, true, { chatgpt: false, claude: null, gemini: false });
+  t.after(app.close);
+  await app.ready;
+  const failed = await openUnreadyProviders(ALL_PROVIDERS, 'grok', await app.command({ action: 'GET_CONNECTIONS' }), async (provider) => {
+    assert.equal((await app.command({ action: 'OPEN_LOGIN', provider })).ok, true);
+  });
+  assert.deepEqual(failed, []);
+  assert.deepEqual(app.navigated, [1, 2, 3]);
+  assert.deepEqual(app.created, []);
+  assert.equal(app.sent.length, 0);
+});
+
+test('shortcut opens a missing selected tab through the existing login URL', async (t) => {
+  const app = worker({}, true, {}, ['grok']);
+  t.after(app.close);
+  await app.ready;
+  const failed = await openUnreadyProviders(['chatgpt', 'grok', 'grok', 'meta'], 'meta', await app.command({ action: 'GET_CONNECTIONS' }), async (provider) => {
+    assert.equal((await app.command({ action: 'OPEN_LOGIN', provider })).ok, true);
+  });
+  assert.deepEqual(failed, []);
+  assert.deepEqual(app.navigated, []);
+  assert.deepEqual(app.created.map((tab) => tab.url), [AI_PROVIDERS.grok.loginUrl]);
+});
+
+test('worker still rejects a provider that became standby after the shortcut snapshot', async (t) => {
+  const app = worker({}, true, { grok: false });
+  t.after(app.close);
+  await app.ready;
+  const connections = await app.command({ action: 'GET_CONNECTIONS' });
+  assert.equal((await app.command({ action: 'SET_STANDBY_PROVIDER', payload: { standbyProvider: 'grok' } })).ok, true);
+  const failed = await openUnreadyProviders(['grok'], 'meta', connections, async (provider) => {
+    const result = await app.command({ action: 'OPEN_LOGIN', provider });
+    if (!result.ok) throw new Error(result.error);
+  });
+  assert.deepEqual(failed, ['grok']);
+  assert.deepEqual(app.navigated, []);
+  assert.deepEqual(app.created, []);
 });

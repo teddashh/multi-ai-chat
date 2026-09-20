@@ -19,6 +19,12 @@ these UI changes without another login (Grok on standby):
 - Deselect Meta in Free: the remaining three targets are named as not ready and
   sending is disabled. Select only Meta: the readiness notice disappears.
 
+The notice now also offers **Open unready AIs**. With all four selected and only
+Meta ready, it focuses or opens ChatGPT, Claude, and Gemini through the existing
+connection path; Meta and standby Grok are untouched. The button is disabled while
+opening; a failed open names that provider and allows retry. With only Meta selected,
+both the notice and shortcut disappear. Opening a tab does not itself mark it Ready.
+
 Meta AI support is experimental and unreleased. Initial selectors came from
 `multi-ai-chat-desktop/adapters/meta.json` (adapter v1). The readiness fix also recognizes
 the current hydrated `composer-input` textarea and contenteditable editor. Neither the

@@ -22,6 +22,9 @@ function detectLocale(): Locale {
 let currentLocale: Locale = detectLocale();
 
 const en: Record<string, string> = {
+  'connection.open_unready': 'Open unready AIs',
+  'connection.opening': 'Opening…',
+  'error.open_unready_failed': 'Could not open: {providers}. Try again.',
   'error.providers_not_ready': 'Not ready: {providers}. Open them under “AI connections” to continue.',
   'error.no_selection': 'Select at least one AI to send to.',
   'input.readiness.partial': 'Will send only to {ready}. Not ready (skipped): {providers}.',
@@ -164,6 +167,9 @@ const en: Record<string, string> = {
 
 const zh: Record<string, string> = {
   ...en,
+  'connection.open_unready': '開啟未就緒 AI',
+  'connection.opening': '開啟中…',
+  'error.open_unready_failed': '無法開啟：{providers}。請再試一次。',
   'error.providers_not_ready': '尚未就緒：{providers}。請到「AI 連線」開啟這些 AI 後再繼續。',
   'error.no_selection': '請至少選取一家 AI 作為傳送對象。',
   'input.readiness.partial': '只會傳送給 {ready}；尚未就緒、將略過：{providers}。',
@@ -210,6 +216,9 @@ const zh: Record<string, string> = {
 
 const ja: Record<string, string> = {
   ...en,
+  'connection.open_unready': '準備ができていない AI を開く',
+  'connection.opening': '開いています…',
+  'error.open_unready_failed': '開けませんでした：{providers}。もう一度お試しください。',
   'error.providers_not_ready': '準備ができていません：{providers}。「AI 接続」でこれらの AI を開いてから続行してください。',
   'error.no_selection': '送信先の AI を少なくとも1つ選択してください。',
   'input.readiness.partial': '{ready} にのみ送信します。準備ができていないためスキップ：{providers}。',
@@ -235,6 +244,9 @@ const ja: Record<string, string> = {
 
 const de: Record<string, string> = {
   ...en,
+  'connection.open_unready': 'Nicht bereite KIs öffnen',
+  'connection.opening': 'Wird geöffnet…',
+  'error.open_unready_failed': 'Konnte nicht geöffnet werden: {providers}. Bitte erneut versuchen.',
   'error.providers_not_ready': 'Nicht bereit: {providers}. Öffne diese Anbieter unter „KI-Verbindungen“, um fortzufahren.',
   'error.no_selection': 'Wähle mindestens eine KI als Empfänger aus.',
   'input.readiness.partial': 'Wird nur an {ready} gesendet. Nicht bereit, wird übersprungen: {providers}.',
@@ -260,6 +272,9 @@ const de: Record<string, string> = {
 
 const ko: Record<string, string> = {
   ...en,
+  'connection.open_unready': '준비되지 않은 AI 열기',
+  'connection.opening': '여는 중…',
+  'error.open_unready_failed': '열지 못한 AI: {providers}. 다시 시도하세요.',
   'error.providers_not_ready': '아직 준비되지 않음: {providers}. 「AI 연결」에서 해당 AI를 연 후 계속하세요.',
   'error.no_selection': '전송할 AI를 하나 이상 선택하세요.',
   'input.readiness.partial': '{ready}에만 전송합니다. 준비되지 않아 건너뛸 AI: {providers}.',
