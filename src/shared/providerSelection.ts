@@ -1,4 +1,4 @@
-import type { AIProvider, ModeRoles } from './types';
+import type { AIConnection, AIProvider, ModeRoles } from './types';
 
 export const ALL_PROVIDERS: AIProvider[] = ['chatgpt', 'claude', 'gemini', 'grok', 'meta'];
 export const DEFAULT_STANDBY_PROVIDER: AIProvider = 'meta';
@@ -9,6 +9,13 @@ export function normalizeStandbyProvider(value: unknown): AIProvider {
 
 export function activeProviders(standby: AIProvider): AIProvider[] {
   return ALL_PROVIDERS.filter((provider) => provider !== standby);
+}
+
+export function readyActiveTargets(
+  connections: Partial<Record<AIProvider, Pick<AIConnection, 'status'>>>,
+  standby: AIProvider,
+): AIProvider[] {
+  return activeProviders(standby).filter((provider) => connections[provider]?.status === 'connected');
 }
 
 export function selectedActiveTargets(value: unknown, standby: AIProvider): AIProvider[] {

@@ -22,6 +22,8 @@ function detectLocale(): Locale {
 let currentLocale: Locale = detectLocale();
 
 const en: Record<string, string> = {
+  'targets.select_ready': 'Select ready AIs only',
+  'targets.none_ready': 'No active AI is ready yet. Your selection is unchanged.',
   'connection.open_unready': 'Open unready AIs',
   'connection.opening': 'Opening…',
   'error.open_unready_failed': 'Could not open: {providers}. Try again.',
@@ -167,6 +169,8 @@ const en: Record<string, string> = {
 
 const zh: Record<string, string> = {
   ...en,
+  'targets.select_ready': '只選已就緒 AI',
+  'targets.none_ready': '目前沒有已就緒的啟用中 AI，保留原選擇。',
   'connection.open_unready': '開啟未就緒 AI',
   'connection.opening': '開啟中…',
   'error.open_unready_failed': '無法開啟：{providers}。請再試一次。',
@@ -216,6 +220,8 @@ const zh: Record<string, string> = {
 
 const ja: Record<string, string> = {
   ...en,
+  'targets.select_ready': '準備完了の AI だけ選択',
+  'targets.none_ready': '有効な AI はまだどれも準備ができていません。選択は変更されません。',
   'connection.open_unready': '準備ができていない AI を開く',
   'connection.opening': '開いています…',
   'error.open_unready_failed': '開けませんでした：{providers}。もう一度お試しください。',
@@ -244,6 +250,8 @@ const ja: Record<string, string> = {
 
 const de: Record<string, string> = {
   ...en,
+  'targets.select_ready': 'Nur bereite KIs auswählen',
+  'targets.none_ready': 'Noch keine aktive KI ist bereit. Deine Auswahl bleibt unverändert.',
   'connection.open_unready': 'Nicht bereite KIs öffnen',
   'connection.opening': 'Wird geöffnet…',
   'error.open_unready_failed': 'Konnte nicht geöffnet werden: {providers}. Bitte erneut versuchen.',
@@ -272,6 +280,8 @@ const de: Record<string, string> = {
 
 const ko: Record<string, string> = {
   ...en,
+  'targets.select_ready': '준비된 AI만 선택',
+  'targets.none_ready': '아직 준비된 활성 AI가 없습니다. 기존 선택을 유지합니다.',
   'connection.open_unready': '준비되지 않은 AI 열기',
   'connection.opening': '여는 중…',
   'error.open_unready_failed': '열지 못한 AI: {providers}. 다시 시도하세요.',

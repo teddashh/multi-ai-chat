@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import test from 'node:test';
 import ts from 'typescript';
-import { ALL_PROVIDERS, activeProviders } from '../src/shared/providerSelection.ts';
+import { ALL_PROVIDERS, activeProviders, readyActiveTargets } from '../src/shared/providerSelection.ts';
 import { AI_PROVIDERS } from '../src/shared/constants.ts';
 import type { AIProvider } from '../src/shared/types.ts';
 import { decodeError } from '../src/shared/errors.ts';
@@ -241,4 +241,16 @@ test('worker still rejects a provider that became standby after the shortcut sna
   assert.deepEqual(failed, ['grok']);
   assert.deepEqual(app.navigated, []);
   assert.deepEqual(app.created, []);
+});
+
+test('Free sends only to ready-only targets and leaves other active providers unselected', async (t) => {
+  const app = worker({ standbyProvider: 'grok' }, true, { chatgpt: false, claude: null, gemini: false });
+  t.after(app.close);
+  await app.ready;
+  const targets = readyActiveTargets(await app.command({ action: 'GET_CONNECTIONS' }), 'grok');
+  assert.deepEqual(targets, ['meta']);
+  await app.send('free', targets);
+  assert.deepEqual(app.sent.map((message) => message.provider), ['meta']);
+  assert.equal(app.broadcasts.some((message) => message.payload?.key === 'workflow.free.partial'), false);
+  assert.equal(app.broadcasts.some((message) => message.provider === 'system'), false);
 });

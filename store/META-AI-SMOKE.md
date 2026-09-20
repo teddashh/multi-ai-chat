@@ -25,6 +25,13 @@ connection path; Meta and standby Grok are untouched. The button is disabled whi
 opening; a failed open names that provider and allows retry. With only Meta selected,
 both the notice and shortcut disappear. Opening a tab does not itself mark it Ready.
 
+Free's **Select ready AIs only** shortcut selects every currently Ready active provider
+and saves that selection. With only Meta ready and Grok on standby, one click selects
+only Meta and clears the skipped-provider hint. Standby providers remain excluded even
+if their tabs are Ready. With no active provider Ready, or while a workflow is running,
+the shortcut is disabled and preserves the selection. Later readiness changes do not
+automatically change the selected targets; individual chips remain adjustable.
+
 Meta AI support is experimental and unreleased. Initial selectors came from
 `multi-ai-chat-desktop/adapters/meta.json` (adapter v1). The readiness fix also recognizes
 the current hydrated `composer-input` textarea and contenteditable editor. Neither the

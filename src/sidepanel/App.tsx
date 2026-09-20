@@ -30,6 +30,7 @@ import {
   DEFAULT_STANDBY_PROVIDER,
   activeProviders,
   normalizeStandbyProvider,
+  readyActiveTargets,
   repairRoles,
   selectedActiveTargets,
 } from '../shared/providerSelection';
@@ -581,6 +582,14 @@ export default function App() {
     });
   };
 
+  const selectReadyTargets = () => {
+    if (!hydrated || isProcessing || mode !== 'free') return;
+    const targets = readyActiveTargets(connections, standbyProviderRef.current);
+    if (!targets.length) return;
+    setFreeTargets(targets);
+    void chrome.storage.local.set({ freeTargets: targets });
+  };
+
   const openLogin = async (provider: AIProvider): Promise<void> => {
     const response = await chrome.runtime.sendMessage({ action: 'OPEN_LOGIN', provider }) as { ok?: boolean; error?: string } | undefined;
     if (response && response.ok === false) throw new Error(response.error ?? provider);
@@ -626,7 +635,7 @@ export default function App() {
     }
   };
 
-  const connectedCount = providers.filter((provider) => connections[provider].status === 'connected').length;
+  const connectedCount = readyActiveTargets(connections, standbyProvider).length;
   const readiness = getProviderReadiness(mode, mode === 'free'
     ? selectedActiveTargets(freeTargets, standbyProvider)
     : Object.values(roles), connections);
@@ -672,12 +681,17 @@ export default function App() {
 
         {mode === 'free' && (
           <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t('targets.title')}</div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t('targets.title')}</div>
+              <button type="button" onClick={selectReadyTargets} disabled={!hydrated || isProcessing || connectedCount === 0}
+                title={connectedCount === 0 ? t('targets.none_ready') : undefined}
+                className="rounded-lg border border-sky-300 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-800 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50">{t('targets.select_ready')}</button>
+            </div>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {providers.map((provider) => {
                 const selected = freeTargets.includes(provider);
                 const ready = connections[provider].status === 'connected';
-                return <button key={provider} type="button" disabled={isProcessing} onClick={() => toggleTarget(provider)} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${selected ? 'border-sky-300 bg-sky-50 text-sky-800' : 'border-slate-200 bg-white text-slate-400'}`}><span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${ready ? 'bg-emerald-500' : 'bg-slate-300'}`} />{AI_PROVIDERS[provider].name}</button>;
+                return <button key={provider} type="button" aria-pressed={selected} disabled={isProcessing} onClick={() => toggleTarget(provider)} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${selected ? 'border-sky-300 bg-sky-50 text-sky-800' : 'border-slate-200 bg-white text-slate-400'}`}><span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${ready ? 'bg-emerald-500' : 'bg-slate-300'}`} />{AI_PROVIDERS[provider].name}</button>;
               })}
             </div>
           </div>
