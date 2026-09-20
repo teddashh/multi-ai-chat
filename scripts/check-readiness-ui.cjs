@@ -150,6 +150,54 @@ async function run(browser) {
       assert.notEqual(label('input.label'), 'input.label');
       if (language !== 'en') assert.notEqual(label('input.label'), t('input.label', undefined, 'en'));
       await expectPrompt('ready', 'partial');
+      const settings = () => page.getByRole('dialog', { name: label('settings.title'), exact: true });
+      const focused = locator => locator.evaluate(element => element === document.activeElement);
+      const expectSettingsClosed = async () => {
+        await settings().waitFor({ state: 'detached' });
+        assert.equal(await focused(button('app.settings')), true, `${language}: Settings must restore focus to its opener`);
+      };
+      await page.setViewportSize({ width: 320, height: 600 });
+      await button('app.settings').focus();
+      await page.keyboard.press('Enter');
+      await settings().waitFor();
+      const closeSettings = () => settings().getByRole('button', { name: label('app.close'), exact: true });
+      const saveSettings = () => settings().getByRole('button', { name: label('settings.save'), exact: true });
+      assert.equal(await focused(closeSettings()), true, `${language}: Settings must initially focus Close`);
+      await page.keyboard.press('Shift+Tab');
+      assert.equal(await focused(saveSettings()), true, `${language}: reverse Tab must wrap inside Settings`);
+      const saveBounds = await saveSettings().boundingBox();
+      assert.ok(saveBounds && saveBounds.y >= 0 && saveBounds.y + saveBounds.height <= 600);
+      await page.keyboard.press('Tab');
+      assert.equal(await focused(closeSettings()), true, `${language}: Tab must wrap inside Settings`);
+      await page.keyboard.press('Tab');
+      assert.equal(await focused(settings().locator('#language-select')), true);
+      await settings().locator('#hackmd-token').fill('unsaved fixture text');
+      // A provider-status rerender must not restart focus management while editing.
+      await page.evaluate(connections => window.readinessFixture.setConnections(connections), states(['meta', 'grok']));
+      assert.equal(await focused(settings().locator('#hackmd-token')), true);
+      for (const event of [{ isComposing: true, keyCode: 27 }, { isComposing: false, keyCode: 229 }]) {
+        const allowed = await settings().locator('#hackmd-token').evaluate((input, event) => input.dispatchEvent(new KeyboardEvent('keydown', {
+          ...event, key: 'Escape', code: 'Escape', bubbles: true, cancelable: true,
+        })), event);
+        assert.equal(allowed, true, `${language}: composition Escape must remain available to the editor`);
+        assert.equal(await settings().count(), 1);
+      }
+      await page.keyboard.press('Escape');
+      await expectSettingsClosed();
+      assert.equal(await page.evaluate(() => window.readinessFixture.stored().hackmd_token), undefined);
+      for (const action of ['close', 'cancel', 'backdrop', 'save']) {
+        await page.keyboard.press('Enter');
+        await settings().waitFor();
+        assert.equal(await focused(closeSettings()), true);
+        await page.waitForFunction(() => document.querySelector('#hackmd-token')?.value === '');
+        if (action === 'close') await closeSettings().click();
+        else if (action === 'cancel') await settings().getByRole('button', { name: label('settings.cancel'), exact: true }).click();
+        else if (action === 'backdrop') await page.mouse.click(2, 2);
+        else await saveSettings().click();
+        await expectSettingsClosed();
+      }
+      await page.setViewportSize({ width: 420, height: 850 });
+      passed.push('Settings moves focus inside, wraps Tab both ways, preserves editing focus on status updates, ignores IME Escape, and restores the opener after Escape/Close/Cancel/backdrop/Save');
       assert.notEqual(label('mode.selector'), 'mode.selector');
       if (language !== 'en') assert.notEqual(label('mode.selector'), t('mode.selector', undefined, 'en'));
       await expectMode('free');
@@ -263,6 +311,14 @@ async function run(browser) {
       await page.evaluate(() => window.readinessFixture.workflow());
       await page.waitForFunction(() => document.querySelector('textarea').disabled);
       await expectPrompt('running', 'running');
+      await button('app.settings').click();
+      await settings().waitFor();
+      assert.equal(await settings().locator('#standby-provider').isDisabled(), true);
+      await settings().locator('#theme-select').focus();
+      await page.keyboard.press('Tab');
+      assert.equal(await focused(settings().locator('#hackmd-token')), true, `${language}: Tab must skip the disabled standby selector`);
+      await page.keyboard.press('Escape');
+      await expectSettingsClosed();
       assert.equal(await button('targets.select_ready').isDisabled(), true);
       assert.equal(await modeGroup().getByRole('button', { disabled: true }).count(), 5);
       await expectMode('free');

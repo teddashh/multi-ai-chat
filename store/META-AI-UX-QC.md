@@ -44,10 +44,15 @@ The prompt in `03ccaa5` had no explicit label and relied on its changing placeho
 It now has a stable localized accessible name, independent of readiness, draft text
 or processing state. Existing placeholders and readiness descriptions remain intact.
 
-Local result on 2026-09-20: **PASS** in en, zh-TW, ja, de and ko (50 assertion groups,
+Settings in `8e0878f` left keyboard focus on the background opener when the dialog
+appeared. It now focuses Close, wraps Tab/Shift+Tab inside the dialog, and restores
+the opener on dismissal. Escape closes without saving an edited token; composition
+Escape is left to the input method. Provider-status rerenders preserve editing focus.
+
+Local result on 2026-09-20: **PASS** in en, zh-TW, ja, de and ko (55 assertion groups,
 zero page errors) using Chromium 151.0.7922.34. `npm run verify` under Node 22.18.0
 also passed all 157 tests, typecheck, build and version consistency. Tested panel
-bundle SHA-256: `cee6db37dec64843bb2216231a52146e86b503ae7a0ae0a4fdab633d76312b4b`.
+bundle SHA-256: `0a338c33e218f3691cf0247e69ebe26e6f00ff184dd62b048b354c8668e89633`.
 Actual authenticated VM UX result remains **NOT_RUN** from this seat.
 
 ## Repeatable DOM check
@@ -83,6 +88,10 @@ snapshots record the exposed semantics; an actual screen reader was not tested.
 Prompt checks use its localized accessible name across partial readiness,
 Debate/Consult blockers, zero Ready, filled/running/finished states and reopening.
 They also check the state-specific placeholder and readiness description reference.
+Settings checks cover keyboard opening, both Tab boundaries at 320×600, Escape
+(including simulated IME events), Close/Cancel/backdrop/Save dismissal and restored
+focus. They verify that status updates preserve input focus, Escape does not save
+fixture text, and Tab skips the disabled standby selector during a workflow.
 All page requests are restricted to three local `dist` assets served on the
 intercepted `https://readiness.test` origin.
 
@@ -110,6 +119,7 @@ If another provider is already Ready, record that difference rather than logging
 | IME input with Meta selected | Enter to confirm a Chinese/Japanese/Korean candidate keeps the draft and does not start a workflow. After composition ends, Shift+Enter adds a newline and plain Enter sends once. Record the actual IME used. |
 | Keyboard mode selection in a narrow panel | Tab reaches every mode; Enter/Space activates it and the focused button stays in view. With a screen reader, the localized group and pressed mode are announced without decorative emoji. |
 | Prompt accessible name | The textbox retains its localized name when Ready, blocked or processing, with text entered and after reopening. The unreadiness description remains associated while its hint is present. |
+| Settings keyboard navigation | Enter on Settings moves focus to Close; Tab/Shift+Tab stay inside. Escape dismisses without saving edited token text and returns focus to Settings. Close, Cancel, backdrop and completed Save also restore focus. During a workflow, Tab skips the disabled standby selector. |
 
 Record each row as PASS/FAIL/BLOCKED with checkout SHA, Chrome version, active/standby
 providers and observed Ready set. An actual docked-panel close/reopen result is still
