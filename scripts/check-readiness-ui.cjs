@@ -140,6 +140,25 @@ async function run(browser) {
       await page.evaluate(() => window.readinessFixture.finishOpening(['claude']));
       await page.getByRole('alert').waitFor();
       assert.equal(await page.getByRole('alert').innerText(), t('error.open_unready_failed', { providers: 'Claude' }, language));
+      const draft = Array.from({ length: 10 }, (_, index) => `Draft line ${index + 1}`).join('\n');
+      await page.locator('textarea').fill(draft);
+      for (const viewport of [{ width: 320, height: 600 }, { width: 420, height: 600 }]) {
+        await page.setViewportSize(viewport);
+        await page.screenshot({ path: path.join(output, `${language}-draft-error-${viewport.width}.png`) });
+        const bounds = await button('input.send').boundingBox();
+        assert.ok(bounds && bounds.y >= 0 && bounds.y + bounds.height <= viewport.height,
+          `${language}: Send with multiline draft and open failure must fit ${viewport.width}x${viewport.height}; bounds=${JSON.stringify(bounds)}`);
+        assert.equal(await page.locator('textarea').inputValue(), draft);
+        assert.equal(await button('input.send').isEnabled(), true);
+        await button('targets.select_ready').scrollIntoViewIfNeeded();
+        const shortcut = await button('targets.select_ready').boundingBox();
+        const controls = await page.locator('section').boundingBox();
+        assert.ok(shortcut && controls && shortcut.y >= controls.y && shortcut.y + shortcut.height <= controls.y + controls.height,
+          `${language}: Ready-only shortcut must remain reachable by scrolling the controls`);
+      }
+      passed.push('Multiline draft and tab-open error keep Send visible in short panels without changing the draft');
+      await page.locator('textarea').fill('');
+      await page.setViewportSize({ width: 420, height: 850 });
       await button('connection.open_unready').click();
       assert.deepEqual(await opened(), ['chatgpt', 'claude', 'gemini', 'chatgpt', 'claude', 'gemini']);
       await page.evaluate(() => window.readinessFixture.finishOpening());
@@ -177,9 +196,20 @@ async function run(browser) {
       await expectSelected(['ChatGPT', 'Meta AI']);
       await page.evaluate(connections => window.readinessFixture.setConnections(connections), states(providers));
       await page.waitForFunction(() => !document.querySelector('textarea').disabled);
+      await page.locator('textarea').fill(draft);
       await page.evaluate(() => window.readinessFixture.workflow());
       await page.waitForFunction(() => document.querySelector('textarea').disabled);
       assert.equal(await button('targets.select_ready').isDisabled(), true);
+      for (const viewport of [{ width: 320, height: 480 }, { width: 420, height: 600 }]) {
+        await page.setViewportSize(viewport);
+        const bounds = await button('input.stop').boundingBox();
+        assert.ok(bounds && bounds.y >= 0 && bounds.y + bounds.height <= viewport.height,
+          `${language}: Stop with multiline draft must fit ${viewport.width}x${viewport.height}`);
+        assert.equal(await button('input.stop').isEnabled(), true);
+        assert.equal(await page.locator('textarea').inputValue(), draft);
+      }
+      passed.push('Stop remains visible and enabled during a workflow with a multiline draft at 320x480 and 420x600');
+      await page.setViewportSize({ width: 420, height: 850 });
       await page.evaluate(() => window.readinessFixture.workflow(true));
       await page.waitForFunction(() => !document.querySelector('textarea').disabled);
       passed.push('Readiness changes do not silently change selection; zero Ready and active workflow disable shortcut');

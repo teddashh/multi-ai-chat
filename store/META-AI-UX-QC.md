@@ -24,10 +24,15 @@ The sequence reproduced two issues in the `d561131` runtime:
 - The empty welcome area could push the Send button below the viewport when the
   unreadiness hint was visible. That area now shrinks and scrolls independently.
 
-Local result on 2026-09-20: **PASS** in en, zh-TW, ja, de and ko (25 assertion groups,
+The follow-up reproduced another short-panel issue in `0abba66`: a ten-line draft
+plus an open-tab failure put Send at y=630.5–662.5 in a 320×600 viewport. The upper
+controls area now also shrinks and scrolls, keeping the input actions in view.
+The Ready-only shortcut remains reachable by scrolling that area.
+
+Local result on 2026-09-20: **PASS** in en, zh-TW, ja, de and ko (35 assertion groups,
 zero page errors) using Chromium 151.0.7922.34. `npm run verify` under Node 22.18.0
 also passed all 157 tests, typecheck, build and version consistency. Tested panel
-bundle SHA-256: `05529601f4fad1233bc0de7145fc88d74015a0b383f5024f44a700c036383de5`.
+bundle SHA-256: `e4272f40dc4d49821d441ab31bf21ea84cec63753f8048e246141bf8e05e86a1`.
 Actual authenticated VM UX result remains **NOT_RUN** from this seat.
 
 ## Repeatable DOM check
@@ -48,12 +53,16 @@ No new dependency or test phase is added to the extension's install or CI.
 
 The runner checks all five locales, exact `OPEN_LOGIN` requests and partial failure,
 standby exclusion even when standby is Ready, actual page close/reopen, saved
-selection, changing readiness, and disabled actions during a workflow. It also checks
-that Send fits 320×600 and 420×850 viewports. All page requests are restricted to
+selection, changing readiness, and disabled actions during a workflow. It checks
+Send at 320×600 and 420×850, a multiline draft plus open-tab error at 320×600 and
+420×600, and visible/enabled Stop during a simulated workflow with a multiline
+draft at 320×480 and 420×600. Draft text must remain intact after resizing.
+All page requests are restricted to
 three local `dist` assets served on the intercepted `https://readiness.test` origin.
 
 Output: `RESULTS.json` (status, checkout SHA, dirty-tree flag, bundle SHA-256, browser,
-per-locale assertions and errors), plus `zh-TW-partial.png` and `zh-TW-reopened.png`.
+per-locale assertions and errors), plus `zh-TW-partial.png`, `zh-TW-reopened.png`
+and `<locale>-draft-error-<width>.png` for the short-panel regression.
 Use the exit status and current report together; a fixture PASS is not a VM PASS.
 
 ## Actual VM sequence
@@ -69,7 +78,7 @@ If another provider is already Ready, record that difference rather than logging
 | Return to Free; open unready | Only those three provider tabs are focused/opened. Meta and standby Grok are untouched. No login is needed to observe this. |
 | Select ready only | Only Meta is selected; hint/open-unready shortcut disappear. |
 | Immediately close and reopen Side Panel | Mode remains Free, Meta remains the only selected target, no skipped-provider hint. |
-| Narrow/short panel | Hint and shortcuts remain readable; Send is fully visible. |
+| Narrow/short panel with a multiline draft | Hint and shortcuts remain readable; Send is fully visible, including after a tab-open failure if one occurs. Upper controls remain reachable by scrolling. During an actual workflow, Stop stays visible. |
 
 Record each row as PASS/FAIL/BLOCKED with checkout SHA, Chrome version, active/standby
 providers and observed Ready set. An actual docked-panel close/reopen result is still
