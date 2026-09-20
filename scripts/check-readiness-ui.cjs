@@ -122,6 +122,17 @@ async function run(browser) {
       let page = await createPanel();
       const label = key => t(key, undefined, language);
       const button = key => page.getByRole('button', { name: label(key), exact: true });
+      const expectPrompt = async (state, snapshot) => {
+        const prompt = page.getByRole('textbox', { name: label('input.label'), exact: true });
+        assert.equal(await prompt.count(), 1, `${language}: prompt name must remain stable when ${snapshot}`);
+        assert.equal(await prompt.isDisabled(), state !== 'ready');
+        const placeholderKey = state === 'ready' ? 'input.placeholder'
+          : state === 'running' ? 'input.placeholder.processing' : 'input.placeholder.connect';
+        assert.equal(await prompt.getAttribute('placeholder'), label(placeholderKey));
+        const hasNotice = await page.locator('#input-readiness').count() > 0;
+        assert.equal(await prompt.getAttribute('aria-describedby'), hasNotice ? 'input-readiness' : null);
+        fs.writeFileSync(path.join(output, `${language}-prompt-${snapshot}.aria.txt`), await prompt.ariaSnapshot());
+      };
       const modeGroup = () => page.getByRole('group', { name: label('mode.selector'), exact: true });
       const mode = name => modeGroup().getByRole('button', { name: label(`mode.${name}`), exact: true });
       const expectMode = async name => {
@@ -136,6 +147,9 @@ async function run(browser) {
       }, { names, groupName: label('targets.title') });
       await expectNotice(t('input.readiness.partial', { ready: 'Meta AI', providers: 'ChatGPT · Claude · Gemini' }, language));
       assert.equal(await page.locator('textarea').isEnabled(), true);
+      assert.notEqual(label('input.label'), 'input.label');
+      if (language !== 'en') assert.notEqual(label('input.label'), t('input.label', undefined, 'en'));
+      await expectPrompt('ready', 'partial');
       assert.notEqual(label('mode.selector'), 'mode.selector');
       if (language !== 'en') assert.notEqual(label('mode.selector'), t('mode.selector', undefined, 'en'));
       await expectMode('free');
@@ -170,6 +184,7 @@ async function run(browser) {
         await expectMode(name);
         await expectNotice(t('error.providers_not_ready', { providers: 'ChatGPT · Claude · Gemini' }, language));
         assert.equal(await page.locator('textarea').isDisabled(), true);
+        await expectPrompt('blocked', name);
         assert.equal(await button('connection.open_unready').isEnabled(), true);
         assert.equal(await button('targets.select_ready').count(), 0);
       }
@@ -227,6 +242,7 @@ async function run(browser) {
       assert.equal(await button('targets.select_ready').count(), 1, `Reopen mode: ${await page.evaluate(() => JSON.stringify(window.readinessFixture.stored().conversations?.map(c => c.mode)))}`);
       await expectSelected(['Meta AI']);
       assert.equal(await page.locator('#input-readiness').count(), 0);
+      await expectPrompt('ready', 'reopened');
       passed.push('Ready-only selects Meta, excludes Ready standby Grok, clears hint, and survives actual page close/reopen');
       if (language === 'zh-TW') await page.screenshot({ path: path.join(output, 'zh-TW-reopened.png') });
       await page.evaluate(connections => window.readinessFixture.setConnections(connections), states(['chatgpt', 'meta', 'grok']));
@@ -235,6 +251,7 @@ async function run(browser) {
       await expectSelected(['ChatGPT', 'Meta AI']);
       await page.evaluate(connections => window.readinessFixture.setConnections(connections), states([]));
       await page.waitForFunction(() => document.querySelector('textarea').disabled);
+      await expectPrompt('blocked', 'none-ready');
       assert.equal(await button('targets.select_ready').isDisabled(), true);
       assert.equal(await modeGroup().getByRole('button', { disabled: false }).count(), 5);
       await expectMode('free');
@@ -242,8 +259,10 @@ async function run(browser) {
       await page.evaluate(connections => window.readinessFixture.setConnections(connections), states(providers));
       await page.waitForFunction(() => !document.querySelector('textarea').disabled);
       await page.locator('textarea').fill(draft);
+      await expectPrompt('ready', 'filled');
       await page.evaluate(() => window.readinessFixture.workflow());
       await page.waitForFunction(() => document.querySelector('textarea').disabled);
+      await expectPrompt('running', 'running');
       assert.equal(await button('targets.select_ready').isDisabled(), true);
       assert.equal(await modeGroup().getByRole('button', { disabled: true }).count(), 5);
       await expectMode('free');
@@ -259,6 +278,8 @@ async function run(browser) {
       await page.setViewportSize({ width: 420, height: 850 });
       await page.evaluate(() => window.readinessFixture.workflow(true));
       await page.waitForFunction(() => !document.querySelector('textarea').disabled);
+      await expectPrompt('ready', 'finished');
+      passed.push('Prompt keeps its localized accessible name across partial/blocked/Ready/running states, entered text and reopening, with the correct placeholder and readiness description reference');
       passed.push('Readiness changes do not silently change selection; zero Ready and active workflow disable shortcut');
       const requests = await page.evaluate(() => window.readinessFixture.requests);
       assert.equal(requests.some(request => request.action === 'SEND_MESSAGE'), false);

@@ -53,6 +53,7 @@ export default function InputBar({ onSend, onCancel, disabled, isProcessing, rea
           }}
           placeholder={disabled ? (isProcessing ? t('input.placeholder.processing') : t('input.placeholder.connect')) : t('input.placeholder')}
           disabled={disabled}
+          aria-label={t('input.label')}
           aria-describedby={readinessNotice ? 'input-readiness' : undefined}
           rows={2}
           className="block max-h-[140px] min-h-[52px] w-full resize-none bg-transparent px-2 py-1 text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-500 disabled:cursor-not-allowed"

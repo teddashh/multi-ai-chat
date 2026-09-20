@@ -40,10 +40,14 @@ with decorative icons hidden from accessible names. Free recipients have their o
 named group. Keyboard checks also reproduced a clipped Coding button at 320×600;
 focused mode buttons now scroll into view using nearest alignment.
 
-Local result on 2026-09-20: **PASS** in en, zh-TW, ja, de and ko (45 assertion groups,
+The prompt in `03ccaa5` had no explicit label and relied on its changing placeholder.
+It now has a stable localized accessible name, independent of readiness, draft text
+or processing state. Existing placeholders and readiness descriptions remain intact.
+
+Local result on 2026-09-20: **PASS** in en, zh-TW, ja, de and ko (50 assertion groups,
 zero page errors) using Chromium 151.0.7922.34. `npm run verify` under Node 22.18.0
 also passed all 157 tests, typecheck, build and version consistency. Tested panel
-bundle SHA-256: `8f6e0ebde2cfcf528bc1fb54035361faddb09731ff791d42e6c024089ece8a73`.
+bundle SHA-256: `cee6db37dec64843bb2216231a52146e86b503ae7a0ae0a4fdab633d76312b4b`.
 Actual authenticated VM UX result remains **NOT_RUN** from this seat.
 
 ## Repeatable DOM check
@@ -76,13 +80,17 @@ Mode checks cover localized accessible names, exactly one pressed mode, Tab plus
 Enter/Space across all five modes at 320×600, focused-button visibility, restored
 Free state after reopening, and disabled mode buttons during a workflow. ARIA
 snapshots record the exposed semantics; an actual screen reader was not tested.
+Prompt checks use its localized accessible name across partial readiness,
+Debate/Consult blockers, zero Ready, filled/running/finished states and reopening.
+They also check the state-specific placeholder and readiness description reference.
 All page requests are restricted to three local `dist` assets served on the
 intercepted `https://readiness.test` origin.
 
 Output: `RESULTS.json` (status, checkout SHA, dirty-tree flag, bundle SHA-256, browser,
 per-locale assertions and errors), plus `zh-TW-partial.png`, `zh-TW-reopened.png`
 and `<locale>-draft-error-<width>.png` for the short-panel regression. Mode checks
-also save `<locale>-mode-<mode>.png` and `<locale>-modes.aria.txt`.
+also save `<locale>-mode-<mode>.png` and `<locale>-modes.aria.txt`. Prompt states
+are recorded in `<locale>-prompt-<state>.aria.txt`.
 Use the exit status and current report together; a fixture PASS is not a VM PASS.
 
 ## Actual VM sequence
@@ -101,6 +109,7 @@ If another provider is already Ready, record that difference rather than logging
 | Narrow/short panel with a multiline draft | Hint and shortcuts remain readable; Send is fully visible, including after a tab-open failure if one occurs. Upper controls remain reachable by scrolling. During an actual workflow, Stop stays visible. |
 | IME input with Meta selected | Enter to confirm a Chinese/Japanese/Korean candidate keeps the draft and does not start a workflow. After composition ends, Shift+Enter adds a newline and plain Enter sends once. Record the actual IME used. |
 | Keyboard mode selection in a narrow panel | Tab reaches every mode; Enter/Space activates it and the focused button stays in view. With a screen reader, the localized group and pressed mode are announced without decorative emoji. |
+| Prompt accessible name | The textbox retains its localized name when Ready, blocked or processing, with text entered and after reopening. The unreadiness description remains associated while its hint is present. |
 
 Record each row as PASS/FAIL/BLOCKED with checkout SHA, Chrome version, active/standby
 providers and observed Ready set. An actual docked-panel close/reopen result is still
