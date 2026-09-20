@@ -1,5 +1,8 @@
 # Meta AI source-port validation
 
+For the current targeted VM re-QC, use [Step3: stream, final and Stop](META-AI-STEP3.md).
+It includes fixed prompts, an optional metadata observer, and a compact result template.
+
 Meta AI support is experimental and unreleased. Initial selectors came from
 `multi-ai-chat-desktop/adapters/meta.json` (adapter v1). The readiness fix also recognizes
 the current hydrated `composer-input` textarea and contenteditable editor. Neither the
