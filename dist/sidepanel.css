@@ -681,8 +681,14 @@ video {
 .max-h-\[90vh\] {
   max-height: 90vh;
 }
+.min-h-0 {
+  min-height: 0px;
+}
 .min-h-\[52px\] {
   min-height: 52px;
+}
+.min-h-full {
+  min-height: 100%;
 }
 .w-1\.5 {
   width: 0.375rem;

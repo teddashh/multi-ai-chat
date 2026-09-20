@@ -398,8 +398,12 @@ export default function App() {
       if (snapshot) void chrome.storage.local.set({ conversations: snapshot, activeConversationId }).catch(() => {});
     };
     const timer = window.setTimeout(persist, 350);
+    // Closing a panel destroys its document without a React unmount. Flush the
+    // pending mode/roles snapshot so it agrees with the saved Free targets.
+    window.addEventListener('pagehide', persist);
     return () => {
       window.clearTimeout(timer);
+      window.removeEventListener('pagehide', persist);
       persist();
     };
   }, [activeConversationId, hydrated, messages, mode, providerUrls, roles]);

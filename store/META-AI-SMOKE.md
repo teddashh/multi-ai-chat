@@ -3,6 +3,10 @@
 For the current targeted VM re-QC, use [Step3: stream, final and Stop](META-AI-STEP3.md).
 It includes fixed prompts, an optional metadata observer, and a compact result template.
 
+For the three readiness UX changes and immediate panel close/reopen, use
+[Meta-only Ready UX QC](META-AI-UX-QC.md), including a repeatable DOM fixture and the
+separate actual Side Panel checklist.
+
 Latest Conductor handoff (`multi-mac-0921ET-unreadiness-ux`) reports VM Steps 2–3
 PASS with the Lexical fix at `3976212` and streaming candidate `74f0919`.
 Steps 4–5 still await the other required providers. The current UX follow-up names
