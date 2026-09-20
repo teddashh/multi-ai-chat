@@ -22,6 +22,10 @@ function detectLocale(): Locale {
 let currentLocale: Locale = detectLocale();
 
 const en: Record<string, string> = {
+  'error.providers_not_ready': 'Not ready: {providers}. Open them under “AI connections” to continue.',
+  'error.no_selection': 'Select at least one AI to send to.',
+  'input.readiness.partial': 'Will send only to {ready}. Not ready (skipped): {providers}.',
+  'workflow.free.partial': 'Answering: {ready}. Skipped (not ready): {providers}.',
   'app.title': 'Multi-AI Chat',
   'app.subtitle': 'One question, four perspectives',
   'app.connected': 'ready',
@@ -160,6 +164,10 @@ const en: Record<string, string> = {
 
 const zh: Record<string, string> = {
   ...en,
+  'error.providers_not_ready': '尚未就緒：{providers}。請到「AI 連線」開啟這些 AI 後再繼續。',
+  'error.no_selection': '請至少選取一家 AI 作為傳送對象。',
+  'input.readiness.partial': '只會傳送給 {ready}；尚未就緒、將略過：{providers}。',
+  'workflow.free.partial': '作答中：{ready}；已略過（尚未就緒）：{providers}。',
   'settings.standby': '備用 AI',
   'settings.standby.help': '同時啟用四家。Meta AI 為實驗性選項，預設備用；在此選擇另一家即可啟用 Meta。只能在流程之間切換，變更立即生效。訪客使用取決於 Meta 當下政策。',
   'error.provider_change_busy': '請先完成或停止工作流，再切換 AI。',
@@ -202,6 +210,10 @@ const zh: Record<string, string> = {
 
 const ja: Record<string, string> = {
   ...en,
+  'error.providers_not_ready': '準備ができていません：{providers}。「AI 接続」でこれらの AI を開いてから続行してください。',
+  'error.no_selection': '送信先の AI を少なくとも1つ選択してください。',
+  'input.readiness.partial': '{ready} にのみ送信します。準備ができていないためスキップ：{providers}。',
+  'workflow.free.partial': '回答中：{ready}。準備ができていないためスキップ：{providers}。',
   'settings.standby': '待機中の AI',
   'settings.standby.help': '有効な AI は常に4つです。Meta AI は実験的な選択肢で、初期状態では待機中です。他の AI をここで選ぶと Meta が有効になります。ワークフローの実行中は変更できません。変更は即時反映され、ゲスト利用の可否は Meta によります。',
   'error.provider_change_busy': 'ワークフローを完了または停止してから AI を変更してください。',
@@ -223,6 +235,10 @@ const ja: Record<string, string> = {
 
 const de: Record<string, string> = {
   ...en,
+  'error.providers_not_ready': 'Nicht bereit: {providers}. Öffne diese Anbieter unter „KI-Verbindungen“, um fortzufahren.',
+  'error.no_selection': 'Wähle mindestens eine KI als Empfänger aus.',
+  'input.readiness.partial': 'Wird nur an {ready} gesendet. Nicht bereit, wird übersprungen: {providers}.',
+  'workflow.free.partial': 'Antworten werden erstellt von: {ready}. Übersprungen (nicht bereit): {providers}.',
   'settings.standby': 'Inaktiver Anbieter',
   'settings.standby.help': 'Vier Anbieter bleiben aktiv. Meta AI ist experimentell und anfangs inaktiv. Wähle hier einen anderen Anbieter, um Meta zu aktivieren. Änderungen gelten sofort zwischen Workflows. Der Gastzugang hängt von Meta ab.',
   'error.provider_change_busy': 'Beende oder stoppe den Workflow, bevor du die Anbieter wechselst.',
@@ -244,6 +260,10 @@ const de: Record<string, string> = {
 
 const ko: Record<string, string> = {
   ...en,
+  'error.providers_not_ready': '아직 준비되지 않음: {providers}. 「AI 연결」에서 해당 AI를 연 후 계속하세요.',
+  'error.no_selection': '전송할 AI를 하나 이상 선택하세요.',
+  'input.readiness.partial': '{ready}에만 전송합니다. 준비되지 않아 건너뛸 AI: {providers}.',
+  'workflow.free.partial': '답변 중: {ready}. 준비되지 않아 건너뛴 AI: {providers}.',
   'settings.standby': '대기 AI',
   'settings.standby.help': '항상 네 제공자만 활성화됩니다. Meta AI는 실험적 옵션이며 기본적으로 대기 상태입니다. 여기서 다른 제공자를 선택하면 Meta가 활성화됩니다. 워크플로 사이에 변경할 수 있으며 즉시 적용됩니다. 게스트 이용 가능 여부는 Meta 정책에 따릅니다.',
   'error.provider_change_busy': '워크플로를 완료하거나 중지한 후 AI를 변경하세요.',

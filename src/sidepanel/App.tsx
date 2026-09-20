@@ -34,6 +34,7 @@ import {
   selectedActiveTargets,
 } from '../shared/providerSelection';
 import { decodeError, ERROR_MARKER } from '../shared/errors';
+import { getProviderReadiness } from '../shared/providerReadiness';
 import { createWorkflowCancellation, createWorkflowScope } from '../shared/workflowScope';
 import {
   acceptStepRecoveryMessage,
@@ -622,9 +623,13 @@ export default function App() {
   };
 
   const connectedCount = providers.filter((provider) => connections[provider].status === 'connected').length;
-  const noReadyProvider = connectedCount === 0;
-  const serialModeReady = mode === 'free' || Object.values(roles as unknown as Record<string, AIProvider>)
-    .every((provider) => connections[provider]?.status === 'connected');
+  const readiness = getProviderReadiness(mode, mode === 'free'
+    ? selectedActiveTargets(freeTargets, standbyProvider)
+    : Object.values(roles), connections);
+  const readinessNotice = hydrated && !isProcessing && readiness.noticeKey ? t(readiness.noticeKey, {
+    providers: readiness.unready.map((provider) => AI_PROVIDERS[provider].name).join(' · '),
+    ready: readiness.ready.map((provider) => AI_PROVIDERS[provider].name).join(' · '),
+  }) : undefined;
   const currentStatus = workflowStatus ? formatWorkflowStatus(workflowStatus) : t('trace.idle');
 
   return (
@@ -701,7 +706,7 @@ export default function App() {
           <button type="button" onClick={() => void publishConversation()} disabled={!messages.length || isPublishing} className="hover:text-sky-700 disabled:opacity-30">{isPublishing ? t('publish.publishing') : t('app.publish')}</button>
         </div>
       </div>
-      <InputBar onSend={handleSend} onCancel={stopWorkflow} disabled={!hydrated || isProcessing || noReadyProvider || !serialModeReady} isProcessing={isProcessing} />
+      <InputBar onSend={handleSend} onCancel={stopWorkflow} disabled={!hydrated || isProcessing || !readiness.canSend} isProcessing={isProcessing} readinessNotice={readinessNotice} />
 
       {conversationDrawerOpen && (
         <div className="absolute inset-0 z-40 bg-black/30" onClick={closeDrawer}>

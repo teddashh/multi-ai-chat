@@ -6,9 +6,10 @@ interface Props {
   onCancel: () => void;
   disabled: boolean;
   isProcessing: boolean;
+  readinessNotice?: string;
 }
 
-export default function InputBar({ onSend, onCancel, disabled, isProcessing }: Props) {
+export default function InputBar({ onSend, onCancel, disabled, isProcessing, readinessNotice }: Props) {
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -27,6 +28,7 @@ export default function InputBar({ onSend, onCancel, disabled, isProcessing }: P
 
   return (
     <div className="flex-none border-t border-slate-200 bg-white p-3">
+      {readinessNotice && <p id="input-readiness" role="status" className="mb-2 text-xs leading-relaxed text-amber-800">{readinessNotice}</p>}
       <div className="rounded-2xl border border-slate-300 bg-white p-2 shadow-sm focus-within:border-sky-400 focus-within:ring-2 focus-within:ring-sky-100">
         <textarea
           ref={textareaRef}
@@ -40,6 +42,7 @@ export default function InputBar({ onSend, onCancel, disabled, isProcessing }: P
           }}
           placeholder={disabled ? (isProcessing ? t('input.placeholder.processing') : t('input.placeholder.connect')) : t('input.placeholder')}
           disabled={disabled}
+          aria-describedby={readinessNotice ? 'input-readiness' : undefined}
           rows={2}
           className="block max-h-[140px] min-h-[52px] w-full resize-none bg-transparent px-2 py-1 text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-500 disabled:cursor-not-allowed"
         />

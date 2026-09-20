@@ -3,6 +3,22 @@
 For the current targeted VM re-QC, use [Step3: stream, final and Stop](META-AI-STEP3.md).
 It includes fixed prompts, an optional metadata observer, and a compact result template.
 
+Latest Conductor handoff (`multi-mac-0921ET-unreadiness-ux`) reports VM Steps 2–3
+PASS with the Lexical fix at `3976212` and streaming candidate `74f0919`.
+Steps 4–5 still await the other required providers. The current UX follow-up names
+those readiness blockers; it does not change provider login or workflow recovery.
+
+After reloading the candidate extension, the existing Meta-only-ready VM can check
+these UI changes without another login (Grok on standby):
+
+- Debate / Consult: the input-area notice names **ChatGPT · Claude · Gemini**;
+  sending stays disabled until the assigned providers are ready.
+- Free with all four selected: sending remains available; the notice says only
+  **Meta AI** will receive the prompt and names the three skipped providers. On send,
+  the workflow status/trace records that same recipient and skipped list.
+- Deselect Meta in Free: the remaining three targets are named as not ready and
+  sending is disabled. Select only Meta: the readiness notice disappears.
+
 Meta AI support is experimental and unreleased. Initial selectors came from
 `multi-ai-chat-desktop/adapters/meta.json` (adapter v1). The readiness fix also recognizes
 the current hydrated `composer-input` textarea and contenteditable editor. Neither the

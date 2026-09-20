@@ -20,6 +20,7 @@ import {
 } from '../shared/constants';
 import { questionWithConversationContext } from '../shared/conversationContinuity';
 import { encodeError } from '../shared/errors';
+import { getProviderReadiness } from '../shared/providerReadiness';
 import { getProviderFromUrl } from '../shared/providerUrl';
 import {
   ALL_PROVIDERS,
@@ -751,9 +752,12 @@ async function clearPersistedWorkflow(workflowId: string): Promise<void> {
 
 async function handleFreeMode(text: string, requestedTargets: AIProvider[] | undefined, workflowId: string): Promise<void> {
   const selected = selectedActiveTargets(requestedTargets, standbyProvider);
-  const targets = selected.filter((provider) => connections[provider].status === 'connected');
-  if (targets.length === 0) throw new Error(encodeError('error.no_target'));
-  sendWorkflowStatus({ key: 'workflow.free', params: { providers: targets.map((provider) => AI_PROVIDERS[provider].name).join(' · ') } });
+  const { ready: targets, unready, noticeKey } = getProviderReadiness('free', selected, connections);
+  const providers = targets.map(name).join(' · ');
+  if (targets.length === 0) throw new Error(encodeError(noticeKey!, { providers: unready.map(name).join(' · ') }));
+  sendWorkflowStatus(unready.length
+    ? { key: 'workflow.free.partial', params: { ready: providers, providers: unready.map(name).join(' · ') } }
+    : { key: 'workflow.free', params: { providers } });
   const results = await Promise.allSettled(targets.map((provider) => sendAndWait(provider, text, workflowId, false)));
   checkAborted(workflowId);
   if (results.every((result) => result.status === 'rejected')) throw (results[0] as PromiseRejectedResult).reason;

@@ -7,12 +7,15 @@ import test from 'node:test';
 import ts from 'typescript';
 import { ALL_PROVIDERS, activeProviders } from '../src/shared/providerSelection.ts';
 import { AI_PROVIDERS } from '../src/shared/constants.ts';
+import type { AIProvider } from '../src/shared/types.ts';
+import { decodeError } from '../src/shared/errors.ts';
 
 // Run the actual service worker against a Chrome transport double. Transpile its
 // extensionless browser imports without changing production module resolution.
-function worker(stored: Record<string, unknown> = {}, autoRespond = true) {
+function worker(stored: Record<string, unknown> = {}, autoRespond = true, readiness: Partial<Record<AIProvider, boolean | null>> = {}) {
   const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
   const sent: any[] = [];
+  const broadcasts: any[] = [];
   const navigated: number[] = [];
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const local = { ...stored };
@@ -34,7 +37,7 @@ function worker(stored: Record<string, unknown> = {}, autoRespond = true) {
     storage: { local: storage(local), session: storage(session) },
     runtime: {
       onMessage: event(), onConnect: event(), onInstalled: event(), onStartup: event(),
-      sendMessage: async () => {},
+      sendMessage: async (message: any) => { broadcasts.push(message); },
     },
     tabs: {
       onUpdated: event(), onRemoved: event(),
@@ -44,7 +47,8 @@ function worker(stored: Record<string, unknown> = {}, autoRespond = true) {
       update: async (id: number) => { navigated.push(id); return tabs.find((tab) => tab.id === id); },
       sendMessage: async (id: number, message: any) => {
         if (message.action === 'CHECK_STATUS') {
-          receive({ action: 'STATUS_REPORT', provider: message.provider, payload: { loggedIn: true } }, { tab: tabs.find((tab) => tab.id === id) });
+          const provider = message.provider as AIProvider;
+          receive({ action: 'STATUS_REPORT', provider, payload: { loggedIn: provider in readiness ? readiness[provider] : true } }, { tab: tabs.find((tab) => tab.id === id) });
         }
         if (message.action === 'SEND_MESSAGE') {
           sent.push({ ...message, tabId: id });
@@ -89,7 +93,7 @@ function worker(stored: Record<string, unknown> = {}, autoRespond = true) {
   load(path.join(root, 'src/background/service-worker.ts'));
   const ready = new Promise<void>((resolve) => setImmediate(resolve));
   return {
-    command, sent, local, navigated, ready, complete,
+    command, sent, broadcasts, local, navigated, ready, complete,
     close: () => { for (const timer of timers) clearTimeout(timer); },
     send: (mode = 'free', targets?: string[]) => command({ action: 'SEND_MESSAGE', payload: {
       workflowId: crypto.randomUUID(), sessionId: 'session', clientId: 'client', text: 'Hello', mode, targets,
@@ -148,4 +152,51 @@ test('provider selection rejects content-script requests and changes during an a
   for (const message of app.sent) app.complete(message);
   await running;
   assert.equal((await app.command(change)).ok, true);
+});
+
+test('Free worker sends only to Ready targets and records every selected unready display name', async (t) => {
+  const app = worker({ standbyProvider: 'grok' }, true, { chatgpt: false, claude: null, gemini: false });
+  t.after(app.close);
+  await app.ready;
+  await app.send('free', ALL_PROVIDERS);
+  assert.deepEqual(app.sent.map((message) => message.provider), ['meta']);
+  const status = app.broadcasts.find((message) => message.payload?.key === 'workflow.free.partial');
+  assert.equal(status?.payload.params.ready, 'Meta AI');
+  assert.equal(status?.payload.params.providers, 'ChatGPT · Claude · Gemini');
+  assert.equal(app.broadcasts.some((message) => message.provider === 'system'), false);
+  assert.ok(app.broadcasts.some((message) => message.payload?.done === true));
+});
+
+test('Free worker names only the unready targets when a different provider is Ready', async (t) => {
+  const app = worker({ standbyProvider: 'grok' }, true, { chatgpt: false, claude: false });
+  t.after(app.close);
+  await app.ready;
+  await app.send('free', ['claude', 'chatgpt', 'claude']);
+  assert.equal(app.sent.length, 0);
+  const error = app.broadcasts.find((message) => message.provider === 'system');
+  assert.deepEqual(decodeError(error?.payload), {
+    key: 'error.providers_not_ready', params: { providers: 'Claude · ChatGPT' },
+  });
+  assert.ok(app.broadcasts.some((message) => message.payload?.done === true));
+});
+
+test('Free worker does not warn about unselected or standby providers', async (t) => {
+  const app = worker({ standbyProvider: 'grok' }, true, { chatgpt: false, claude: false, gemini: false });
+  t.after(app.close);
+  await app.ready;
+  await app.send('free', ['meta', 'grok']);
+  assert.deepEqual(app.sent.map((message) => message.provider), ['meta']);
+  assert.equal(app.broadcasts.some((message) => message.payload?.key === 'workflow.free.partial'), false);
+  const status = app.broadcasts.find((message) => message.payload?.key === 'workflow.free');
+  assert.equal(status?.payload.params.providers, 'Meta AI');
+});
+
+test('Free worker distinguishes an empty selection from providers that are not Ready', async (t) => {
+  const app = worker();
+  t.after(app.close);
+  await app.ready;
+  await app.send('free', []);
+  assert.equal(app.sent.length, 0);
+  const error = app.broadcasts.find((message) => message.provider === 'system');
+  assert.equal(decodeError(error?.payload)?.key, 'error.no_selection');
 });
