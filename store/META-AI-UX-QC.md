@@ -49,11 +49,26 @@ appeared. It now focuses Close, wraps Tab/Shift+Tab inside the dialog, and resto
 the opener on dismissal. Escape closes without saving an edited token; composition
 Escape is left to the input method. Provider-status rerenders preserve editing focus.
 
-Local result on 2026-09-20: **PASS** in en, zh-TW, ja, de and ko (55 assertion groups,
+The settings lifecycle checkpoint fixes the `02e682b` save/dismiss/reopen race:
+an old 500ms close timer could dismiss a newly opened dialog. Each opening now owns
+its reads, UI results and timer. Dismissal invalidates them immediately; reopening
+waits for an already requested write before reading. Token edits and duplicate
+Save/Clear actions stay disabled until the current operation finishes. Load failures
+offer Retry; write failures keep the draft with a localized error. Pending writes
+keep keyboard focus on the visible Cancel button, including at 320×600.
+
+Escape does not start a save. A write already requested by Save/Clear can still
+complete after dismissal; closing the dialog does not cancel that storage operation.
+
+Local result on 2026-09-20: **PASS** in en, zh-TW, ja, de and ko (75 assertion groups,
 zero page errors) using Chromium 151.0.7922.34. `npm run verify` under Node 22.18.0
 also passed all 157 tests, typecheck, build and version consistency. Tested panel
-bundle SHA-256: `0a338c33e218f3691cf0247e69ebe26e6f00ff184dd62b048b354c8668e89633`.
+bundle SHA-256: `aaa2705968505f0306fde87b41932345dd35c2eeaf7c58e8ad4be1fcbb85f04d`.
 Actual authenticated VM UX result remains **NOT_RUN** from this seat.
+
+This is a local verification checkpoint for PR #42, still DRAFT at version 0.2.3.
+The original four active defaults and experimental Meta standby are unchanged.
+The existing VM checklist below remains the handoff for installed-extension QC.
 
 ## Repeatable DOM check
 
@@ -92,6 +107,10 @@ Settings checks cover keyboard opening, both Tab boundaries at 320×600, Escape
 (including simulated IME events), Close/Cancel/backdrop/Save dismissal and restored
 focus. They verify that status updates preserve input focus, Escape does not save
 fixture text, and Tab skips the disabled standby selector during a workflow.
+Controlled storage delays and failures additionally check completed/pending saves
+across reopen, stale reads, duplicate clicks, pending Clear, read/write errors and
+successful retries. The fixture uses fake token text and records only operation/key
+metadata for these storage calls. No account credentials are used.
 All page requests are restricted to three local `dist` assets served on the
 intercepted `https://readiness.test` origin.
 
@@ -120,6 +139,7 @@ If another provider is already Ready, record that difference rather than logging
 | Keyboard mode selection in a narrow panel | Tab reaches every mode; Enter/Space activates it and the focused button stays in view. With a screen reader, the localized group and pressed mode are announced without decorative emoji. |
 | Prompt accessible name | The textbox retains its localized name when Ready, blocked or processing, with text entered and after reopening. The unreadiness description remains associated while its hint is present. |
 | Settings keyboard navigation | Enter on Settings moves focus to Close; Tab/Shift+Tab stay inside. Escape dismisses without saving edited token text and returns focus to Settings. Close, Cancel, backdrop and completed Save also restore focus. During a workflow, Tab skips the disabled standby selector. |
+| Settings save and immediate reopen | Using the existing saved settings, click Save, immediately dismiss and reopen. The new dialog remains open after the previous 500ms close deadline. During a pending storage operation, Save/Clear cannot run twice and keyboard focus remains visible. |
 
 Record each row as PASS/FAIL/BLOCKED with checkout SHA, Chrome version, active/standby
 providers and observed Ready set. An actual docked-panel close/reopen result is still

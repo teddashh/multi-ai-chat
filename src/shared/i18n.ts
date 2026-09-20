@@ -22,6 +22,11 @@ function detectLocale(): Locale {
 let currentLocale: Locale = detectLocale();
 
 const en: Record<string, string> = {
+  'settings.token_loading': 'Loading saved token…',
+  'settings.token_load_failed': 'Could not load the saved token. Try again.',
+  'settings.save_failed': 'Could not save settings. Your draft is still here; try again.',
+  'settings.clear_failed': 'Could not clear the saved token. Try again.',
+  'settings.saved': 'Saved',
   'input.label': 'Message to selected AIs',
   'mode.selector': 'Chat mode',
   'targets.select_ready': 'Select ready AIs only',
@@ -171,6 +176,11 @@ const en: Record<string, string> = {
 
 const zh: Record<string, string> = {
   ...en,
+  'settings.token_loading': '正在讀取已儲存的 Token…',
+  'settings.token_load_failed': '無法讀取已儲存的 Token，請再試一次。',
+  'settings.save_failed': '無法儲存設定。草稿仍保留，請再試一次。',
+  'settings.clear_failed': '無法清除已儲存的 Token，請再試一次。',
+  'settings.saved': '已儲存',
   'input.label': '傳送給已選 AI 的訊息',
   'mode.selector': '模式選擇',
   'targets.select_ready': '只選已就緒 AI',
@@ -224,6 +234,11 @@ const zh: Record<string, string> = {
 
 const ja: Record<string, string> = {
   ...en,
+  'settings.token_loading': '保存済みトークンを読み込み中…',
+  'settings.token_load_failed': '保存済みトークンを読み込めませんでした。再試行してください。',
+  'settings.save_failed': '設定を保存できませんでした。入力内容は保持されています。再試行してください。',
+  'settings.clear_failed': '保存済みトークンを削除できませんでした。再試行してください。',
+  'settings.saved': '保存済み',
   'input.label': '選択した AI へのメッセージ',
   'mode.selector': 'チャットモード',
   'targets.select_ready': '準備完了の AI だけ選択',
@@ -256,6 +271,11 @@ const ja: Record<string, string> = {
 
 const de: Record<string, string> = {
   ...en,
+  'settings.token_loading': 'Gespeichertes Token wird geladen…',
+  'settings.token_load_failed': 'Gespeichertes Token konnte nicht geladen werden. Bitte erneut versuchen.',
+  'settings.save_failed': 'Einstellungen konnten nicht gespeichert werden. Deine Eingabe bleibt erhalten. Bitte erneut versuchen.',
+  'settings.clear_failed': 'Gespeichertes Token konnte nicht gelöscht werden. Bitte erneut versuchen.',
+  'settings.saved': 'Gespeichert',
   'input.label': 'Nachricht an ausgewählte KIs',
   'mode.selector': 'Chatmodus',
   'targets.select_ready': 'Nur bereite KIs auswählen',
@@ -288,6 +308,11 @@ const de: Record<string, string> = {
 
 const ko: Record<string, string> = {
   ...en,
+  'settings.token_loading': '저장된 토큰을 불러오는 중…',
+  'settings.token_load_failed': '저장된 토큰을 불러오지 못했습니다. 다시 시도해 주세요.',
+  'settings.save_failed': '설정을 저장하지 못했습니다. 입력 내용은 유지됩니다. 다시 시도해 주세요.',
+  'settings.clear_failed': '저장된 토큰을 삭제하지 못했습니다. 다시 시도해 주세요.',
+  'settings.saved': '저장됨',
   'input.label': '선택한 AI에게 보낼 메시지',
   'mode.selector': '대화 모드',
   'targets.select_ready': '준비된 AI만 선택',

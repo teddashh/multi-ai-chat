@@ -22,9 +22,30 @@ function installChromeDouble({ seed, initialConnections }) {
   const write = (values) => localStorage.setItem(key, JSON.stringify({ ...read(), ...values }));
   const listeners = new Set();
   let pending = [];
+  let pendingStorage = [];
+  const storageCall = (method, keys, perform) => {
+    const fixture = window.readinessFixture;
+    fixture.storageCalls.push({ method, keys }); // Metadata only; never record token values.
+    const hold = fixture.storageHold;
+    if (hold?.method === method && keys.includes(hold.key)) {
+      return new Promise((resolve, reject) => pendingStorage.push({ resolve, reject, perform }));
+    }
+    return Promise.resolve().then(perform);
+  };
   window.readinessFixture = {
     connections: initialConnections, requests: [], scope: undefined,
     allowSend: false, sent: [],
+    storageCalls: [], storageHold: null,
+    pendingStorageCount: () => pendingStorage.length,
+    releaseStorage(fail = false) {
+      this.storageHold = null;
+      const batch = pendingStorage;
+      pendingStorage = [];
+      for (const operation of batch) {
+        if (fail) operation.reject(new Error('Simulated storage failure'));
+        else operation.resolve(operation.perform());
+      }
+    },
     emit(message) { for (const listener of listeners) listener(message); },
     setConnections(connections) {
       this.connections = connections;
@@ -48,12 +69,14 @@ function installChromeDouble({ seed, initialConnections }) {
     storage: { local: {
       get(keys, callback) {
         const values = read();
-        const result = Object.fromEntries((Array.isArray(keys) ? keys : [keys]).map(key => [key, values[key]]));
-        if (callback) queueMicrotask(() => callback(result));
-        return Promise.resolve(result);
+        const names = Array.isArray(keys) ? keys : [keys];
+        const result = Object.fromEntries(names.map(key => [key, values[key]]));
+        const request = storageCall('get', names, () => result);
+        if (callback) void request.then(callback);
+        return request;
       },
-      set(values) { write(values); return Promise.resolve(); },
-      remove(key) { const values = read(); delete values[key]; localStorage.setItem('readiness-fixture-storage', JSON.stringify(values)); return Promise.resolve(); },
+      set(values) { return storageCall('set', Object.keys(values), () => write(values)); },
+      remove(key) { return storageCall('remove', [key], () => { const values = read(); delete values[key]; localStorage.setItem('readiness-fixture-storage', JSON.stringify(values)); }); },
     } },
     runtime: {
       onMessage: { addListener: listener => listeners.add(listener), removeListener: listener => listeners.delete(listener) },
@@ -162,6 +185,11 @@ async function run(browser) {
       await settings().waitFor();
       const closeSettings = () => settings().getByRole('button', { name: label('app.close'), exact: true });
       const saveSettings = () => settings().getByRole('button', { name: label('settings.save'), exact: true });
+      const tokenReady = () => page.waitForFunction(() => {
+        const input = document.querySelector('#hackmd-token');
+        return input && !input.disabled;
+      });
+      await tokenReady();
       assert.equal(await focused(closeSettings()), true, `${language}: Settings must initially focus Close`);
       await page.keyboard.press('Shift+Tab');
       assert.equal(await focused(saveSettings()), true, `${language}: reverse Tab must wrap inside Settings`);
@@ -188,6 +216,7 @@ async function run(browser) {
       for (const action of ['close', 'cancel', 'backdrop', 'save']) {
         await page.keyboard.press('Enter');
         await settings().waitFor();
+        await tokenReady();
         assert.equal(await focused(closeSettings()), true);
         await page.waitForFunction(() => document.querySelector('#hackmd-token')?.value === '');
         if (action === 'close') await closeSettings().click();
@@ -198,6 +227,149 @@ async function run(browser) {
       }
       await page.setViewportSize({ width: 420, height: 850 });
       passed.push('Settings moves focus inside, wraps Tab both ways, preserves editing focus on status updates, ignores IME Escape, and restores the opener after Escape/Close/Cancel/backdrop/Save');
+      await page.keyboard.press('Enter');
+      await settings().waitFor();
+      await tokenReady();
+      await saveSettings().click();
+      await settings().getByRole('button', { name: label('settings.saved'), exact: true }).waitFor();
+      await page.keyboard.press('Escape');
+      await expectSettingsClosed();
+      await page.keyboard.press('Enter');
+      await settings().waitFor();
+      await page.waitForTimeout(650); // Cross the previous save's 500ms close deadline.
+      assert.equal(await settings().count(), 1, `${language}: an old save must not close newly reopened Settings`);
+      await page.keyboard.press('Escape');
+      await expectSettingsClosed();
+      passed.push('Completed save followed by immediate dismissal/reopen cannot close the new Settings session');
+      const openSettings = async () => {
+        await button('app.settings').click();
+        await settings().waitFor();
+      };
+      const holdStorage = (method, key = 'hackmd_token') => page.evaluate(hold => {
+        window.readinessFixture.storageHold = hold;
+      }, { method, key });
+      const storagePending = () => page.waitForFunction(() => window.readinessFixture.pendingStorageCount() === 1);
+      const releaseStorage = (fail = false) => page.evaluate(async fail => {
+        window.readinessFixture.releaseStorage(fail);
+        await new Promise(requestAnimationFrame);
+      }, fail);
+      const clearSettingsToken = () => settings().getByRole('button', { name: label('settings.clear'), exact: true });
+      for (const key of ['settings.token_loading', 'settings.token_load_failed', 'settings.save_failed', 'settings.clear_failed', 'settings.saved']) {
+        assert.notEqual(label(key), key);
+        if (language !== 'en') assert.notEqual(label(key), t(key, undefined, 'en'));
+      }
+      await page.evaluate(() => chrome.storage.local.set({ hackmd_token: 'fixture-original' }));
+      await holdStorage('get');
+      await openSettings();
+      await storagePending();
+      assert.equal(await settings().locator('#hackmd-token').isDisabled(), true);
+      assert.equal(await saveSettings().isDisabled(), true);
+      assert.equal(await clearSettingsToken().isDisabled(), true);
+      assert.equal(await settings().getByRole('status').innerText(), label('settings.token_loading'));
+      await page.keyboard.press('Escape');
+      await expectSettingsClosed();
+      // Let a new read finish before delivering the old session's captured read result.
+      await page.evaluate(() => { window.readinessFixture.storageHold = null; });
+      await openSettings();
+      await tokenReady();
+      await settings().locator('#hackmd-token').fill('new-session-draft');
+      await releaseStorage();
+      assert.equal(await settings().locator('#hackmd-token').inputValue(), 'new-session-draft');
+      await page.keyboard.press('Escape');
+      await expectSettingsClosed();
+      passed.push('Loading disables token mutations; a stale read cannot replace the reopened dialog draft');
+
+      await page.setViewportSize({ width: 320, height: 600 });
+      for (const fail of [false, true]) {
+        const previous = await page.evaluate(() => window.readinessFixture.stored().hackmd_token);
+        await openSettings();
+        await tokenReady();
+        const draft = `fixture-pending-save-${fail}`;
+        await settings().locator('#hackmd-token').fill(draft);
+        await holdStorage('set');
+        const writes = () => page.evaluate(() => window.readinessFixture.storageCalls.filter(call => call.method === 'set' && call.keys.includes('hackmd_token')).length);
+        const before = await writes();
+        await saveSettings().click();
+        await saveSettings().evaluate(button => button.click());
+        await storagePending();
+        const focusVisible = await page.evaluate(() => {
+          const bounds = document.activeElement.getBoundingClientRect();
+          return bounds.top >= 0 && bounds.bottom <= window.innerHeight;
+        });
+        assert.equal(focusVisible, true, `${language}: focus must stay visible while Save is pending in a short panel`);
+        assert.equal(await writes(), before + 1, 'Repeated Save must issue only one token write');
+        assert.equal(await saveSettings().isDisabled(), true);
+        assert.equal(await clearSettingsToken().isDisabled(), true);
+        assert.equal(await settings().locator('#language-select').isDisabled(), true);
+        await page.keyboard.press('Escape');
+        await expectSettingsClosed();
+        await openSettings();
+        assert.equal(await settings().locator('#hackmd-token').isDisabled(), true, 'Reopening waits for the previous write before reading');
+        assert.equal(await settings().locator('#language-select').isDisabled(), true, 'An old save must finish before the reopened dialog changes language');
+        await releaseStorage(fail);
+        await tokenReady();
+        assert.equal(await settings().locator('#hackmd-token').inputValue(), fail ? previous : draft);
+        assert.equal(await settings().getByRole('alert').count(), 0, 'Old write failures must not appear in the new session');
+        await settings().locator('#hackmd-token').fill('draft-after-old-save');
+        await page.waitForTimeout(650); // A late save completion must not schedule a new close.
+        assert.equal(await settings().count(), 1);
+        assert.equal(await settings().locator('#hackmd-token').inputValue(), 'draft-after-old-save');
+        await page.keyboard.press('Escape');
+        await expectSettingsClosed();
+      }
+      await openSettings();
+      await tokenReady();
+      await holdStorage('remove');
+      await clearSettingsToken().click();
+      await storagePending();
+      await page.keyboard.press('Escape');
+      await expectSettingsClosed();
+      await openSettings();
+      assert.equal(await saveSettings().isDisabled(), true);
+      await releaseStorage();
+      await tokenReady();
+      assert.equal(await settings().locator('#hackmd-token').inputValue(), '');
+      await page.keyboard.press('Escape');
+      await expectSettingsClosed();
+      passed.push('Pending Save/Clear survive dismissal without affecting a later session; duplicate Save is blocked and reopening reads the completed write');
+
+      await holdStorage('get');
+      await openSettings();
+      await storagePending();
+      await releaseStorage(true);
+      assert.equal(await settings().getByRole('alert').innerText(), label('settings.token_load_failed'));
+      assert.equal(await saveSettings().isDisabled(), true);
+      await settings().getByRole('button', { name: label('recovery.retry'), exact: true }).click();
+      await tokenReady();
+      assert.equal(await settings().getByRole('alert').count(), 0);
+      for (const key of ['hackmd_token', 'language']) {
+        await settings().locator('#hackmd-token').fill('fixture-retry-draft');
+        await holdStorage('set', key);
+        await saveSettings().click();
+        await storagePending();
+        await releaseStorage(true);
+        await tokenReady();
+        assert.equal(await settings().getByRole('alert').innerText(), label('settings.save_failed'));
+        assert.equal(await settings().locator('#hackmd-token').inputValue(), 'fixture-retry-draft');
+        await saveSettings().click();
+        await expectSettingsClosed();
+        await openSettings();
+        await tokenReady();
+      }
+      await holdStorage('remove');
+      await clearSettingsToken().click();
+      await storagePending();
+      await releaseStorage(true);
+      await tokenReady();
+      assert.equal(await settings().getByRole('alert').innerText(), label('settings.clear_failed'));
+      assert.equal(await settings().locator('#hackmd-token').inputValue(), 'fixture-retry-draft');
+      await clearSettingsToken().click();
+      await tokenReady();
+      assert.equal(await settings().locator('#hackmd-token').inputValue(), '');
+      assert.equal(await settings().getByRole('alert').count(), 0);
+      await page.keyboard.press('Escape');
+      await expectSettingsClosed();
+      passed.push('Load, token/language save and Clear failures show localized errors, preserve editable drafts where loaded, and allow a successful retry');
       assert.notEqual(label('mode.selector'), 'mode.selector');
       if (language !== 'en') assert.notEqual(label('mode.selector'), t('mode.selector', undefined, 'en'));
       await expectMode('free');
@@ -313,6 +485,7 @@ async function run(browser) {
       await expectPrompt('running', 'running');
       await button('app.settings').click();
       await settings().waitFor();
+      await tokenReady();
       assert.equal(await settings().locator('#standby-provider').isDisabled(), true);
       await settings().locator('#theme-select').focus();
       await page.keyboard.press('Tab');
