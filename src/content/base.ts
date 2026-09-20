@@ -40,7 +40,7 @@ export interface ContentScriptConfig {
   responseContentRoot?: ResponseContentRoot;
   stopButtonSelectors?: string[];
   stopButtonFilter?: (element: Element) => boolean;
-  loginDetector: () => boolean;
+  loginDetector: () => boolean | null;
   loggedOutDetector?: () => boolean;
   loginLossDelay?: number;
   isThinking?: () => boolean;
@@ -190,7 +190,9 @@ export function createContentScript(config: ContentScriptConfig): void {
     if (decision.retryInMs !== undefined) {
       loginStatusTimeout = setTimeout(reportStatus, decision.retryInMs);
     }
-    const statusToReport = decision.report ?? (force ? decision.state.reported : undefined);
+    const statusToReport = decision.report !== undefined
+      ? decision.report
+      : force ? decision.state.reported : undefined;
     if (statusToReport === undefined) return;
     safeSendMessage({ action: 'STATUS_REPORT', provider, payload: { loggedIn: statusToReport } });
   }

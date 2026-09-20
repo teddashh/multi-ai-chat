@@ -1,8 +1,9 @@
 # Meta AI source-port validation
 
-Meta AI support is experimental and unreleased. Selectors originate from
-`multi-ai-chat-desktop/adapters/meta.json` (adapter v1). The desktop evidence covers a
-logged-out DOM probe; it does not establish authenticated extension compatibility.
+Meta AI support is experimental and unreleased. Initial selectors came from
+`multi-ai-chat-desktop/adapters/meta.json` (adapter v1). The readiness fix also recognizes
+the current hydrated `composer-input` textarea and contenteditable editor. Neither the
+desktop probe nor the local DOM fixtures establish authenticated extension compatibility.
 
 The default lineup remains ChatGPT, Claude, Gemini, and Grok. Settings can put one provider
 on standby, leaving exactly four active. Existing browser tabs and login sessions are retained.
@@ -53,8 +54,39 @@ The UI showed the original four providers and five standby choices with Meta sel
 rebuilding left committed `dist/` unchanged. That check opened the extension page directly;
 actual docked Side Panel behavior and live provider interactions remain for VM QC.
 
-`READY_FOR_VM_E2E=yes` means this candidate is available for testing. It is not a live-provider
-pass or a merge/store recommendation. The cases below are pending until Conductor records results.
+`READY_FOR_VM_E2E=yes` / `READY_FOR_VM_REQC=yes` mean this candidate is available for testing.
+They are not live-provider passes or merge/store recommendations.
+
+### Readiness fix and VM re-QC
+
+The first VM QC found that authenticated Meta accepted direct prompts but the extension
+reported `login-required`, blocking orchestration. Local inspection on 2026-09-20 found
+an inert guest landing input; dismissing the sign-in card enabled it, while sending opened
+a real login modal. The live site's loaded composer code renders either a textarea or
+Lexical contenteditable with `data-testid="composer-input"`; the legacy prehydration
+attribute is conditional. Send and Stop still use `composer-send-button` and
+`composer-stop-button`. No authenticated DOM was available in the local guest profile.
+
+The fix accepts a visible, usable composer even beside an optional guest login button.
+A visible login modal or inert login input still reports login required. Missing or
+temporarily disabled editors without login evidence report checking rather than Sign in.
+The other four providers retain their existing boolean readiness behavior.
+
+Validation: `npm run verify` passes 123 tests, typecheck, production build and version 0.2.3
+consistency. A clean Chromium profile loaded the rebuilt extension. Controlled textarea
+and contenteditable fixtures exercised actual content-script/worker readiness transport,
+two distinct sends including Unicode/multiline input, response capture, scoped Stop and
+login-wall transitions without page errors. These fixtures did not run real Meta responses,
+Lexical's framework, serial workflows or recovery; those still need VM evidence.
+
+For the existing dedicated VM checkout, pull `feat/meta-ai-provider` with `--ff-only` and
+record the new full SHA. Reload this unpacked extension in `chrome://extensions`, then
+reload the already authenticated Meta tab so it gets the new content script. Reopen the
+Side Panel and put Grok on standby. Verify VM-02 now reaches Ready, then repeat VM-03
+through VM-05 below; ensure the other active providers are ready before multi-provider runs.
+If it stays checking or shows Sign in, record only composer tag, role, aria-label,
+placeholder, contenteditable, test id, inert state and visible login controls, plus the
+extension status. Do not export the browser profile or account data.
 
 ## Manual checks — pending (VM-01 through VM-07)
 
@@ -123,7 +155,7 @@ An unavailable account, regional restriction, or login challenge leaves affected
 blocked, not passed. Do not infer anonymous access from another region's result.
 
 ```text
-Marker: babysit-0420ET-multiext-237e5e8f
+Marker: multi-mac-0456ET-meta-ready
 PR / tested full SHA: #42 / ...
 Date / timezone / tester: ...
 VM OS / Chrome version / region: ...

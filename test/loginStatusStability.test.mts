@@ -89,3 +89,31 @@ test('an initially unmounted composer stays checking before becoming login-requi
   });
   assert.equal(expired.report, false);
 });
+
+test('opt-in unknown readiness reports checking from any previous state without expiring to logout', () => {
+  for (const previous of [{}, { reported: true }, { reported: false }]) {
+    const unknown = decideLoginStatus(previous, {
+      ready: null, explicitlyLoggedOut: false, now: 1000, lossDelayMs: 2500,
+    });
+    assert.equal(unknown.report, null);
+    assert.deepEqual(unknown.state, { reported: null });
+    assert.equal(unknown.retryInMs, undefined);
+    const repeated = decideLoginStatus(unknown.state, {
+      ready: null, explicitlyLoggedOut: false, now: 10000, lossDelayMs: 2500,
+    });
+    assert.equal(repeated.report, undefined);
+    assert.deepEqual(repeated.state, { reported: null });
+    const recovered = decideLoginStatus(repeated.state, {
+      ready: true, explicitlyLoggedOut: false, now: 10001, lossDelayMs: 2500,
+    });
+    assert.equal(recovered.report, true);
+  }
+});
+
+test('explicit login evidence overrides opt-in unknown readiness immediately', () => {
+  const decision = decideLoginStatus({ reported: null }, {
+    ready: null, explicitlyLoggedOut: true, now: 1000, lossDelayMs: 2500,
+  });
+  assert.equal(decision.report, false);
+  assert.deepEqual(decision.state, { reported: false });
+});

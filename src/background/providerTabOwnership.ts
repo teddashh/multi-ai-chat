@@ -55,14 +55,14 @@ export function connectionForStatusReport(
   current: AIConnection,
   provider: AIProvider,
   tabId: number,
-  loggedIn: boolean,
+  loggedIn: boolean | null,
   unavailable = false,
 ): AIConnection {
   if (unavailable) return current;
   if (current.tabId !== undefined && current.tabId !== tabId) return current;
   return {
     provider,
-    status: loggedIn ? 'connected' : 'login-required',
+    status: loggedIn === null ? 'checking' : loggedIn ? 'connected' : 'login-required',
     tabId,
   };
 }

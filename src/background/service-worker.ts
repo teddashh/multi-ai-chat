@@ -256,7 +256,7 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
     case 'STATUS_REPORT': {
       if (!message.provider || !sender.tab?.id) return false;
       if (sender.tab.url && getProviderFromUrl(sender.tab.url) !== message.provider) return false;
-      const { loggedIn = false } = (message.payload as { loggedIn?: boolean } | undefined) ?? {};
+      const { loggedIn = false } = (message.payload as { loggedIn?: boolean | null } | undefined) ?? {};
       const current = connections[message.provider];
       if (current.tabId !== undefined && current.tabId !== sender.tab.id) return false;
       const next = connectionForStatusReport(
