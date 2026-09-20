@@ -684,7 +684,7 @@ export default function App() {
         <ModeSelector mode={mode} onModeChange={changeMode} disabled={isProcessing} />
 
         {mode === 'free' && (
-          <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+          <div role="group" aria-label={t('targets.title')} className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t('targets.title')}</div>
               <button type="button" onClick={selectReadyTargets} disabled={!hydrated || isProcessing || connectedCount === 0}

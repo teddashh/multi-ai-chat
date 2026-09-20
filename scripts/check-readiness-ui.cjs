@@ -122,14 +122,52 @@ async function run(browser) {
       let page = await createPanel();
       const label = key => t(key, undefined, language);
       const button = key => page.getByRole('button', { name: label(key), exact: true });
-      const mode = name => page.getByRole('button', { name: new RegExp(`${label(`mode.${name}`)}$`) });
+      const modeGroup = () => page.getByRole('group', { name: label('mode.selector'), exact: true });
+      const mode = name => modeGroup().getByRole('button', { name: label(`mode.${name}`), exact: true });
+      const expectMode = async name => {
+        await modeGroup().getByRole('button', { name: label(`mode.${name}`), exact: true, pressed: true }).waitFor();
+        assert.equal(await modeGroup().getByRole('button', { pressed: true }).count(), 1);
+        assert.equal(await modeGroup().getByRole('button', { pressed: false }).count(), 4);
+      };
       const expectNotice = async text => page.waitForFunction(text => document.querySelector('#input-readiness')?.textContent === text, text);
-      const expectSelected = async names => page.waitForFunction(names =>
-        JSON.stringify([...document.querySelectorAll('button[aria-pressed="true"]')].map(button => button.textContent)) === JSON.stringify(names), names);
+      const expectSelected = async names => page.waitForFunction(({ names, groupName }) => {
+        const group = [...document.querySelectorAll('[role="group"]')].find(group => group.getAttribute('aria-label') === groupName);
+        return group && JSON.stringify([...group.querySelectorAll('button[aria-pressed="true"]')].map(button => button.textContent)) === JSON.stringify(names);
+      }, { names, groupName: label('targets.title') });
       await expectNotice(t('input.readiness.partial', { ready: 'Meta AI', providers: 'ChatGPT · Claude · Gemini' }, language));
       assert.equal(await page.locator('textarea').isEnabled(), true);
+      assert.notEqual(label('mode.selector'), 'mode.selector');
+      if (language !== 'en') assert.notEqual(label('mode.selector'), t('mode.selector', undefined, 'en'));
+      await expectMode('free');
+      await page.setViewportSize({ width: 320, height: 600 });
+      await mode('free').focus();
+      for (const [name, key] of [['debate', 'Enter'], ['consult', 'Space'], ['coding', 'Enter'], ['roundtable', 'Space']]) {
+        await page.keyboard.press('Tab');
+        assert.equal(await mode(name).evaluate(button => button === document.activeElement), true);
+        await page.keyboard.press(key);
+        await expectMode(name);
+        await page.waitForFunction(() => {
+          const button = document.activeElement;
+          if (!button?.parentElement || button.getAttribute('aria-pressed') !== 'true') return false;
+          const bounds = button.getBoundingClientRect();
+          const group = button.parentElement.getBoundingClientRect();
+          return bounds.left >= group.left && bounds.right <= group.right;
+        }, undefined, { timeout: 2000 });
+        const bounds = await mode(name).boundingBox();
+        const group = await modeGroup().boundingBox();
+        await page.screenshot({ path: path.join(output, `${language}-mode-${name}.png`) });
+        assert.ok(bounds && group && bounds.x >= group.x && bounds.x + bounds.width <= group.x + group.width,
+          `${language}: focused ${name} mode must scroll into view in a narrow panel; button=${JSON.stringify(bounds)} group=${JSON.stringify(group)}`);
+      }
+      await mode('free').focus();
+      await page.keyboard.press('Enter');
+      await expectMode('free');
+      fs.writeFileSync(path.join(output, `${language}-modes.aria.txt`), await modeGroup().ariaSnapshot());
+      await page.setViewportSize({ width: 420, height: 850 });
+      passed.push('Localized mode group exposes exactly one pressed mode; Tab plus Enter/Space switches all modes and reveals focused buttons in a narrow panel');
       for (const name of ['debate', 'consult']) {
         await mode(name).click();
+        await expectMode(name);
         await expectNotice(t('error.providers_not_ready', { providers: 'ChatGPT · Claude · Gemini' }, language));
         assert.equal(await page.locator('textarea').isDisabled(), true);
         assert.equal(await button('connection.open_unready').isEnabled(), true);
@@ -185,6 +223,7 @@ async function run(browser) {
       // Destroy the entire page/React tree, then hydrate a fresh page from saved storage.
       await page.close();
       page = await createPanel();
+      await expectMode('free');
       assert.equal(await button('targets.select_ready').count(), 1, `Reopen mode: ${await page.evaluate(() => JSON.stringify(window.readinessFixture.stored().conversations?.map(c => c.mode)))}`);
       await expectSelected(['Meta AI']);
       assert.equal(await page.locator('#input-readiness').count(), 0);
@@ -197,6 +236,8 @@ async function run(browser) {
       await page.evaluate(connections => window.readinessFixture.setConnections(connections), states([]));
       await page.waitForFunction(() => document.querySelector('textarea').disabled);
       assert.equal(await button('targets.select_ready').isDisabled(), true);
+      assert.equal(await modeGroup().getByRole('button', { disabled: false }).count(), 5);
+      await expectMode('free');
       await expectSelected(['ChatGPT', 'Meta AI']);
       await page.evaluate(connections => window.readinessFixture.setConnections(connections), states(providers));
       await page.waitForFunction(() => !document.querySelector('textarea').disabled);
@@ -204,6 +245,8 @@ async function run(browser) {
       await page.evaluate(() => window.readinessFixture.workflow());
       await page.waitForFunction(() => document.querySelector('textarea').disabled);
       assert.equal(await button('targets.select_ready').isDisabled(), true);
+      assert.equal(await modeGroup().getByRole('button', { disabled: true }).count(), 5);
+      await expectMode('free');
       for (const viewport of [{ width: 320, height: 480 }, { width: 420, height: 600 }]) {
         await page.setViewportSize(viewport);
         const bounds = await button('input.stop').boundingBox();

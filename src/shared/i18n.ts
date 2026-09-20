@@ -22,6 +22,7 @@ function detectLocale(): Locale {
 let currentLocale: Locale = detectLocale();
 
 const en: Record<string, string> = {
+  'mode.selector': 'Chat mode',
   'targets.select_ready': 'Select ready AIs only',
   'targets.none_ready': 'No active AI is ready yet. Your selection is unchanged.',
   'connection.open_unready': 'Open unready AIs',
@@ -169,6 +170,7 @@ const en: Record<string, string> = {
 
 const zh: Record<string, string> = {
   ...en,
+  'mode.selector': '模式選擇',
   'targets.select_ready': '只選已就緒 AI',
   'targets.none_ready': '目前沒有已就緒的啟用中 AI，保留原選擇。',
   'connection.open_unready': '開啟未就緒 AI',
@@ -220,6 +222,7 @@ const zh: Record<string, string> = {
 
 const ja: Record<string, string> = {
   ...en,
+  'mode.selector': 'チャットモード',
   'targets.select_ready': '準備完了の AI だけ選択',
   'targets.none_ready': '有効な AI はまだどれも準備ができていません。選択は変更されません。',
   'connection.open_unready': '準備ができていない AI を開く',
@@ -250,6 +253,7 @@ const ja: Record<string, string> = {
 
 const de: Record<string, string> = {
   ...en,
+  'mode.selector': 'Chatmodus',
   'targets.select_ready': 'Nur bereite KIs auswählen',
   'targets.none_ready': 'Noch keine aktive KI ist bereit. Deine Auswahl bleibt unverändert.',
   'connection.open_unready': 'Nicht bereite KIs öffnen',
@@ -280,6 +284,7 @@ const de: Record<string, string> = {
 
 const ko: Record<string, string> = {
   ...en,
+  'mode.selector': '대화 모드',
   'targets.select_ready': '준비된 AI만 선택',
   'targets.none_ready': '아직 준비된 활성 AI가 없습니다. 기존 선택을 유지합니다.',
   'connection.open_unready': '준비되지 않은 AI 열기',

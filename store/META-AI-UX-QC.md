@@ -34,10 +34,16 @@ The input follow-up reproduced an unintended send in `97b1aa4`: Enter with
 The panel now leaves composition Enter events (including legacy key code 229) to
 the editor. Plain Enter still sends once; Shift+Enter still inserts a newline.
 
-Local result on 2026-09-20: **PASS** in en, zh-TW, ja, de and ko (40 assertion groups,
+The mode accessibility follow-up found that `17d2005` exposed no selected state
+for mode buttons. They now expose pressed/unpressed states in a localized group,
+with decorative icons hidden from accessible names. Free recipients have their own
+named group. Keyboard checks also reproduced a clipped Coding button at 320×600;
+focused mode buttons now scroll into view using nearest alignment.
+
+Local result on 2026-09-20: **PASS** in en, zh-TW, ja, de and ko (45 assertion groups,
 zero page errors) using Chromium 151.0.7922.34. `npm run verify` under Node 22.18.0
 also passed all 157 tests, typecheck, build and version consistency. Tested panel
-bundle SHA-256: `3300d9b5b1ae3b7c9976799509c2f0e5515c6554b89db1f7a769a290f4610eae`.
+bundle SHA-256: `8f6e0ebde2cfcf528bc1fb54035361faddb09731ff791d42e6c024089ece8a73`.
 Actual authenticated VM UX result remains **NOT_RUN** from this seat.
 
 ## Repeatable DOM check
@@ -66,12 +72,17 @@ It also dispatches simulated IME Enter events and checks that no send occurs and
 the draft remains intact, then checks Shift+Enter and a single plain-Enter send.
 The send is captured by the Chrome API double; no provider receives it. These
 synthetic events do not establish a pass with an actual operating-system IME.
+Mode checks cover localized accessible names, exactly one pressed mode, Tab plus
+Enter/Space across all five modes at 320×600, focused-button visibility, restored
+Free state after reopening, and disabled mode buttons during a workflow. ARIA
+snapshots record the exposed semantics; an actual screen reader was not tested.
 All page requests are restricted to three local `dist` assets served on the
 intercepted `https://readiness.test` origin.
 
 Output: `RESULTS.json` (status, checkout SHA, dirty-tree flag, bundle SHA-256, browser,
 per-locale assertions and errors), plus `zh-TW-partial.png`, `zh-TW-reopened.png`
-and `<locale>-draft-error-<width>.png` for the short-panel regression.
+and `<locale>-draft-error-<width>.png` for the short-panel regression. Mode checks
+also save `<locale>-mode-<mode>.png` and `<locale>-modes.aria.txt`.
 Use the exit status and current report together; a fixture PASS is not a VM PASS.
 
 ## Actual VM sequence
@@ -89,6 +100,7 @@ If another provider is already Ready, record that difference rather than logging
 | Immediately close and reopen Side Panel | Mode remains Free, Meta remains the only selected target, no skipped-provider hint. |
 | Narrow/short panel with a multiline draft | Hint and shortcuts remain readable; Send is fully visible, including after a tab-open failure if one occurs. Upper controls remain reachable by scrolling. During an actual workflow, Stop stays visible. |
 | IME input with Meta selected | Enter to confirm a Chinese/Japanese/Korean candidate keeps the draft and does not start a workflow. After composition ends, Shift+Enter adds a newline and plain Enter sends once. Record the actual IME used. |
+| Keyboard mode selection in a narrow panel | Tab reaches every mode; Enter/Space activates it and the focused button stays in view. With a screen reader, the localized group and pressed mode are announced without decorative emoji. |
 
 Record each row as PASS/FAIL/BLOCKED with checkout SHA, Chrome version, active/standby
 providers and observed Ready set. An actual docked-panel close/reopen result is still
