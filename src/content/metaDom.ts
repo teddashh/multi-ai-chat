@@ -5,11 +5,14 @@ export const META_INPUT_SELECTORS = [
   'textarea[data-testid="composer-input"]',
   'input[data-testid="composer-input"]',
   'input[aria-label="Ask Meta AI"]',
+  'textarea[aria-label="Ask Meta AI"]',
+  'textarea[aria-label^="Ask Meta AI" i]',
   'textarea[data-ecto-composer-prehydration-input]',
   'textarea[placeholder^="Ask Meta AI" i]',
   'input[placeholder^="Ask Meta AI" i]',
   '[contenteditable="true"][aria-label^="Ask Meta AI" i]',
   '[contenteditable="true"][aria-placeholder^="Ask Meta AI" i]',
+  '[contenteditable="true"][role="textbox"]',
 ];
 export const META_SEND_SELECTORS = ['[data-testid="composer-send-button"]', 'button[aria-label="Send"]'];
 export const META_STOP_SELECTORS = ['[data-testid="composer-stop-button"]', 'button[aria-label="Stop"]'];
@@ -51,10 +54,10 @@ export function metaLoginStatus(
   hasVisibleLoginButton: boolean,
   hasVisibleLoginWall = false,
 ): boolean | null {
-  if (hasVisibleLoginWall) return false;
-  // A guest composer can coexist with the optional header login button.
+  // A usable composer wins. After Facebook/Instagram login the page can still
+  // expose a login control or an inert prehydration field beside the real editor.
   if (metaSessionReady(inputs, isVisible)) return true;
-  if (hasVisibleLoginButton || inputs.some((input) => isVisible(input) && input.closest('[inert]'))) return false;
+  if (hasVisibleLoginWall || hasVisibleLoginButton || inputs.some((input) => isVisible(input) && input.closest('[inert]'))) return false;
   // Missing/remounting/temporarily disabled editors are not evidence of logout.
   return null;
 }

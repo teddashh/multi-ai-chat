@@ -77,6 +77,8 @@ test('Meta can select the live composer after an inert prehydration placeholder'
 for (const selector of [
   'textarea[data-testid="composer-input"]',
   '[data-testid="composer-input"][contenteditable="true"]',
+  'textarea[aria-label="Ask Meta AI"]',
+  '[contenteditable="true"][role="textbox"]',
 ]) {
   test(`Meta finds hydrated ${selector} without the legacy aria label or prehydration attribute`, () => {
     const placeholder = control({ ancestor: '[inert]', visible: true });
@@ -94,14 +96,19 @@ for (const selector of [
   });
 }
 
-test('an enabled authenticated or guest composer wins over an optional header login button', () => {
+test('an enabled authenticated or guest composer wins over a login control and an inert placeholder', () => {
+  const usable = control();
+  const inert = control({ ancestor: '[inert]' });
   for (const hasLoginButton of [false, true]) {
-    assert.equal(metaLoginStatus([control()], () => true, hasLoginButton), true);
+    for (const hasLoginWall of [false, true]) {
+      assert.equal(metaLoginStatus([inert, usable], () => true, hasLoginButton, hasLoginWall), true);
+    }
   }
 });
 
-test('a visible login modal blocks a composer even when the page forgot to mark it inert', () => {
-  assert.equal(metaLoginStatus([control()], () => true, true, true), false);
+test('a visible login modal requires sign-in only when no usable composer remains', () => {
+  assert.equal(metaLoginStatus([control({ ancestor: '[inert]' })], () => true, true, true), false);
+  assert.equal(metaLoginStatus([], () => true, false, true), false);
 });
 
 test('an inert composer or visible login button establishes a real login requirement', () => {
