@@ -11,45 +11,7 @@ import {
   metaSessionReady,
 } from '../src/content/metaDom.ts';
 import { firstAcceptedCandidate } from '../src/content/elementSelection.ts';
-
-function usableInput() {
-  return { closest: () => null };
-}
-
-function inertInput() {
-  return { closest: (selectors: string) => selectors.includes('[inert]') ? {} : null };
-}
-
-function composerContainer(kind: 'usable' | 'inert' | 'mixed') {
-  const usable = usableInput();
-  const inert = inertInput();
-  const inputs = kind === 'usable' ? [usable] : kind === 'inert' ? [inert] : [inert, usable];
-  return {
-    querySelector: () => inputs[0],
-    querySelectorAll: () => inputs,
-  };
-}
-
-function control(options: {
-  disabled?: boolean;
-  readOnly?: boolean;
-  ancestor?: string;
-  visible?: boolean;
-  testId?: string | null;
-  container?: 'usable' | 'inert' | 'mixed';
-} = {}) {
-  return {
-    ...options,
-    getAttribute: (name: string) => name === 'data-testid' ? (options.testId ?? null) : null,
-    closest: (selectors: string) => {
-      if (options.ancestor && selectors.includes(options.ancestor)) return {};
-      if (options.container && selectors.includes('[data-testid*="composer"]')) {
-        return composerContainer(options.container);
-      }
-      return null;
-    },
-  };
-}
+import { control } from './metaControls.mts';
 
 test('Meta accepts an enabled guest composer without requiring an account marker', () => {
   assert.equal(metaSessionReady([control()], () => true), true);
@@ -120,6 +82,9 @@ test('missing, hidden or temporarily disabled inputs without login evidence stay
   assert.equal(metaLoginStatus([], () => true, false), null);
   assert.equal(metaLoginStatus([control({ ancestor: '[inert]' })], () => false, false), null);
   assert.equal(metaLoginStatus([control({ disabled: true })], () => true, false), null);
+  assert.equal(metaLoginStatus([control({ readOnly: true })], () => true, false), null);
+  assert.equal(metaLoginStatus([control({ ancestor: '[aria-disabled="true"]' })], () => true, false), null);
+  assert.equal(metaLoginStatus([control({ ancestor: '[aria-readonly="true"]' })], () => true, false), null);
 });
 
 test('login modal controls can be recognized without a test id', () => {
