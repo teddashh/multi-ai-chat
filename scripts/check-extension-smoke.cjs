@@ -239,9 +239,14 @@ async function run() {
     assert.equal(await panel.locator('textarea').isDisabled(), true);
     await panel.getByRole('button', { name: 'Open unready AIs', exact: true }).click();
     await panel.getByRole('button', { name: 'Open unready AIs', exact: true }).waitFor();
-    const openedHosts = context.pages().map(page => { try { return new URL(page.url()).hostname; } catch { return ''; } });
-    for (const host of ['chatgpt.com', 'claude.ai', 'gemini.google.com']) assert.ok(openedHosts.includes(host));
-    assert.equal(openedHosts.includes('grok.com'), false);
+    const openedHosts = [];
+    for (const page of context.pages()) {
+      try { openedHosts.push(new URL(page.url()).hostname); } catch { openedHosts.push(''); }
+    }
+    for (const host of ['chatgpt.com', 'claude.ai', 'gemini.google.com']) {
+      assert.ok(openedHosts.some(opened => opened === host), `expected an opened tab for ${host}`);
+    }
+    assert.equal(openedHosts.some(opened => opened === 'grok.com' || opened === 'www.grok.com'), false);
     await panel.getByRole('button', { name: 'Free', exact: true }).click();
     await panel.getByRole('button', { name: 'Select ready AIs only', exact: true }).click();
     assert.deepEqual(await selected(), ['Meta AI']);
