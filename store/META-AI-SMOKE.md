@@ -1,5 +1,8 @@
 # Meta AI source-port validation
 
+For the cumulative progress since the initial handoff, current stopping point, and
+remaining priorities, see [PR #42 handoff (繁體中文)](PR42-HANDOFF.zh-TW.md).
+
 For the current targeted VM re-QC, use [Step3: stream, final and Stop](META-AI-STEP3.md).
 It includes fixed prompts, an optional metadata observer, and a compact result template.
 
