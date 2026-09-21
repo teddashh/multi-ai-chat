@@ -1,5 +1,6 @@
 // Optional diagnostic snippet: run in this extension's service-worker DevTools.
 // Observes runtime events and reads Meta DOM metadata; never sends/clicks/types.
+// Visible composers record matched selectors, container test ids, roles, aria-labels, and lengths.
 // Finish with: copy(JSON.stringify(await metaStep3Probe.stop(), null, 2))
 (async () => {
   if (!globalThis.chrome?.runtime?.onMessage || !chrome.scripting?.executeScript) {
@@ -24,18 +25,67 @@
       return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
     };
     const usable = (element) => !element.closest('[inert], [disabled], [readonly], [aria-disabled="true"], [aria-readonly="true"], [aria-hidden="true"]');
+    // Inline copy of META_INPUT_SELECTORS. The snippet stays standalone and cannot import src/.
+    const broadTextbox = '[contenteditable="true"][role="textbox"]';
+    const META_INPUT_SELECTORS = [
+      '[data-testid="composer-input"][contenteditable="true"]',
+      'textarea[data-testid="composer-input"]',
+      'input[data-testid="composer-input"]',
+      'input[aria-label="Ask Meta AI"]',
+      'textarea[aria-label="Ask Meta AI"]',
+      'textarea[aria-label^="Ask Meta AI" i]',
+      'textarea[data-ecto-composer-prehydration-input]',
+      'textarea[placeholder^="Ask Meta AI" i]',
+      'input[placeholder^="Ask Meta AI" i]',
+      '[contenteditable="true"][aria-label^="Ask Meta AI" i]',
+      '[contenteditable="true"][aria-placeholder^="Ask Meta AI" i]',
+      broadTextbox,
+    ];
+    // Unexported META_COMPOSER_CONTAINER, source order. First closest() hit wins; closest() includes self.
+    const META_COMPOSER_CONTAINER = '[data-testid*="composer"], [class*="composer"], [class*="input-area"], form, fieldset';
+    const composerContainerSelectors = META_COMPOSER_CONTAINER.split(', ');
+    const specificInputSelectors = META_INPUT_SELECTORS.filter((selector) => selector !== broadTextbox);
+    const containerOf = (element) => {
+      for (const selector of composerContainerSelectors) {
+        const ancestor = element.closest(selector);
+        if (!ancestor) continue;
+        return { matched: selector, testId: ancestor.getAttribute('data-testid') };
+      }
+      return { matched: null, testId: null };
+    };
+    const describeInput = (element) => {
+      const described = {
+        matchedSelectors: META_INPUT_SELECTORS.filter((selector) => element.matches(selector)),
+        tag: element.tagName,
+        role: element.getAttribute('role'),
+        contenteditable: element.getAttribute('contenteditable'),
+        testId: element.getAttribute('data-testid'),
+        ariaLabel: element.getAttribute('aria-label'),
+        usable: usable(element),
+      };
+      if ('disabled' in element) described.disabled = Boolean(element.disabled);
+      if ('readOnly' in element) described.readOnly = Boolean(element.readOnly);
+      described.container = containerOf(element);
+      described.inDialog = Boolean(element.closest('[role="dialog"]'));
+      described.characters = (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement ? element.value : element.textContent ?? '').length;
+      return described;
+    };
     const stops = [...document.querySelectorAll('[data-testid="composer-stop-button"], button[aria-label="Stop"]')].filter(visible);
-    const inputs = [...document.querySelectorAll('[data-testid="composer-input"], input[aria-label="Ask Meta AI"], textarea[data-ecto-composer-prehydration-input]')].filter(visible);
+    const inputs = [...document.querySelectorAll(META_INPUT_SELECTORS.join(', '))].filter(visible);
     const answers = [...document.querySelectorAll('[data-message-item]:not([data-user-message]), [data-testid="assistant-message"]')];
+    const textboxes = [...document.querySelectorAll(broadTextbox)];
     return {
       stopVisible: stops.length > 0,
       stopUsable: stops.some(usable),
-      composers: inputs.map((element) => ({
-        tag: element.tagName,
-        contenteditable: element.getAttribute('contenteditable'),
-        usable: usable(element),
-        characters: (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement ? element.value : element.textContent ?? '').length,
-      })),
+      composers: inputs.map(describeInput),
+      // Counts cover every broad textbox, hidden included. usable() does not check visibility.
+      // nonComposer matches none of the more specific input selectors.
+      textboxes: {
+        total: textboxes.length,
+        visible: textboxes.filter(visible).length,
+        usable: textboxes.filter(usable).length,
+        nonComposer: textboxes.filter((element) => specificInputSelectors.every((selector) => !element.matches(selector))).length,
+      },
       assistantNodes: answers.length,
       latestAssistantCharacters: (answers.at(-1)?.textContent ?? '').length,
     };
