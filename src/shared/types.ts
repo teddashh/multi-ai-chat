@@ -1,6 +1,6 @@
 // === AI Providers ===
 
-export type AIProvider = 'chatgpt' | 'claude' | 'gemini' | 'grok';
+export type AIProvider = 'chatgpt' | 'claude' | 'gemini' | 'grok' | 'meta';
 export type Locale = 'en' | 'zh-TW' | 'ja' | 'de' | 'ko';
 export type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -113,6 +113,8 @@ export type MessageAction =
   | 'RESPONSE_DONE'
   | 'OPEN_LOGIN'
   | 'GET_CONNECTIONS'
+  | 'SET_STANDBY_PROVIDER'
+  | 'PROVIDER_SELECTION_UPDATE'
   | 'GET_PROVIDER_URLS'
   | 'RESET_PROVIDER_SESSIONS'
   | 'RESTORE_PROVIDER_SESSIONS'

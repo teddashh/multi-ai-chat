@@ -40,10 +40,13 @@ export interface ContentScriptConfig {
   responseContentRoot?: ResponseContentRoot;
   stopButtonSelectors?: string[];
   stopButtonFilter?: (element: Element) => boolean;
-  loginDetector: () => boolean;
+  loginDetector: () => boolean | null;
   loggedOutDetector?: () => boolean;
   loginLossDelay?: number;
   isThinking?: () => boolean;
+  // Some providers keep their busy/Stop signal active throughout answer streaming.
+  // Allow chunks while that signal still prevents premature completion.
+  streamWhileThinking?: boolean;
   injectInput?: (element: Element, text: string) => void | Promise<void>;
   doneDelay?: number;
   chunkDebounce?: number;
@@ -94,6 +97,7 @@ export function createContentScript(config: ContentScriptConfig): void {
     loggedOutDetector = () => false,
     loginLossDelay = 0,
     isThinking = () => false,
+    streamWhileThinking = false,
     injectInput = defaultInjectInput,
     doneDelay = 3000,
     chunkDebounce = 500,
@@ -190,7 +194,9 @@ export function createContentScript(config: ContentScriptConfig): void {
     if (decision.retryInMs !== undefined) {
       loginStatusTimeout = setTimeout(reportStatus, decision.retryInMs);
     }
-    const statusToReport = decision.report ?? (force ? decision.state.reported : undefined);
+    const statusToReport = decision.report !== undefined
+      ? decision.report
+      : force ? decision.state.reported : undefined;
     if (statusToReport === undefined) return;
     safeSendMessage({ action: 'STATUS_REPORT', provider, payload: { loggedIn: statusToReport } });
   }
@@ -480,7 +486,7 @@ export function createContentScript(config: ContentScriptConfig): void {
       // Claude/SPA composers mount several seconds after load; re-report the moment
       // login state flips so the card reaches "ready" without waiting for the 10s poll.
       reportStatus();
-      if (!waitingForResponse || isCurrentTurnThinking()) return;
+      if (!waitingForResponse || (isCurrentTurnThinking() && !streamWhileThinking)) return;
       updateResponse();
     });
     responseObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
@@ -515,15 +521,19 @@ export function createContentScript(config: ContentScriptConfig): void {
         if (pollInterval === timer) pollInterval = undefined;
         return;
       }
-      if (isCurrentTurnThinking()) {
+      const thinking = isCurrentTurnThinking();
+      if (thinking) {
         sawGenerationActivity = true;
-        return;
+        if (!streamWhileThinking) return;
       }
       const currentText = getLatestResponseText();
       if (currentText) {
         updateResponse();
         return;
       }
+      // Reading chunks during generation must not start the no-response timeout
+      // while a slow provider still reports that it is working.
+      if (thinking) return;
       // sawGenerationActivity 只代表「送出去了」（輸入框被清空也算），不代表真的產生過內容，
       // 所以這條路徑必須等滿寬限期才收尾，否則慢的模型會在送出後幾秒就被判定沒有回應。
       if (!sawGenerationActivity || responseTimeout !== undefined) return;

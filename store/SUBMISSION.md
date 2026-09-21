@@ -4,6 +4,13 @@ Everything needed for the Developer Dashboard listing of **Multi-AI Chat** (v0.2
 Copy each block into the matching field. Items marked **[you]** can only be done by the
 publishing Google account.
 
+**Next release only:** current source adds an experimental Meta AI replacement while keeping
+four active providers and the original four as defaults. It adds host/content-script matches
+only for `https://www.meta.ai/*` and `https://meta.ai/*`. Before packaging that source for
+submission, update the version and listing/permission justifications together and complete
+[the Meta AI smoke checklist](./META-AI-SMOKE.md). The v0.2.3 listing and assets below describe
+the already released four-provider build.
+
 ---
 
 ## 0. Before you upload — action items **[you]**

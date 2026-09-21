@@ -1,16 +1,16 @@
 export interface LoginStatusState {
-  reported?: boolean;
+  reported?: boolean | null;
   missingSince?: number;
 }
 
 export interface LoginStatusDecision {
   state: LoginStatusState;
-  report?: boolean;
+  report?: boolean | null;
   retryInMs?: number;
 }
 
 interface LoginStatusSignals {
-  ready: boolean;
+  ready: boolean | null;
   explicitlyLoggedOut: boolean;
   now: number;
   lossDelayMs: number;
@@ -28,6 +28,15 @@ export function decideLoginStatus(
     return {
       state: { reported: false },
       report: previous.reported === false ? undefined : false,
+    };
+  }
+
+  // Opt-in unknown readiness: a provider with an unrecognized/remounting DOM
+  // should report checking rather than inventing a login requirement.
+  if (signals.ready === null) {
+    return {
+      state: { reported: null },
+      report: previous.reported === null ? undefined : null,
     };
   }
 

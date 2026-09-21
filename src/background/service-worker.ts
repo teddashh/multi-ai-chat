@@ -20,7 +20,16 @@ import {
 } from '../shared/constants';
 import { questionWithConversationContext } from '../shared/conversationContinuity';
 import { encodeError } from '../shared/errors';
+import { getProviderReadiness } from '../shared/providerReadiness';
 import { getProviderFromUrl } from '../shared/providerUrl';
+import {
+  ALL_PROVIDERS,
+  activeProviders,
+  normalizeStandbyProvider,
+  repairRoles,
+  selectedActiveTargets,
+  swapFreeTargets,
+} from '../shared/providerSelection';
 import {
   activeCancellationTarget,
   WorkflowLifecycleRegistry,
@@ -67,7 +76,7 @@ interface SendParams {
   clientId: string;
 }
 
-const PROVIDERS: AIProvider[] = ['chatgpt', 'claude', 'gemini', 'grok'];
+const PROVIDERS = ALL_PROVIDERS;
 const ACTIVE_WORKFLOW_STORAGE_KEY = 'multiAiActiveWorkflow';
 const STATUS_PROBE_RETRY_MS = 1000;
 const CONTENT_SCRIPT_FILES: Record<AIProvider, string> = {
@@ -75,6 +84,7 @@ const CONTENT_SCRIPT_FILES: Record<AIProvider, string> = {
   claude: 'content/claude.js',
   gemini: 'content/gemini.js',
   grok: 'content/grok.js',
+  meta: 'content/meta.js',
 };
 
 const connections: Record<AIProvider, AIConnection> = Object.fromEntries(
@@ -95,6 +105,12 @@ let workflowAborted = false;
 let activeWorkflowId: string | undefined;
 let activeSessionId: string | undefined;
 let activeClientId: string | undefined;
+let lastWorkflowStatus: WorkflowStatusPayload | undefined;
+let lastRoleAssignment: { provider: AIProvider; labelKey: string; requestId?: string } | undefined;
+let standbyProvider = normalizeStandbyProvider(undefined);
+const providerSelectionReady = chrome.storage.local.get('standbyProvider').then((stored) => {
+  standbyProvider = normalizeStandbyProvider(stored.standbyProvider);
+});
 
 void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 void chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }).catch(() => {});
@@ -193,13 +209,34 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendResponse) => {
   switch (message.action) {
+    case 'SET_STANDBY_PROVIDER': {
+      const requested = (message.payload as { standbyProvider?: unknown } | undefined)?.standbyProvider;
+      if (sender.tab || !ALL_PROVIDERS.includes(requested as AIProvider)) {
+        sendResponse({ ok: false });
+        return false;
+      }
+      void workflowStartGate.run(async () => {
+        await providerSelectionReady;
+        if (activeWorkflowId) throw new Error(encodeError('error.provider_change_busy'));
+        const next = requested as AIProvider;
+        const stored = await chrome.storage.local.get('freeTargets');
+        const freeTargets = swapFreeTargets(stored.freeTargets, next, standbyProvider);
+        await chrome.storage.local.set({ standbyProvider: next, freeTargets });
+        standbyProvider = next;
+        chrome.runtime.sendMessage({
+          action: 'PROVIDER_SELECTION_UPDATE',
+          payload: { standbyProvider, freeTargets },
+        }).catch(() => {});
+        return { ok: true, standbyProvider, freeTargets };
+      }).then(sendResponse).catch((error) => sendResponse({ ok: false, error: errorMessage(error) }));
+      return true;
+    }
     case 'GET_CONNECTIONS':
       sendResponse(connections);
       // 先回快取讓側邊欄立即有內容，再重新探測一次；結果會透過 broadcastConnections 送達。
       // 沒有這一步的話，快取一旦是 disconnected 就只能等下一次分頁載入事件才會更新。
       void refreshConnections();
-      void replayPendingStepRecovery(message.payload as { clientId?: string; sessionId?: string } | undefined);
-      void notifyInterruptedWorkflow(message.payload as { clientId?: string; sessionId?: string } | undefined);
+      void adoptSidePanelClient(message.payload as { clientId?: string; sessionId?: string } | undefined);
       return true;
 
     case 'GET_PROVIDER_URLS':
@@ -221,7 +258,7 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
     case 'STATUS_REPORT': {
       if (!message.provider || !sender.tab?.id) return false;
       if (sender.tab.url && getProviderFromUrl(sender.tab.url) !== message.provider) return false;
-      const { loggedIn = false } = (message.payload as { loggedIn?: boolean } | undefined) ?? {};
+      const { loggedIn = false } = (message.payload as { loggedIn?: boolean | null } | undefined) ?? {};
       const current = connections[message.provider];
       if (current.tabId !== undefined && current.tabId !== sender.tab.id) return false;
       const next = connectionForStatusReport(
@@ -430,6 +467,7 @@ function broadcastConnections(): void {
 }
 
 async function focusOrOpenProvider(provider: AIProvider): Promise<void> {
+  await ensureActiveProvider(provider);
   const connection = connections[provider];
   if (connection.tabId) {
     const attemptedTabId = connection.tabId;
@@ -465,8 +503,9 @@ async function getProviderUrls(): Promise<Partial<Record<AIProvider, string>>> {
   return urls;
 }
 
-async function resetProviderSessions(targets: AIProvider[] = PROVIDERS): Promise<void> {
-  await Promise.all(targets.map(async (provider) => {
+async function resetProviderSessions(targets?: AIProvider[]): Promise<void> {
+  await providerSelectionReady;
+  await Promise.all(selectedActiveTargets(targets, standbyProvider).map(async (provider) => {
     const tabId = connections[provider].tabId;
     if (!tabId) return;
     updateConnection(provider, { provider, status: 'checking', tabId });
@@ -476,7 +515,8 @@ async function resetProviderSessions(targets: AIProvider[] = PROVIDERS): Promise
 }
 
 async function restoreProviderSessions(urls: Partial<Record<AIProvider, string>>): Promise<void> {
-  await Promise.all(PROVIDERS.map(async (provider) => {
+  await providerSelectionReady;
+  await Promise.all(activeProviders(standbyProvider).map(async (provider) => {
     const url = urls[provider];
     const tabId = connections[provider].tabId;
     if (!url || !tabId || getProviderFromUrl(url) !== provider) return;
@@ -487,6 +527,8 @@ async function restoreProviderSessions(urls: Partial<Record<AIProvider, string>>
 }
 
 async function sendToProvider(provider: AIProvider, text: string, requestId: string, workflowId: string): Promise<void> {
+  await ensureActiveProvider(provider);
+  checkAborted(workflowId);
   const connection = connections[provider];
   if (connection.status !== 'connected' || !connection.tabId) {
     throw new Error(encodeError('error.not_ready', { provider }));
@@ -500,6 +542,13 @@ async function sendToProvider(provider: AIProvider, text: string, requestId: str
     payload: { text },
   });
   assertContentScriptAccepted(result);
+}
+
+async function ensureActiveProvider(provider: AIProvider): Promise<void> {
+  await providerSelectionReady;
+  if (!activeProviders(standbyProvider).includes(provider)) {
+    throw new Error(encodeError('error.provider_standby', { provider }));
+  }
 }
 
 async function sendAndWait(
@@ -523,7 +572,9 @@ async function sendAndWait(
     }
     const response = await responsePromise;
     const providerError = response.match(/^\[Error:\s*(.+)]$/s);
-    if (providerError) throw new Error(providerError[1]);
+    if (providerError) {
+      throw new ProviderRequestError(provider, workflowId, requestId, new Error(providerError[1]), true);
+    }
     return response;
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
@@ -610,16 +661,16 @@ async function handleSendMessage(params: SendParams): Promise<void> {
         await handleFreeMode(question, params.targets, workflowId);
         break;
       case 'debate':
-        await handleDebateMode(question, (params.roles as DebateRoles) ?? DEFAULT_DEBATE_ROLES, workflowId);
+        await handleDebateMode(question, repairRoles((params.roles as DebateRoles) ?? DEFAULT_DEBATE_ROLES, standbyProvider), workflowId);
         break;
       case 'consult':
-        await handleConsultMode(question, (params.roles as ConsultRoles) ?? DEFAULT_CONSULT_ROLES, workflowId);
+        await handleConsultMode(question, repairRoles((params.roles as ConsultRoles) ?? DEFAULT_CONSULT_ROLES, standbyProvider), workflowId);
         break;
       case 'coding':
-        await handleCodingMode(question, (params.roles as CodingRoles) ?? DEFAULT_CODING_ROLES, workflowId);
+        await handleCodingMode(question, repairRoles((params.roles as CodingRoles) ?? DEFAULT_CODING_ROLES, standbyProvider), workflowId);
         break;
       case 'roundtable':
-        await handleRoundtableMode(question, (params.roles as RoundtableRoles) ?? DEFAULT_ROUNDTABLE_ROLES, workflowId);
+        await handleRoundtableMode(question, repairRoles((params.roles as RoundtableRoles) ?? DEFAULT_ROUNDTABLE_ROLES, standbyProvider), workflowId);
         break;
     }
   } catch (error) {
@@ -640,11 +691,14 @@ async function handleSendMessage(params: SendParams): Promise<void> {
 
 async function beginWorkflow(params: SendParams): Promise<void> {
   await workflowStartGate.run(async () => {
+    await providerSelectionReady;
     workflowLifecycle.assertCanStart(params.workflowId);
     if (activeWorkflowId) await abortWorkflow(activeWorkflowId);
     workflowLifecycle.assertCanStart(params.workflowId);
     workflowAborted = false;
     workflowProviders.clear();
+    lastWorkflowStatus = undefined;
+    lastRoleAssignment = undefined;
     activeWorkflowId = params.workflowId;
     activeSessionId = params.sessionId;
     activeClientId = params.clientId;
@@ -679,14 +733,14 @@ async function notifyInterruptedWorkflow(target?: { clientId?: string; sessionId
   const interrupted = stored[ACTIVE_WORKFLOW_STORAGE_KEY] as { workflowId?: string; sessionId?: string; clientId?: string } | undefined;
   if (!interrupted?.workflowId || !interrupted.sessionId || !interrupted.clientId) return;
   if (!target?.clientId || target.sessionId !== interrupted.sessionId) return;
-  sendWorkflowStatus(
+  await sendWorkflowStatus(
     { key: 'workflow.interrupted' },
     interrupted.workflowId,
     interrupted.sessionId,
     target.clientId,
   );
   sendSystemError(encodeError('error.worker_stopped'), interrupted.workflowId);
-  sendWorkflowStatus(
+  await sendWorkflowStatus(
     { key: '', done: true, cancelled: false },
     interrupted.workflowId,
     interrupted.sessionId,
@@ -702,13 +756,27 @@ async function clearPersistedWorkflow(workflowId: string): Promise<void> {
 }
 
 async function handleFreeMode(text: string, requestedTargets: AIProvider[] | undefined, workflowId: string): Promise<void> {
-  const selected = requestedTargets?.length ? requestedTargets : PROVIDERS;
-  const targets = selected.filter((provider) => connections[provider].status === 'connected');
-  if (targets.length === 0) throw new Error(encodeError('error.no_target'));
-  sendWorkflowStatus({ key: 'workflow.free', params: { providers: targets.map((provider) => AI_PROVIDERS[provider].name).join(' · ') } });
+  const selected = selectedActiveTargets(requestedTargets, standbyProvider);
+  const { ready: targets, unready, noticeKey } = getProviderReadiness('free', selected, connections);
+  const providers = targets.map(name).join(' · ');
+  if (targets.length === 0) throw new Error(encodeError(noticeKey!, { providers: unready.map(name).join(' · ') }));
+  sendWorkflowStatus(unready.length
+    ? { key: 'workflow.free.partial', params: { ready: providers, providers: unready.map(name).join(' · ') } }
+    : { key: 'workflow.free', params: { providers } });
   const results = await Promise.allSettled(targets.map((provider) => sendAndWait(provider, text, workflowId, false)));
   checkAborted(workflowId);
-  if (results.every((result) => result.status === 'rejected')) throw (results[0] as PromiseRejectedResult).reason;
+  const failures = results.flatMap((result) => result.status === 'rejected' ? [result.reason] : []);
+  if (failures.length === 0) return;
+  const abort = failures.find((reason) => reason instanceof DOMException && reason.name === 'AbortError');
+  if (abort) throw abort;
+  const undelivered = failures.filter(
+    (reason): reason is ProviderRequestError => reason instanceof ProviderRequestError && !reason.alreadyDelivered,
+  );
+  if (failures.length === results.length) {
+    if (undelivered.length === 0) return;
+    throw undelivered[0];
+  }
+  for (const error of undelivered) sendProviderFailure(error);
 }
 
 async function handleDebateMode(text: string, roles: DebateRoles, workflowId: string): Promise<void> {
@@ -814,19 +882,33 @@ async function sendWorkflowStatus(
   sessionId = activeSessionId,
   clientId = activeClientId,
 ): Promise<void> {
+  if (workflowId && workflowId === activeWorkflowId && !payload.done) {
+    lastWorkflowStatus = { key: payload.key, params: payload.params };
+  }
   await chrome.runtime.sendMessage({
     action: 'WORKFLOW_STATUS',
     payload: { ...payload, workflowId, sessionId, clientId },
   }).catch(() => {});
 }
 
-async function sendRoleAssignment(provider: AIProvider, labelKey: string, requestId?: string): Promise<void> {
+async function sendRoleAssignment(
+  provider: AIProvider,
+  labelKey: string,
+  requestId?: string,
+  scope?: { workflowId?: string; sessionId?: string; clientId?: string },
+): Promise<void> {
+  const workflowId = scope?.workflowId ?? activeWorkflowId;
+  const sessionId = scope?.sessionId ?? activeSessionId;
+  const clientId = scope?.clientId ?? activeClientId;
+  if (!scope && workflowId && workflowId === activeWorkflowId) {
+    lastRoleAssignment = { provider, labelKey, requestId };
+  }
   await chrome.runtime.sendMessage({
     action: 'ROLE_ASSIGNMENT',
     provider,
     requestId,
-    workflowId: activeWorkflowId,
-    payload: { labelKey, sessionId: activeSessionId, clientId: activeClientId },
+    workflowId,
+    payload: { labelKey, sessionId, clientId },
   }).catch(() => {});
 }
 
@@ -878,6 +960,66 @@ function sendStepRecoveryMessage(request: StepRecoveryRequest): void {
     workflowId: request.workflowId,
     payload: request,
   }).catch(() => {});
+}
+
+function sendProviderFailure(error: ProviderRequestError): void {
+  chrome.runtime.sendMessage({
+    action: 'RESPONSE_DONE',
+    provider: error.provider,
+    requestId: error.requestId,
+    workflowId: error.workflowId,
+    payload: `Error: ${error.message}`,
+  }).catch(() => {});
+}
+
+async function adoptSidePanelClient(target?: { clientId?: string; sessionId?: string }): Promise<void> {
+  const targetClientId = target?.clientId;
+  const targetSessionId = target?.sessionId;
+  const workflowId = activeWorkflowId;
+  const sessionId = activeSessionId;
+  const previousClientId = activeClientId;
+  const statusSnapshot = lastWorkflowStatus;
+  const roleSnapshot = lastRoleAssignment;
+
+  if (workflowId && sessionId && previousClientId && targetClientId && targetSessionId === sessionId) {
+    if (targetClientId !== previousClientId && workflowLifecycle.canOwnRecovery(workflowId, targetClientId)) {
+      const registered = workflowLifecycle.current(workflowId);
+      if (registered
+        && registered.sessionId === sessionId
+        && registered.clientId === previousClientId
+        && workflowLifecycle.rebind(workflowId, sessionId, targetClientId)) {
+        workflowLifecycle.revokeRecoveryOwner(workflowId, previousClientId);
+        stepRecovery.rebindClient(workflowId, sessionId, targetClientId);
+        if (activeWorkflowId === workflowId) activeClientId = targetClientId;
+        await sendWorkflowStatus(
+          { key: '', done: true, cancelled: true },
+          workflowId,
+          sessionId,
+          previousClientId,
+        );
+      }
+    }
+    if (activeWorkflowId === workflowId
+      && activeSessionId === sessionId
+      && activeClientId === targetClientId) {
+      await sendWorkflowStatus(
+        statusSnapshot ?? { key: 'workflow.starting' },
+        workflowId,
+        sessionId,
+        targetClientId,
+      );
+      if (roleSnapshot && activeWorkflowId === workflowId && activeSessionId === sessionId) {
+        await sendRoleAssignment(
+          roleSnapshot.provider,
+          roleSnapshot.labelKey,
+          roleSnapshot.requestId,
+          { workflowId, sessionId, clientId: targetClientId },
+        );
+      }
+    }
+  }
+  await replayPendingStepRecovery(target);
+  await notifyInterruptedWorkflow(target);
 }
 
 async function replayPendingStepRecovery(target?: { clientId?: string; sessionId?: string }): Promise<void> {

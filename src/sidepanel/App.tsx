@@ -25,7 +25,29 @@ import { getLocale, setLocale as setActiveLocale, SUPPORTED_LOCALES, t } from '.
 import { applyTheme, THEME_MODES, watchSystemTheme } from '../shared/theme';
 import { getHackMDToken, publishToHackMD } from '../shared/hackmd';
 import { buildConversationReplayContext } from '../shared/conversationContinuity';
+import {
+  MAX_CONVERSATIONS,
+  commitActiveConversation,
+  createConversationPersister,
+  payloadFromInputs,
+  storageReadFailed,
+  toPersistPayload,
+  usableConversations,
+  type ConversationPersistInputs,
+  type ConversationPersister,
+} from '../shared/conversationPersistence';
+import {
+  ALL_PROVIDERS,
+  DEFAULT_STANDBY_PROVIDER,
+  activeProviders,
+  normalizeStandbyProvider,
+  readyActiveTargets,
+  repairRoles,
+  selectedActiveTargets,
+} from '../shared/providerSelection';
 import { decodeError, ERROR_MARKER } from '../shared/errors';
+import { getProviderReadiness } from '../shared/providerReadiness';
+import { openUnreadyProviders } from './openUnreadyProviders';
 import { createWorkflowCancellation, createWorkflowScope } from '../shared/workflowScope';
 import {
   acceptStepRecoveryMessage,
@@ -40,8 +62,7 @@ import ChatArea from './components/ChatArea';
 import InputBar from './components/InputBar';
 import SettingsModal from './components/SettingsModal';
 
-const PROVIDERS: AIProvider[] = ['chatgpt', 'claude', 'gemini', 'grok'];
-const MAX_CONVERSATIONS = 30;
+const PROVIDERS = ALL_PROVIDERS;
 const DEFAULT_ROLES: Record<Exclude<ChatMode, 'free'>, ModeRoles> = {
   debate: DEFAULT_DEBATE_ROLES,
   consult: DEFAULT_CONSULT_ROLES,
@@ -72,25 +93,10 @@ function newConversation(): Conversation {
   };
 }
 
-function conversationTitle(messages: ChatMessage[]): string {
-  const firstQuestion = messages.find((message) => message.role === 'user')?.content.trim();
-  if (!firstQuestion) return t('session.untitled');
-  return firstQuestion.length > 46 ? `${firstQuestion.slice(0, 46)}…` : firstQuestion;
-}
-
-function fitConversationsForStorage(conversations: Conversation[]): Conversation[] {
-  const maxBytes = 7_500_000;
-  const persisted = [...conversations];
-  const size = () => new TextEncoder().encode(JSON.stringify(persisted)).byteLength;
-  while (persisted.length > 1 && size() > maxBytes) persisted.pop();
-  if (persisted.length === 1 && size() > maxBytes) {
-    const conversation = { ...persisted[0], messages: [...persisted[0].messages] };
-    while (conversation.messages.length > 2 && new TextEncoder().encode(JSON.stringify(conversation)).byteLength > maxBytes) {
-      conversation.messages.shift();
-    }
-    persisted[0] = conversation;
-  }
-  return persisted;
+function answeredProvidersOf(messages: readonly ChatMessage[]): AIProvider[] {
+  return [...new Set(
+    messages.map((message) => message.provider).filter((provider): provider is AIProvider => Boolean(provider) && (provider as string) !== 'system'),
+  )];
 }
 
 // 錯誤在背景與 content script 只帶鍵值，這裡是唯一翻譯成使用者語言的地方。
@@ -134,7 +140,10 @@ export default function App() {
   const [mode, setMode] = useState<ChatMode>('free');
   const [roles, setRoles] = useState<ModeRoles>(DEFAULT_DEBATE_ROLES);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [freeTargets, setFreeTargets] = useState<AIProvider[]>(PROVIDERS);
+  const [standbyProvider, setStandbyProvider] = useState<AIProvider>(DEFAULT_STANDBY_PROVIDER);
+  const standbyProviderRef = useRef(DEFAULT_STANDBY_PROVIDER);
+  const providers = activeProviders(standbyProvider);
+  const [freeTargets, setFreeTargets] = useState<AIProvider[]>(() => activeProviders(DEFAULT_STANDBY_PROVIDER));
   const [isProcessing, setIsProcessing] = useState(false);
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatusPayload | null>(null);
   const [stepRecovery, setStepRecovery] = useState<StepRecoveryRequest | null>(null);
@@ -152,11 +161,15 @@ export default function App() {
   const [contextNeedsReplay, setContextNeedsReplay] = useState(false);
   const [conversationDrawerOpen, setConversationDrawerOpen] = useState(false);
   const [connectionsOpen, setConnectionsOpen] = useState(true);
+  const [isOpeningUnready, setIsOpeningUnready] = useState(false);
+  const [failedOpenProviders, setFailedOpenProviders] = useState<AIProvider[]>([]);
+  const openingUnreadyRef = useRef(false);
   const [deleteTargetId, setDeleteTargetId] = useState('');
   const [hydrated, setHydrated] = useState(false);
   const pendingRolesRef = useRef<Record<string, string>>({});
   const clientIdRef = useRef(crypto.randomUUID());
   const activeConversationIdRef = useRef('');
+  const conversationRevisionRef = useRef(0);
   const activeWorkflowIdRef = useRef<string>();
   const ignoredWorkflowIdsRef = useRef(new Set<string>());
   const completedWorkflowIdsRef = useRef(new Set<string>());
@@ -164,6 +177,42 @@ export default function App() {
   const handledRecoveryIdsRef = useRef(new Set<string>());
   const stepRecoveryRef = useRef<StepRecoveryRequest | null>(null);
   const resolvingRecoveryRef = useRef(false);
+  const persistInputsRef = useRef<ConversationPersistInputs>({
+    conversations: [],
+    activeConversationId: '',
+    messages: [],
+    mode: 'free',
+    roles: DEFAULT_DEBATE_ROLES,
+    providerUrls: {},
+  });
+  const persisterRef = useRef<ConversationPersister | null>(null);
+  if (!persisterRef.current) {
+    persisterRef.current = createConversationPersister({
+      write: (payload) => { void chrome.storage.local.set(payload).catch(() => {}); },
+    });
+  }
+  const persistEnabledRef = useRef(false);
+  const skipHydratePersistRef = useRef(true);
+
+  persistInputsRef.current = {
+    conversations,
+    activeConversationId,
+    messages,
+    mode,
+    roles,
+    providerUrls,
+  };
+
+  const applyProviderSelection = useCallback((next: AIProvider, targets: unknown) => {
+    const previous = standbyProviderRef.current;
+    standbyProviderRef.current = next;
+    setStandbyProvider(next);
+    setFreeTargets(selectedActiveTargets(targets, next));
+    const nextRoles = repairRoles(persistInputsRef.current.roles, next, previous);
+    setRoles(nextRoles);
+    persistInputsRef.current = { ...persistInputsRef.current, roles: nextRoles };
+    if (next !== previous) setContextNeedsReplay(true);
+  }, []);
 
   useEffect(() => {
     pendingRolesRef.current = pendingRoles;
@@ -183,33 +232,73 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    chrome.storage.local.get(['language', 'theme', 'conversations', 'activeConversationId', 'freeTargets'], (stored) => {
-      const savedLocale = stored.language as Locale | undefined;
-      if (savedLocale && SUPPORTED_LOCALES.includes(savedLocale)) {
-        setActiveLocale(savedLocale);
-        setLocale(savedLocale);
-      }
+    let cancelled = false;
+    let retryTimer: number | undefined;
+    let attempt = 0;
+    const keys = ['language', 'theme', 'conversations', 'activeConversationId', 'freeTargets', 'standbyProvider'];
+    const load = () => {
+      chrome.storage.local.get(keys, (stored) => {
+        if (cancelled) return;
+        if (storageReadFailed(chrome.runtime.lastError)) {
+          attempt += 1;
+          retryTimer = window.setTimeout(load, Math.min(2_000, 100 * 2 ** Math.min(attempt, 5)));
+          return;
+        }
+        const savedLocale = stored.language as Locale | undefined;
+        if (savedLocale && SUPPORTED_LOCALES.includes(savedLocale)) {
+          setActiveLocale(savedLocale);
+          setLocale(savedLocale);
+        }
 
-      const savedTheme = stored.theme as ThemeMode | undefined;
-      if (savedTheme && THEME_MODES.includes(savedTheme)) setTheme(savedTheme);
+        const savedTheme = stored.theme as ThemeMode | undefined;
+        if (savedTheme && THEME_MODES.includes(savedTheme)) setTheme(savedTheme);
 
-      const savedTargets = Array.isArray(stored.freeTargets)
-        ? stored.freeTargets.filter((provider): provider is AIProvider => PROVIDERS.includes(provider as AIProvider))
-        : PROVIDERS;
-      setFreeTargets(savedTargets.length ? savedTargets : PROVIDERS);
-
-      const savedConversations = Array.isArray(stored.conversations) ? stored.conversations as Conversation[] : [];
-      const selected = savedConversations.find((conversation) => conversation.id === stored.activeConversationId) ?? savedConversations[0] ?? newConversation();
-      const initial = savedConversations.length ? savedConversations : [selected];
-      setConversations(initial);
-      setActiveConversationId(selected.id);
-      setMode(selected.mode);
-      setRoles(selected.roles ?? (selected.mode === 'free' ? DEFAULT_DEBATE_ROLES : DEFAULT_ROLES[selected.mode]));
-      setMessages(selected.messages ?? []);
-      setProviderUrls(selected.providerUrls ?? {});
-      setContextNeedsReplay(Boolean(selected.messages?.length));
-      setHydrated(true);
-    });
+        const standby = normalizeStandbyProvider(stored.standbyProvider);
+        const savedConversations = usableConversations(stored.conversations);
+        const selected = savedConversations.find((conversation) => conversation.id === stored.activeConversationId)
+          ?? savedConversations[0]
+          ?? newConversation();
+        const initial = savedConversations.length ? savedConversations : [selected];
+        const savedTargets = selectedActiveTargets(stored.freeTargets, standby);
+        const nextRoles = repairRoles(
+          selected.roles ?? (selected.mode === 'free' ? DEFAULT_DEBATE_ROLES : DEFAULT_ROLES[selected.mode] ?? DEFAULT_DEBATE_ROLES),
+          standby,
+        ) ?? DEFAULT_DEBATE_ROLES;
+        const nextMessages = Array.isArray(selected.messages) ? selected.messages : [];
+        const nextUrls = selected.providerUrls && typeof selected.providerUrls === 'object' && !Array.isArray(selected.providerUrls)
+          ? selected.providerUrls
+          : {};
+        standbyProviderRef.current = standby;
+        setStandbyProvider(standby);
+        setFreeTargets(savedTargets.length ? savedTargets : activeProviders(standby));
+        setConversations(initial);
+        setActiveConversationId(selected.id);
+        activeConversationIdRef.current = selected.id;
+        setMode(selected.mode);
+        setRoles(nextRoles);
+        setMessages(nextMessages);
+        setProviderUrls(nextUrls);
+        setContextNeedsReplay(Boolean(nextMessages.length));
+        persistInputsRef.current = {
+          conversations: initial,
+          activeConversationId: selected.id,
+          messages: nextMessages,
+          mode: selected.mode,
+          roles: nextRoles,
+          providerUrls: nextUrls,
+        };
+        persisterRef.current?.track(toPersistPayload(initial, selected.id));
+        persisterRef.current?.enable();
+        persistEnabledRef.current = true;
+        skipHydratePersistRef.current = true;
+        setHydrated(true);
+      });
+    };
+    load();
+    return () => {
+      cancelled = true;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -250,6 +339,11 @@ export default function App() {
   useEffect(() => {
     const listener = (message: { action: string; provider?: AIProvider; requestId?: string; workflowId?: string; payload?: unknown }) => {
       switch (message.action) {
+        case 'PROVIDER_SELECTION_UPDATE': {
+          const selection = message.payload as { standbyProvider?: unknown; freeTargets?: unknown };
+          applyProviderSelection(normalizeStandbyProvider(selection.standbyProvider), selection.freeTargets);
+          break;
+        }
         case 'CONNECTIONS_UPDATE':
           setConnections(message.payload as Record<AIProvider, AIConnection>);
           break;
@@ -321,9 +415,13 @@ export default function App() {
             setWorkflowStatus(null);
             setIsProcessing(false);
             if (!status.cancelled) {
+              const revision = conversationRevisionRef.current;
               chrome.runtime.sendMessage({ action: 'GET_PROVIDER_URLS' })
                 // 背景只回這輪用過的 provider，要疊加而不是覆蓋，否則同一個對話先前記過的網址會掉
-                .then((urls) => setProviderUrls((current) => ({ ...current, ...(urls as Partial<Record<AIProvider, string>>) })))
+                .then((urls) => {
+                  if (conversationRevisionRef.current !== revision || activeConversationIdRef.current !== status.sessionId) return;
+                  setProviderUrls((current) => ({ ...current, ...(urls as Partial<Record<AIProvider, string>>) }));
+                })
                 .catch(() => {});
             }
             break;
@@ -339,48 +437,66 @@ export default function App() {
     };
     chrome.runtime.onMessage.addListener(listener);
     return () => chrome.runtime.onMessage.removeListener(listener);
-  }, []);
+  }, [applyProviderSelection]);
 
   useEffect(() => {
     if (!hydrated || !activeConversationId) return;
-    let snapshot: Conversation[] | undefined;
-    setConversations((current) => {
-      const existing = current.find((conversation) => conversation.id === activeConversationId);
-      const updated: Conversation = {
-        id: activeConversationId,
-        title: conversationTitle(messages),
-        mode,
-        roles: mode === 'free' ? undefined : roles,
-        messages,
-        providerUrls,
-        createdAt: existing?.createdAt ?? Date.now(),
-        updatedAt: Date.now(),
-      };
-      const next = [updated, ...current.filter((conversation) => conversation.id !== activeConversationId)]
-        .sort((first, second) => second.updatedAt - first.updatedAt)
-        .slice(0, MAX_CONVERSATIONS);
-      snapshot = fitConversationsForStorage(next);
-      return next;
-    });
-    const persist = () => {
-      if (snapshot) void chrome.storage.local.set({ conversations: snapshot, activeConversationId }).catch(() => {});
+    const next = commitActiveConversation(conversations, {
+      id: activeConversationId,
+      messages,
+      mode,
+      roles,
+      providerUrls,
+    }, t('session.untitled'));
+    if (next !== conversations) setConversations(next);
+    persistInputsRef.current = {
+      conversations: next,
+      activeConversationId,
+      messages,
+      mode,
+      roles,
+      providerUrls,
     };
-    const timer = window.setTimeout(persist, 350);
-    return () => {
-      window.clearTimeout(timer);
-      persist();
-    };
+    persisterRef.current?.track(toPersistPayload(next, activeConversationId));
+    if (skipHydratePersistRef.current) {
+      skipHydratePersistRef.current = false;
+      return;
+    }
+    persisterRef.current?.debounce();
   }, [activeConversationId, hydrated, messages, mode, providerUrls, roles]);
+
+  useEffect(() => {
+    const flush = () => {
+      if (!persistEnabledRef.current) return;
+      const payload = payloadFromInputs(persistInputsRef.current, t('session.untitled'));
+      if (!payload) return;
+      persisterRef.current?.track(payload);
+      persisterRef.current?.flush();
+    };
+    // Closing a panel destroys its document without a React unmount. Flush the
+    // latest committed snapshot so mode/roles/active id agree with Free targets.
+    window.addEventListener('pagehide', flush);
+    return () => window.removeEventListener('pagehide', flush);
+  }, []);
 
   const changeMode = (nextMode: ChatMode) => {
     if (isProcessing) return;
     setMode(nextMode);
     setShowRoleConfig(false);
-    if (nextMode !== 'free') setRoles(DEFAULT_ROLES[nextMode]);
+    const nextRoles = nextMode !== 'free'
+      ? repairRoles(DEFAULT_ROLES[nextMode], standbyProvider)
+      : persistInputsRef.current.roles;
+    if (nextMode !== 'free') setRoles(nextRoles);
+    persistInputsRef.current = { ...persistInputsRef.current, mode: nextMode, roles: nextRoles };
+    const payload = payloadFromInputs(persistInputsRef.current, t('session.untitled'));
+    if (!payload) return;
+    persisterRef.current?.track(payload);
+    persisterRef.current?.debounce();
   };
 
   const handleSend = useCallback((text: string) => {
     if (!text.trim() || isProcessing) return;
+    const revision = ++conversationRevisionRef.current;
     if (activeWorkflowIdRef.current) ignoreWorkflow(activeWorkflowIdRef.current, ignoredWorkflowIdsRef);
     const workflowScope = createWorkflowScope(activeConversationId, clientIdRef.current);
     activeWorkflowIdRef.current = workflowScope.workflowId;
@@ -405,13 +521,16 @@ export default function App() {
         targets: mode === 'free' ? freeTargets : undefined,
       },
     }).catch((error) => {
-      if (activeWorkflowIdRef.current === workflowScope.workflowId) activeWorkflowIdRef.current = undefined;
+      if (conversationRevisionRef.current !== revision || activeWorkflowIdRef.current !== workflowScope.workflowId
+        || activeConversationIdRef.current !== workflowScope.sessionId) return;
+      activeWorkflowIdRef.current = undefined;
       setMessages((current) => [...current, { id: `system-${crypto.randomUUID()}`, role: 'ai', provider: 'system' as AIProvider, content: `${ERROR_MARKER} ${String(error)}`, timestamp: Date.now() }]);
       setIsProcessing(false);
     });
   }, [activeConversationId, contextNeedsReplay, freeTargets, isProcessing, messages, mode, roles]);
 
   const stopWorkflow = useCallback(() => {
+    conversationRevisionRef.current += 1;
     const workflowId = activeWorkflowIdRef.current;
     if (workflowId) ignoreWorkflow(workflowId, ignoredWorkflowIdsRef);
     activeWorkflowIdRef.current = undefined;
@@ -453,33 +572,59 @@ export default function App() {
     setIsResolvingRecovery(false);
   }, [stepRecovery]);
 
-  // notes: 只有真的回答過的 AI 需要重設分頁；沒用到的分頁不去動它，使用者可能正在上面看別的東西
-  const answeredProviders = (): AIProvider[] => [...new Set(
-    messages.map((message) => message.provider).filter((provider): provider is AIProvider => Boolean(provider) && (provider as string) !== 'system'),
-  )];
-
   const closeDrawer = () => {
     setConversationDrawerOpen(false);
     setDeleteTargetId('');
   };
 
+  const commitCurrentConversation = () => {
+    const current = persistInputsRef.current;
+    if (!current.activeConversationId) return current.conversations;
+    return commitActiveConversation(current.conversations, {
+      id: current.activeConversationId,
+      messages: current.messages,
+      mode: current.mode,
+      roles: current.roles,
+      providerUrls: current.providerUrls,
+    }, t('session.untitled'));
+  };
+
+  const persistNow = (nextConversations: Conversation[], nextActiveId: string) => {
+    persistInputsRef.current = { ...persistInputsRef.current, conversations: nextConversations, activeConversationId: nextActiveId };
+    persisterRef.current?.track(toPersistPayload(nextConversations, nextActiveId));
+    persisterRef.current?.flush();
+  };
+
   const startNewConversation = () => {
     if (isProcessing) return;
+    conversationRevisionRef.current += 1;
     if (activeWorkflowIdRef.current) ignoreWorkflow(activeWorkflowIdRef.current, ignoredWorkflowIdsRef);
     activeWorkflowIdRef.current = undefined;
+    const leavingMessages = persistInputsRef.current.messages;
+    const committed = commitCurrentConversation();
     // notes: 已經有空對話就重用它，只更新時間，避免堆出一串重複的「新對話」
-    const reusable = conversations.find((candidate) => !candidate.messages?.length);
+    const reusable = committed.find((candidate) => !candidate.messages?.length);
     const conversation = reusable ?? newConversation();
-    setConversations((current) => reusable
-      ? current.map((candidate) => candidate.id === reusable.id ? { ...candidate, updatedAt: Date.now() } : candidate)
-      : [conversation, ...current].slice(0, MAX_CONVERSATIONS));
+    const nextConversations = reusable
+      ? committed.map((candidate) => candidate.id === reusable.id ? { ...candidate, updatedAt: Date.now() } : candidate)
+      : [conversation, ...committed].slice(0, MAX_CONVERSATIONS);
+    const nextRoles = repairRoles(DEFAULT_DEBATE_ROLES, standbyProvider);
+    persistInputsRef.current = {
+      conversations: nextConversations,
+      activeConversationId: conversation.id,
+      messages: [],
+      mode: 'free',
+      roles: nextRoles,
+      providerUrls: {},
+    };
+    setConversations(nextConversations);
     setActiveConversationId(conversation.id);
     activeConversationIdRef.current = conversation.id;
     setMessages([]);
     setProviderUrls({});
     setContextNeedsReplay(false);
     setMode('free');
-    setRoles(DEFAULT_DEBATE_ROLES);
+    setRoles(nextRoles);
     setTrace([]);
     setWorkflowStatus(null);
     stepRecoveryRef.current = null;
@@ -489,34 +634,57 @@ export default function App() {
     clearPendingRoles(pendingRolesRef, setPendingRoles);
     closeDrawer();
     setConnectionsOpen(true);
-    chrome.runtime.sendMessage({ action: 'RESET_PROVIDER_SESSIONS', payload: { providers: answeredProviders() } }).catch(() => {});
+    persistNow(nextConversations, conversation.id);
+    chrome.runtime.sendMessage({ action: 'RESET_PROVIDER_SESSIONS', payload: { providers: answeredProvidersOf(leavingMessages) } }).catch(() => {});
   };
 
   const selectConversation = (conversation: Conversation) => {
     if (isProcessing) return;
+    if (conversation.id === persistInputsRef.current.activeConversationId) return;
+    conversationRevisionRef.current += 1;
     if (activeWorkflowIdRef.current) ignoreWorkflow(activeWorkflowIdRef.current, ignoredWorkflowIdsRef);
     activeWorkflowIdRef.current = undefined;
+    const leavingMessages = persistInputsRef.current.messages;
+    const committed = commitCurrentConversation();
+    const nextRoles = repairRoles(conversation.roles ?? (conversation.mode === 'free' ? DEFAULT_DEBATE_ROLES : DEFAULT_ROLES[conversation.mode]), standbyProvider);
+    persistInputsRef.current = {
+      conversations: committed,
+      activeConversationId: conversation.id,
+      messages: conversation.messages ?? [],
+      mode: conversation.mode,
+      roles: nextRoles,
+      providerUrls: conversation.providerUrls ?? {},
+    };
+    setConversations(committed);
     setActiveConversationId(conversation.id);
     activeConversationIdRef.current = conversation.id;
     setMessages(conversation.messages ?? []);
     setProviderUrls(conversation.providerUrls ?? {});
     setContextNeedsReplay(Boolean(conversation.messages?.length));
     setMode(conversation.mode);
-    setRoles(conversation.roles ?? (conversation.mode === 'free' ? DEFAULT_DEBATE_ROLES : DEFAULT_ROLES[conversation.mode]));
+    setRoles(nextRoles);
     setTrace([]);
+    persistNow(committed, conversation.id);
     const action = conversation.providerUrls && Object.keys(conversation.providerUrls).length
       ? { action: 'RESTORE_PROVIDER_SESSIONS', payload: { urls: conversation.providerUrls } }
-      : { action: 'RESET_PROVIDER_SESSIONS', payload: { providers: answeredProviders() } };
+      : { action: 'RESET_PROVIDER_SESSIONS', payload: { providers: answeredProvidersOf(leavingMessages) } };
     chrome.runtime.sendMessage(action).catch(() => {});
   };
 
   const deleteConversation = (id: string) => {
     if (isProcessing) return;
-    const remaining = conversations.filter((conversation) => conversation.id !== id);
+    const remaining = commitCurrentConversation().filter((conversation) => conversation.id !== id);
     setConversations(remaining);
     setDeleteTargetId('');
-    void chrome.storage.local.set({ conversations: fitConversationsForStorage(remaining) }).catch(() => {});
-    if (id !== activeConversationId) return;
+    persistInputsRef.current = {
+      ...persistInputsRef.current,
+      conversations: remaining,
+      activeConversationId: id === persistInputsRef.current.activeConversationId ? '' : persistInputsRef.current.activeConversationId,
+    };
+    if (id !== activeConversationId) {
+      persistNow(remaining, activeConversationId);
+      return;
+    }
     if (remaining.length) selectConversation(remaining[0]);
     else startNewConversation();
   };
@@ -532,6 +700,14 @@ export default function App() {
     void chrome.storage.local.set({ theme: nextTheme });
   };
 
+  const changeStandbyProvider = async (next: AIProvider) => {
+    const result = await chrome.runtime.sendMessage({
+      action: 'SET_STANDBY_PROVIDER', payload: { standbyProvider: next },
+    }) as { ok?: boolean; error?: string; standbyProvider?: AIProvider; freeTargets?: AIProvider[] } | undefined;
+    if (!result?.ok || !result.standbyProvider) throw new Error(humanizeError(result?.error ?? t('error.provider_change_failed')));
+    applyProviderSelection(result.standbyProvider, result.freeTargets);
+  };
+
   const toggleTarget = (provider: AIProvider) => {
     if (isProcessing) return;
     setFreeTargets((current) => {
@@ -542,13 +718,21 @@ export default function App() {
     });
   };
 
+  const selectReadyTargets = () => {
+    if (!hydrated || isProcessing || mode !== 'free') return;
+    const targets = readyActiveTargets(connections, standbyProviderRef.current);
+    if (!targets.length) return;
+    setFreeTargets(targets);
+    void chrome.storage.local.set({ freeTargets: targets });
+  };
+
   const openLogin = async (provider: AIProvider): Promise<void> => {
     const response = await chrome.runtime.sendMessage({ action: 'OPEN_LOGIN', provider }) as { ok?: boolean; error?: string } | undefined;
     if (response && response.ok === false) throw new Error(response.error ?? provider);
   };
 
   const connectAll = () => {
-    const pending = PROVIDERS.filter((provider) => connections[provider].status !== 'connected');
+    const pending = providers.filter((provider) => connections[provider].status !== 'connected');
     Promise.all(pending.map(openLogin))
       .then(() => setConnectionsOpen(false))
       .catch(() => {});
@@ -587,10 +771,31 @@ export default function App() {
     }
   };
 
-  const connectedCount = PROVIDERS.filter((provider) => connections[provider].status === 'connected').length;
-  const noReadyProvider = connectedCount === 0;
-  const serialModeReady = mode === 'free' || Object.values(roles as unknown as Record<string, AIProvider>)
-    .every((provider) => connections[provider]?.status === 'connected');
+  const connectedCount = readyActiveTargets(connections, standbyProvider).length;
+  const readiness = getProviderReadiness(mode, mode === 'free'
+    ? selectedActiveTargets(freeTargets, standbyProvider)
+    : Object.values(roles), connections);
+  const readinessNotice = hydrated && !isProcessing && readiness.noticeKey ? t(readiness.noticeKey, {
+    providers: readiness.unready.map((provider) => AI_PROVIDERS[provider].name).join(' · '),
+    ready: readiness.ready.map((provider) => AI_PROVIDERS[provider].name).join(' · '),
+  }) : undefined;
+  const failedUnready = failedOpenProviders.filter((provider) => readiness.unready.includes(provider));
+  const readinessOpenError = failedUnready.length ? t('error.open_unready_failed', {
+    providers: failedUnready.map((provider) => AI_PROVIDERS[provider].name).join(' · '),
+  }) : undefined;
+  const handleOpenUnready = async () => {
+    if (!hydrated || isProcessing || openingUnreadyRef.current) return;
+    openingUnreadyRef.current = true;
+    setIsOpeningUnready(true);
+    setFailedOpenProviders([]);
+    setConnectionsOpen(true);
+    try {
+      setFailedOpenProviders(await openUnreadyProviders(readiness.unready, standbyProviderRef.current, connections, openLogin));
+    } finally {
+      openingUnreadyRef.current = false;
+      setIsOpeningUnready(false);
+    }
+  };
   const currentStatus = workflowStatus ? formatWorkflowStatus(workflowStatus) : t('trace.idle');
 
   return (
@@ -607,17 +812,22 @@ export default function App() {
         </div>
       </header>
 
-      <section className="max-h-[46vh] flex-none overflow-y-auto border-b border-slate-200 bg-white px-3 py-3">
+      <section className="min-h-0 max-h-[46vh] shrink overflow-y-auto border-b border-slate-200 bg-white px-3 py-3">
         <ModeSelector mode={mode} onModeChange={changeMode} disabled={isProcessing} />
 
         {mode === 'free' && (
-          <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t('targets.title')}</div>
+          <div role="group" aria-label={t('targets.title')} className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t('targets.title')}</div>
+              <button type="button" onClick={selectReadyTargets} disabled={!hydrated || isProcessing || connectedCount === 0}
+                title={connectedCount === 0 ? t('targets.none_ready') : undefined}
+                className="rounded-lg border border-sky-300 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-800 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50">{t('targets.select_ready')}</button>
+            </div>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {PROVIDERS.map((provider) => {
+              {providers.map((provider) => {
                 const selected = freeTargets.includes(provider);
                 const ready = connections[provider].status === 'connected';
-                return <button key={provider} type="button" disabled={isProcessing} onClick={() => toggleTarget(provider)} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${selected ? 'border-sky-300 bg-sky-50 text-sky-800' : 'border-slate-200 bg-white text-slate-400'}`}><span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${ready ? 'bg-emerald-500' : 'bg-slate-300'}`} />{AI_PROVIDERS[provider].name}</button>;
+                return <button key={provider} type="button" aria-pressed={selected} disabled={isProcessing} onClick={() => toggleTarget(provider)} className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${selected ? 'border-sky-300 bg-sky-50 text-sky-800' : 'border-slate-200 bg-white text-slate-400'}`}><span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${ready ? 'bg-emerald-500' : 'bg-slate-300'}`} />{AI_PROVIDERS[provider].name}</button>;
               })}
             </div>
           </div>
@@ -626,7 +836,7 @@ export default function App() {
         {mode !== 'free' && (
           <div className="mt-2">
             <button type="button" onClick={() => setShowRoleConfig((current) => !current)} className="text-xs font-medium text-sky-700 hover:text-sky-900">{showRoleConfig ? t('roles.toggle.hide') : t('roles.toggle.show')}</button>
-            {showRoleConfig && <RoleConfig mode={mode} roles={roles} onRolesChange={setRoles} />}
+            {showRoleConfig && <RoleConfig providers={providers} mode={mode} roles={roles} onRolesChange={setRoles} />}
           </div>
         )}
 
@@ -637,7 +847,7 @@ export default function App() {
             <button type="button" onClick={(event) => { event.preventDefault(); connectAll(); }} disabled={connectedCount === 4} className="float-right rounded-lg bg-sky-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500">{t('connection.connect_all')}</button>
           </summary>
           <div className="border-t border-slate-200 p-2.5">
-            <ConnectionBar connections={connections} onOpenLogin={(provider) => { void openLogin(provider).catch(() => {}); }} />
+            <ConnectionBar providers={providers} connections={connections} onOpenLogin={(provider) => { void openLogin(provider).catch(() => {}); }} />
             <p className="mt-2 text-xs leading-relaxed text-slate-500">{t('connection.help')}</p>
           </div>
         </details>
@@ -667,7 +877,10 @@ export default function App() {
           <button type="button" onClick={() => void publishConversation()} disabled={!messages.length || isPublishing} className="hover:text-sky-700 disabled:opacity-30">{isPublishing ? t('publish.publishing') : t('app.publish')}</button>
         </div>
       </div>
-      <InputBar onSend={handleSend} onCancel={stopWorkflow} disabled={isProcessing || noReadyProvider || !serialModeReady} isProcessing={isProcessing} />
+      <InputBar onSend={handleSend} onCancel={stopWorkflow} disabled={!hydrated || isProcessing || !readiness.canSend}
+        isProcessing={isProcessing} readinessNotice={readinessNotice}
+        onOpenUnready={readiness.unready.length ? () => { void handleOpenUnready(); } : undefined}
+        isOpeningUnready={isOpeningUnready} readinessOpenError={readinessOpenError} />
 
       {conversationDrawerOpen && (
         <div className="absolute inset-0 z-40 bg-black/30" onClick={closeDrawer}>
@@ -694,7 +907,7 @@ export default function App() {
         </div>
       )}
 
-      <SettingsModal isOpen={isSettingsOpen} locale={locale} onLocaleChange={changeLocale} theme={theme} onThemeChange={changeTheme} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal isOpen={isSettingsOpen} locale={locale} onLocaleChange={changeLocale} theme={theme} onThemeChange={changeTheme} standbyProvider={standbyProvider} onStandbyChange={changeStandbyProvider} providerSelectionDisabled={!hydrated || isProcessing} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 }

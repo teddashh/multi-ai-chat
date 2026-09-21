@@ -11,6 +11,8 @@
     "https://claude.ai/*",
     "https://gemini.google.com/*",
     "https://grok.com/*",
+    "https://www.meta.ai/*",
+    "https://meta.ai/*",
     "https://api.hackmd.io/*"
   ],
   "side_panel": {
@@ -39,6 +41,11 @@
     {
       "matches": ["https://grok.com/*"],
       "js": ["content/grok.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.meta.ai/*", "https://meta.ai/*"],
+      "js": ["content/meta.js"],
       "run_at": "document_idle"
     }
   ],

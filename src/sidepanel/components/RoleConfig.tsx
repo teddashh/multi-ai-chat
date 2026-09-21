@@ -4,6 +4,7 @@ import { AI_PROVIDERS } from '../../shared/constants';
 import { t } from '../../shared/i18n';
 
 interface Props {
+  providers: AIProvider[];
   mode: ChatMode;
   roles: ModeRoles;
   onRolesChange: (roles: ModeRoles) => void;
@@ -16,9 +17,7 @@ const ROLE_KEYS: Record<string, Record<string, string>> = {
   roundtable: { first: 'role.first_speaker', second: 'role.second_speaker', third: 'role.third_speaker', fourth: 'role.fourth_speaker' },
 };
 
-const providers: AIProvider[] = ['chatgpt', 'claude', 'gemini', 'grok'];
-
-export default function RoleConfig({ mode, roles, onRolesChange }: Props) {
+export default function RoleConfig({ providers, mode, roles, onRolesChange }: Props) {
   const labels = ROLE_KEYS[mode];
   if (!labels) return null;
 
@@ -34,8 +33,8 @@ export default function RoleConfig({ mode, roles, onRolesChange }: Props) {
   return (
     <div className="mt-2 space-y-2 rounded-lg border border-slate-200 bg-white p-2.5">
       {Object.entries(labels).map(([roleKey, labelKey]) => (
-        <div key={roleKey} className="flex items-start gap-2">
-          <span className="w-20 flex-none pt-1 text-xs text-slate-600">{t(labelKey)}</span>
+        <div key={roleKey} role="group" aria-labelledby={`role-label-${roleKey}`} className="flex items-start gap-2">
+          <span id={`role-label-${roleKey}`} className="w-20 flex-none pt-1 text-xs leading-tight text-slate-600">{t(labelKey)}</span>
           <div className="grid grid-cols-2 gap-1 flex-1">
             {providers.map((p) => {
               const isSelected = (roles as unknown as Record<string, AIProvider>)[roleKey] === p;
@@ -43,6 +42,9 @@ export default function RoleConfig({ mode, roles, onRolesChange }: Props) {
               return (
                 <button
                   key={p}
+                  type="button"
+                  aria-pressed={isSelected}
+                  onFocus={(event) => event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' })}
                   onClick={() => handleChange(roleKey, p)}
                   className={`px-2 py-0.5 rounded text-xs transition-all text-center ${
                     isSelected

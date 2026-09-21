@@ -31,11 +31,13 @@ export default function ChatArea({ messages, mode, conversationId }: Props) {
 
   if (messages.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center px-6 py-10 text-center">
-        <div className="max-w-xs">
-          <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-sky-50 text-2xl">{mode === 'free' ? '⚡' : '💬'}</div>
-          <h2 className="mt-3 text-sm font-semibold text-slate-800">{t('chat.empty')}</h2>
-          <p className="mt-1 text-sm leading-relaxed text-slate-600">{t('chat.empty.help')}</p>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="flex min-h-full items-center justify-center px-6 py-10 text-center">
+          <div className="max-w-xs">
+            <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-sky-50 text-2xl">{mode === 'free' ? '⚡' : '💬'}</div>
+            <h2 className="mt-3 text-sm font-semibold text-slate-800">{t('chat.empty')}</h2>
+            <p className="mt-1 text-sm leading-relaxed text-slate-600">{t('chat.empty.help')}</p>
+          </div>
         </div>
       </div>
     );

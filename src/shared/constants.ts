@@ -32,6 +32,12 @@ export const AI_PROVIDERS: Record<AIProvider, {
     loginUrl: 'https://grok.com',
     color: '#e11d48',
   },
+  meta: {
+    name: 'Meta AI',
+    url: 'https://www.meta.ai',
+    loginUrl: 'https://www.meta.ai',
+    color: '#0668e1',
+  },
 };
 
 // === Mode Definitions ===

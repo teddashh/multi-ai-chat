@@ -15,13 +15,21 @@ export class ProviderRequestError extends Error {
   readonly provider: AIProvider;
   readonly workflowId: string;
   readonly requestId: string;
+  readonly alreadyDelivered: boolean;
 
-  constructor(provider: AIProvider, workflowId: string, requestId: string, reason: unknown) {
+  constructor(
+    provider: AIProvider,
+    workflowId: string,
+    requestId: string,
+    reason: unknown,
+    alreadyDelivered = false,
+  ) {
     super(reason instanceof Error ? reason.message : String(reason));
     this.name = 'ProviderRequestError';
     this.provider = provider;
     this.workflowId = workflowId;
     this.requestId = requestId;
+    this.alreadyDelivered = alreadyDelivered;
   }
 }
 
@@ -250,5 +258,5 @@ export function isStepRecoveryDecision(value: unknown): value is StepRecoveryDec
 }
 
 function isProvider(value: unknown): value is AIProvider {
-  return value === 'chatgpt' || value === 'claude' || value === 'gemini' || value === 'grok';
+  return value === 'chatgpt' || value === 'claude' || value === 'gemini' || value === 'grok' || value === 'meta';
 }

@@ -95,6 +95,15 @@ test('a frozen or discarded sender cannot reclaim ownership through a queued sta
   );
 });
 
+test('unknown readiness changes only the live owner to checking and can reconnect', () => {
+  const incumbent: AIConnection = { provider: 'meta', status: 'connected', tabId: 5 };
+  assert.strictEqual(connectionForStatusReport(incumbent, 'meta', 6, null), incumbent);
+  assert.strictEqual(connectionForStatusReport(incumbent, 'meta', 5, null, true), incumbent);
+  const checking = connectionForStatusReport(incumbent, 'meta', 5, null);
+  assert.deepEqual(checking, { provider: 'meta', status: 'checking', tabId: 5 });
+  assert.deepEqual(connectionForStatusReport(checking, 'meta', 5, true), incumbent);
+});
+
 test('URL-only SPA navigation keeps a ready owner connected', () => {
   const incumbent = connected(11);
   assert.strictEqual(connectionForTabEvent(incumbent, 'chatgpt', 11, false), incumbent);

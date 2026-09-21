@@ -74,5 +74,5 @@ function isStepRecoveryRequest(value: unknown): value is StepRecoveryRequest {
 }
 
 function isProvider(value: unknown): value is AIProvider {
-  return value === 'chatgpt' || value === 'claude' || value === 'gemini' || value === 'grok';
+  return value === 'chatgpt' || value === 'claude' || value === 'gemini' || value === 'grok' || value === 'meta';
 }
