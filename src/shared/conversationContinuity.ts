@@ -36,6 +36,7 @@ export function questionWithConversationContext(question: string, context?: stri
 }
 
 function isReplayableMessage(message: ChatMessage): boolean {
+  if (!message || typeof message.id !== 'string' || typeof message.content !== 'string') return false;
   const content = message.content.trim();
   if (!content || message.id.endsWith('-streaming')) return false;
   // ⚠️ 是翻譯後的錯誤標記；Error: 前綴留給已存的舊對話與未編碼的原生例外

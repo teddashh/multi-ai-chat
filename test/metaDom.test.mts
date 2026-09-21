@@ -1,12 +1,53 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { META_INPUT_SELECTORS, isMetaLoginLabel, isUsableMetaControl, metaLoginStatus, metaSessionReady } from '../src/content/metaDom.ts';
+import {
+  META_INPUT_SELECTORS,
+  isMetaGenerationActive,
+  isMetaLoginLabel,
+  isMetaSendControl,
+  isMetaStopControl,
+  isUsableMetaControl,
+  metaLoginStatus,
+  metaSessionReady,
+} from '../src/content/metaDom.ts';
 import { firstAcceptedCandidate } from '../src/content/elementSelection.ts';
 
-function control(options: { disabled?: boolean; readOnly?: boolean; ancestor?: string; visible?: boolean } = {}) {
+function usableInput() {
+  return { closest: () => null };
+}
+
+function inertInput() {
+  return { closest: (selectors: string) => selectors.includes('[inert]') ? {} : null };
+}
+
+function composerContainer(kind: 'usable' | 'inert' | 'mixed') {
+  const usable = usableInput();
+  const inert = inertInput();
+  const inputs = kind === 'usable' ? [usable] : kind === 'inert' ? [inert] : [inert, usable];
+  return {
+    querySelector: () => inputs[0],
+    querySelectorAll: () => inputs,
+  };
+}
+
+function control(options: {
+  disabled?: boolean;
+  readOnly?: boolean;
+  ancestor?: string;
+  visible?: boolean;
+  testId?: string | null;
+  container?: 'usable' | 'inert' | 'mixed';
+} = {}) {
   return {
     ...options,
-    closest: (selectors: string) => options.ancestor && selectors.includes(options.ancestor) ? {} : null,
+    getAttribute: (name: string) => name === 'data-testid' ? (options.testId ?? null) : null,
+    closest: (selectors: string) => {
+      if (options.ancestor && selectors.includes(options.ancestor)) return {};
+      if (options.container && selectors.includes('[data-testid*="composer"]')) {
+        return composerContainer(options.container);
+      }
+      return null;
+    },
   };
 }
 
@@ -81,4 +122,30 @@ test('login modal controls can be recognized without a test id', () => {
   for (const label of ['Close', 'Send', 'Login history', 'Log in later']) {
     assert.equal(isMetaLoginLabel(label), false);
   }
+});
+
+test('generic Stop and Send controls require a usable composer, not leftover markup', () => {
+  assert.equal(isMetaStopControl(control()), false);
+  assert.equal(isMetaSendControl(control()), false);
+  assert.equal(isMetaStopControl(control({ container: 'inert' })), false);
+  assert.equal(isMetaSendControl(control({ container: 'inert' })), false);
+  assert.equal(isMetaStopControl(control({ testId: 'composer-stop-button' })), true);
+  assert.equal(isMetaSendControl(control({ testId: 'composer-send-button' })), true);
+  assert.equal(isMetaStopControl(control({ container: 'usable' })), true);
+  assert.equal(isMetaSendControl(control({ container: 'usable' })), true);
+  assert.equal(isMetaStopControl(control({ container: 'mixed' })), true);
+  assert.equal(isMetaStopControl(control({ testId: 'composer-stop-button', disabled: true })), false);
+  assert.equal(isMetaStopControl(control({ testId: 'composer-stop-button', ancestor: '[inert]' })), false);
+});
+
+test('a visible stray Stop does not keep Meta generation active', () => {
+  const stray = control({ visible: true });
+  const hiddenComposerStop = control({ testId: 'composer-stop-button', visible: false });
+  const liveComposerStop = control({ testId: 'composer-stop-button', visible: true });
+  const visible = (element: { visible?: boolean }) => element.visible !== false;
+
+  assert.equal(isMetaGenerationActive([stray], visible), false);
+  assert.equal(isMetaGenerationActive([stray, hiddenComposerStop], visible), false);
+  assert.equal(isMetaGenerationActive([control({ container: 'inert', visible: true })], visible), false);
+  assert.equal(isMetaGenerationActive([stray, liveComposerStop], visible), true);
 });

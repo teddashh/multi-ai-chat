@@ -27,6 +27,12 @@ test('existing installations retain the original four providers with Meta on sta
   }
 });
 
+test('repairRoles does not throw on corrupt stored role blobs', () => {
+  for (const corrupt of [null, undefined, 'grok', 1, [], true]) {
+    assert.doesNotThrow(() => repairRoles(corrupt as never, 'meta'));
+  }
+});
+
 test('every standby swap preserves four seats, valid roles and selected free targets', () => {
   for (const from of ALL_PROVIDERS) {
     const before = activeProviders(from);

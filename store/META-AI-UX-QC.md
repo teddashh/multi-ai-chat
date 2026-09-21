@@ -60,11 +60,13 @@ keep keyboard focus on the visible Cancel button, including at 320×600.
 Escape does not start a save. A write already requested by Save/Clear can still
 complete after dismissal; closing the dialog does not cancel that storage operation.
 
-Local result on 2026-09-20: **PASS** in en, zh-TW, ja, de and ko (75 assertion groups,
-zero page errors) using Chromium 151.0.7922.34. `npm run verify` under Node 22.18.0
-also passed all 157 tests, typecheck, build and version consistency. Tested panel
-bundle SHA-256: `aaa2705968505f0306fde87b41932345dd35c2eeaf7c58e8ad4be1fcbb85f04d`.
-Actual authenticated VM UX result remains **NOT_RUN** from this seat.
+Local result on 2026-09-21: **PASS** in en, zh-TW, ja, de and ko (85 assertion groups,
+zero page errors) using Chromium 153.0.8010.12. `npm run verify` under Node 22.18.0
+also passed all 195 tests, typecheck, build and version consistency. Tested panel
+bundle SHA-256: `22eb259ef6640942d249f47084b54485289ed37485838723d978007ce52bd82f`.
+The extra groups confirm that delayed provider URLs and cancelled send failures
+cannot attach to a newly selected conversation, while a current-request failure
+still appears. Actual authenticated VM UX result remains **NOT_RUN** from this seat.
 
 This is a local verification checkpoint for PR #42, still DRAFT at version 0.2.3.
 The original four active defaults and experimental Meta standby are unchanged.
@@ -94,8 +96,11 @@ Send at 320×600 and 420×850, a multiline draft plus open-tab error at 320×600
 draft at 320×480 and 420×600. Draft text must remain intact after resizing.
 It also dispatches simulated IME Enter events and checks that no send occurs and
 the draft remains intact, then checks Shift+Enter and a single plain-Enter send.
-The send is captured by the Chrome API double; no provider receives it. These
-synthetic events do not establish a pass with an actual operating-system IME.
+After that send completes, it holds `GET_PROVIDER_URLS` and a later `SEND_MESSAGE`
+rejection across New chat, and checks that the new conversation stays empty while a
+current-request failure remains visible. The send is captured by the Chrome API
+double; no provider receives it. These synthetic events do not establish a pass
+with an actual operating-system IME.
 Mode checks cover localized accessible names, exactly one pressed mode, Tab plus
 Enter/Space across all five modes at 320×600, focused-button visibility, restored
 Free state after reopening, and disabled mode buttons during a workflow. ARIA

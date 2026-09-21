@@ -1,0 +1,147 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { DEFAULT_CONSULT_ROLES, DEFAULT_DEBATE_ROLES } from '../src/shared/constants.ts';
+import {
+  commitActiveConversation,
+  createConversationPersister,
+  payloadFromInputs,
+  storageReadFailed,
+  toPersistPayload,
+  usableConversations,
+} from '../src/shared/conversationPersistence.ts';
+import type { ChatMessage, Conversation } from '../src/shared/types.ts';
+
+function conv(id: string, extra: Partial<Conversation> = {}): Conversation {
+  return {
+    id,
+    title: extra.title ?? id,
+    mode: extra.mode ?? 'free',
+    roles: extra.roles,
+    messages: extra.messages ?? [],
+    providerUrls: extra.providerUrls,
+    createdAt: extra.createdAt ?? 1,
+    updatedAt: extra.updatedAt ?? 1,
+  };
+}
+
+function msg(id: string, role: ChatMessage['role'], content: string, rest: Partial<ChatMessage> = {}): ChatMessage {
+  return { id, role, content, timestamp: 1, ...rest };
+}
+
+test('pending autosave writes the latest snapshot so a deleted conversation stays deleted', () => {
+  const writes: string[][] = [];
+  let pending: (() => void) | undefined;
+  const persister = createConversationPersister({
+    delayMs: 20,
+    write: (payload) => { writes.push(payload.conversations.map((conversation) => conversation.id)); },
+    schedule: (fn) => { pending = fn; return 1; },
+    cancel: () => { pending = undefined; },
+  });
+  persister.enable();
+  persister.track(toPersistPayload([conv('A'), conv('B')], 'A'));
+  persister.debounce();
+  persister.track(toPersistPayload([conv('A')], 'A'));
+  assert.equal(writes.length, 0);
+  pending?.();
+  assert.deepEqual(writes, [['A']]);
+});
+
+test('flush after delete cancels the pending autosave that still listed the deleted conversation', () => {
+  const writes: string[][] = [];
+  let pending: (() => void) | undefined;
+  const persister = createConversationPersister({
+    write: (payload) => { writes.push(payload.conversations.map((conversation) => conversation.id)); },
+    schedule: (fn) => { pending = fn; return 1; },
+    cancel: () => { pending = undefined; },
+  });
+  persister.enable();
+  persister.track(toPersistPayload([conv('A'), conv('B')], 'A'));
+  persister.debounce();
+  persister.track(toPersistPayload([conv('A')], 'A'));
+  persister.flush();
+  assert.equal(pending, undefined);
+  pending?.();
+  assert.deepEqual(writes, [['A']]);
+});
+
+test('switch then immediate flush stores the new active id and the leaving conversation snapshot', () => {
+  const writes: ReturnType<typeof toPersistPayload>[] = [];
+  const persister = createConversationPersister({
+    write: (payload) => { writes.push(payload); },
+  });
+  persister.enable();
+  const leaving = conv('A', { mode: 'consult', messages: [msg('u1', 'user', 'hello')] });
+  persister.track(toPersistPayload([leaving, conv('B')], 'A'));
+  persister.debounce();
+  const committed = commitActiveConversation([leaving, conv('B')], {
+    id: 'A',
+    messages: [msg('u1', 'user', 'hello'), msg('a1', 'ai', 'answer', { provider: 'chatgpt' })],
+    mode: 'consult',
+    roles: DEFAULT_CONSULT_ROLES,
+    providerUrls: { chatgpt: 'https://chatgpt.com/c/1' },
+  }, 'New chat', 50);
+  persister.track(toPersistPayload(committed, 'B'));
+  persister.flush();
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].activeConversationId, 'B');
+  assert.equal(writes[0].conversations.find((conversation) => conversation.id === 'A')?.messages.at(-1)?.content, 'answer');
+});
+
+test('pagehide flush issues the latest write even if an older write is still pending', () => {
+  const writes: string[] = [];
+  const persister = createConversationPersister({
+    write: (payload) => { writes.push(payload.activeConversationId); },
+  });
+  persister.enable();
+  persister.track(toPersistPayload([conv('A')], 'A'));
+  persister.flush();
+  persister.track(toPersistPayload([conv('A'), conv('B')], 'B'));
+  persister.flush();
+  assert.deepEqual(writes, ['A', 'B']);
+});
+
+test('a failed initial get does not write, so empty hydrate cannot overwrite storage', () => {
+  const writes: unknown[] = [];
+  const persister = createConversationPersister({
+    write: (payload) => { writes.push(payload); },
+  });
+  persister.track(toPersistPayload([conv('fresh')], 'fresh'));
+  persister.flush();
+  persister.debounce();
+  assert.equal(writes.length, 0);
+  assert.equal(storageReadFailed({ message: 'The browser is shutting down.' }), true);
+  assert.equal(storageReadFailed(undefined), false);
+});
+
+test('malformed stored entries are skipped without rewriting valid transcripts', () => {
+  const streaming = msg('r1-streaming', 'ai', 'partial', { provider: 'claude' });
+  const long = msg('u1', 'user', 'x'.repeat(5_000));
+  const valid = conv('keep', {
+    mode: 'debate',
+    roles: DEFAULT_DEBATE_ROLES,
+    messages: [long, streaming],
+    providerUrls: { chatgpt: 'https://chatgpt.com/c/old' },
+  });
+  const usable = usableConversations([null, 'nope', { title: 'missing-id' }, valid, { id: '' }, 3]);
+  assert.deepEqual(usable.map((conversation) => conversation.id), ['keep']);
+  assert.equal(usable[0].messages[0]?.content.length, 5_000);
+  assert.equal(usable[0].messages[1]?.id, 'r1-streaming');
+  assert.equal(usable[0].providerUrls?.chatgpt, 'https://chatgpt.com/c/old');
+  assert.equal(usable[0].mode, 'debate');
+  assert.deepEqual(usable[0].roles, DEFAULT_DEBATE_ROLES);
+});
+
+test('current snapshot on close persists the live mode without a versioned rewrite', () => {
+  const payload = payloadFromInputs({
+    conversations: [conv('A', { mode: 'consult', roles: DEFAULT_CONSULT_ROLES })],
+    activeConversationId: 'A',
+    messages: [msg('u1', 'user', 'hello')],
+    mode: 'free',
+    roles: DEFAULT_DEBATE_ROLES,
+    providerUrls: {},
+  }, 'New chat');
+  assert.equal(payload?.activeConversationId, 'A');
+  assert.equal(payload?.conversations[0].mode, 'free');
+  assert.equal(payload?.conversations[0].roles, undefined);
+  assert.equal('conversationStateVersion' in (payload ?? {}), false);
+});

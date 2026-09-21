@@ -22,6 +22,8 @@ export default function ConnectionBar({ providers, connections, onOpenLogin }: P
           <button
             key={provider}
             type="button"
+            aria-busy={checking || undefined}
+            onFocus={(event) => event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' })}
             onClick={() => onOpenLogin(provider)}
             className={`flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition ${ready ? 'border-emerald-200 bg-emerald-50/60' : 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50'}`}
           >

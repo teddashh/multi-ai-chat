@@ -53,6 +53,29 @@ test('Meta occupies one roundtable seat and can retry its failed turn', async ()
   assert.equal(harness.roles.filter((entry) => entry.provider === 'meta').length, 6);
 });
 
+test('Meta skip does not leak its error into later roundtable prompts', async () => {
+  const harness = createHarness({ decisions: ['skip'], failAttempts: new Set([1]), rawError: 'meta quota' });
+  const history = await runRoundtableWorkflow('question', { ...roles, first: 'meta' }, 'workflow-meta-skip', harness.dependencies);
+  assert.equal(history.length, 20);
+  assert.equal(history[0].text, SKIP_RESPONSE);
+  assert.equal(history[0].name, 'meta');
+  assert.doesNotMatch(JSON.stringify(history), /meta quota/);
+  assert.doesNotMatch(harness.sends[1].prompt, /meta quota/);
+  assert.deepEqual(harness.resets, [{ provider: 'meta', requestId: 'request-1', workflowId: 'workflow-meta-skip' }]);
+});
+
+test('Meta cancel resets only the failed Meta turn', async () => {
+  const harness = createHarness({ decisions: ['cancel'], failAttempts: new Set([1]) });
+  await assert.rejects(
+    runRoundtableWorkflow('question', { ...roles, first: 'meta' }, 'workflow-meta-cancel', harness.dependencies),
+    (error: unknown) => error instanceof DOMException && error.name === 'AbortError',
+  );
+  assert.equal(harness.sends.length, 1);
+  assert.equal(harness.sends[0].provider, 'meta');
+  assert.deepEqual(harness.resets, [{ provider: 'meta', requestId: 'request-1', workflowId: 'workflow-meta-cancel' }]);
+  assert.deepEqual(harness.cancelled, ['workflow-meta-cancel']);
+});
+
 test('Meta recovery requests reach the side panel and accept retry, skip and cancel decisions', () => {
   const request: StepRecoveryRequest = {
     recoveryId: 'recovery-meta', workflowId: 'workflow-meta', sessionId: 'session', clientId: 'client',

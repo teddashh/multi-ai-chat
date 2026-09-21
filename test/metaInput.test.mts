@@ -64,8 +64,13 @@ function inputHarness() {
     );
     return module.exports;
   }
-  const { injectMetaInput } = load(fileURLToPath(new URL('../src/content/metaInput.ts', import.meta.url)));
-  return { injectMetaInput, Editor, Input, Textarea, events, selected, selectionObserved: () => selectionObserved };
+  const { injectMetaInput, readMetaComposerText, metaComposerMatches } = load(
+    fileURLToPath(new URL('../src/content/metaInput.ts', import.meta.url)),
+  );
+  return {
+    injectMetaInput, readMetaComposerText, metaComposerMatches,
+    Editor, Input, Textarea, events, selected, selectionObserved: () => selectionObserved,
+  };
 }
 
 test('Meta replaces a rich-editor draft through one plain-text paste and awaits its commit', async () => {
@@ -96,6 +101,63 @@ test('a rejected Meta paste is left for the shared text assertion, never patched
   assert.deepEqual(app.events.map((event) => event.type), ['paste']);
 });
 
+test('a leftover draft that matches only after whitespace collapse is not sent as the multiline prompt', async () => {
+  const app = inputHarness();
+  const editor = new app.Editor();
+  editor.textContent = 'hello world';
+  editor.onEvent = (event) => event.preventDefault();
+  await assert.rejects(
+    () => app.injectMetaInput(editor, 'hello\nworld'),
+    /editor text did not match the requested prompt/,
+  );
+  assert.equal(editor.textContent, 'hello world');
+  assert.deepEqual(app.events.map((event) => event.type), ['paste']);
+});
+
+test('Lexical paragraph children preserve multiline blank lines for verification', async () => {
+  const app = inputHarness();
+  const editor = new app.Editor();
+  const text = '第一行 ✓\n\n**粗體** 與 `code`\n👩‍💻';
+  editor.onEvent = (event) => {
+    event.preventDefault();
+    setTimeout(() => {
+      (editor as { childNodes: unknown[] }).childNodes = [
+        lexicalParagraph('第一行 ✓'),
+        lexicalParagraph('', true),
+        lexicalParagraph('**粗體** 與 `code`'),
+        lexicalParagraph('👩‍💻'),
+      ];
+      editor.textContent = '第一行 ✓**粗體** 與 `code`👩‍💻';
+    }, 0);
+  };
+  await app.injectMetaInput(editor, text);
+  assert.equal(app.readMetaComposerText(editor), text);
+  assert.equal(app.metaComposerMatches(app.readMetaComposerText(editor), text), true);
+});
+
+test('Meta composer matching keeps Unicode and rejects collapsed leftover drafts', () => {
+  const app = inputHarness();
+  const prompt = '測試 ✓\n\n👩‍💻';
+  assert.equal(app.metaComposerMatches(prompt, prompt), true);
+  assert.equal(app.metaComposerMatches('測試 ✓\n👩‍💻', prompt), false);
+  assert.equal(app.metaComposerMatches('測試 ✓ 👩‍💻', prompt), false);
+  assert.equal(app.metaComposerMatches('hello world', 'hello\nworld'), false);
+});
+
+function lexicalParagraph(text: string, emptyBr = false) {
+  const br = { nodeType: 1, tagName: 'BR', childNodes: [], textContent: '' };
+  if (emptyBr) {
+    return { nodeType: 1, tagName: 'P', childNodes: [br], textContent: '' };
+  }
+  const span = {
+    nodeType: 1,
+    tagName: 'SPAN',
+    childNodes: [{ nodeType: 3, textContent: text }],
+    textContent: text,
+  };
+  return { nodeType: 1, tagName: 'P', childNodes: [span], textContent: text };
+}
+
 for (const kind of ['Input', 'Textarea'] as const) {
   test(`Meta ${kind} updates the native value once and waits for controlled-input reconciliation`, async () => {
     const app = inputHarness();
@@ -117,3 +179,18 @@ for (const kind of ['Input', 'Textarea'] as const) {
     assert.deepEqual(app.selected, []);
   });
 }
+
+test('Meta Textarea keeps multiline Unicode and blank lines in the native value', async () => {
+  const app = inputHarness();
+  const control = new app.Textarea();
+  const text = '第一行 ✓\n\n**粗體** 與 `code`\n👩‍💻';
+  const prototype = Object.getPrototypeOf(control);
+  const nativeGetter = Object.getOwnPropertyDescriptor(prototype, 'value')!.get!;
+  Object.defineProperty(control, 'value', {
+    get() { return nativeGetter.call(this); },
+    set() { throw new Error('must use the native value setter'); },
+  });
+  await app.injectMetaInput(control, text);
+  assert.equal(control.value, text);
+  assert.equal(app.metaComposerMatches(control.value, text), true);
+});

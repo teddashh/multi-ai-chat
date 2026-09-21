@@ -8,6 +8,9 @@ import {
   isUsableMetaControl,
   isVisibleMetaElement,
   isMetaLoginLabel,
+  isMetaSendControl,
+  isMetaStopControl,
+  isMetaGenerationActive,
   metaLoginStatus,
 } from './metaDom';
 
@@ -33,15 +36,17 @@ createContentScript({
   inputFilter: isUsableMetaControl,
   injectInput: injectMetaInput,
   sendButtonSelectors: META_SEND_SELECTORS,
-  sendButtonFilter: isUsableMetaControl,
+  sendButtonFilter: isMetaSendControl,
   responseSelectors: META_RESPONSE_SELECTORS,
   stopButtonSelectors: META_STOP_SELECTORS,
-  stopButtonFilter: isUsableMetaControl,
+  stopButtonFilter: isMetaStopControl,
   loginDetector: loginStatus,
   loggedOutDetector: () => loginStatus() === false,
   loginLossDelay: 2500,
-  isThinking: () => Array.from(document.querySelectorAll(META_STOP_SELECTORS.join(', ')))
-    .some((element) => isVisibleMetaElement(element) && isUsableMetaControl(element)),
+  isThinking: () => isMetaGenerationActive(
+    Array.from(document.querySelectorAll(META_STOP_SELECTORS.join(', '))),
+    (element) => isVisibleMetaElement(element as Element),
+  ),
   streamWhileThinking: true,
   doneDelay: 5000,
   chunkDebounce: 600,

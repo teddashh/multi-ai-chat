@@ -30,6 +30,7 @@ export function swapFreeTargets(value: unknown, standby: AIProvider, previousSta
 }
 
 export function repairRoles<T extends ModeRoles>(roles: T, standby: AIProvider, previousStandby?: AIProvider): T {
+  if (!roles || typeof roles !== 'object' || Array.isArray(roles)) return roles;
   const active = activeProviders(standby);
   const assigned = Object.values(roles);
   const replacement = previousStandby && active.includes(previousStandby)

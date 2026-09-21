@@ -177,6 +177,9 @@ export default function SettingsModal({ isOpen, locale, onLocaleChange, theme, o
           id="standby-provider"
           value={standbyProvider}
           disabled={providerSelectionDisabled || switchingProvider}
+          aria-busy={switchingProvider || undefined}
+          aria-invalid={Boolean(providerError) || undefined}
+          aria-describedby={providerError ? 'standby-help standby-error' : 'standby-help'}
           onChange={(event) => {
             const session = sessionRef.current;
             setSwitchingProvider(true);
@@ -189,13 +192,25 @@ export default function SettingsModal({ isOpen, locale, onLocaleChange, theme, o
         >
           {ALL_PROVIDERS.map((provider) => <option key={provider} value={provider}>{AI_PROVIDERS[provider].name}</option>)}
         </select>
-        <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t('settings.standby.help')}</p>
-        {providerError && <p role="alert" className="mt-1 text-xs text-red-700">{providerError}</p>}
+        <p id="standby-help" className="mt-1.5 text-xs leading-relaxed text-slate-500">{t('settings.standby.help')}</p>
+        {providerError && <p id="standby-error" role="alert" className="mt-1 text-xs text-red-700">{providerError}</p>}
 
         <label className="mt-4 block text-xs font-semibold text-slate-700" htmlFor="hackmd-token">{t('settings.hackmd.label')}</label>
-        <input id="hackmd-token" type="password" value={token} disabled={tokenControlsDisabled} onChange={(event) => setToken(event.target.value)} placeholder="hmd_xxxxxxxxxxxxxxxx" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 disabled:opacity-50" />
-        {tokenState === 'loading' && <p role="status" className="mt-1 text-xs text-slate-500">{t('settings.token_loading')}</p>}
-        {tokenErrorKey && <p role="alert" className="mt-1 text-xs text-red-700">{t(tokenErrorKey)}</p>}
+        <input
+          id="hackmd-token"
+          type="password"
+          value={token}
+          disabled={tokenControlsDisabled}
+          autoComplete="off"
+          spellCheck={false}
+          aria-invalid={Boolean(tokenErrorKey) || undefined}
+          aria-describedby={tokenState === 'loading' ? 'settings-token-status' : tokenErrorKey ? 'settings-token-error' : undefined}
+          onChange={(event) => setToken(event.target.value)}
+          placeholder="hmd_xxxxxxxxxxxxxxxx"
+          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 disabled:opacity-50"
+        />
+        {tokenState === 'loading' && <p id="settings-token-status" role="status" className="mt-1 text-xs text-slate-500">{t('settings.token_loading')}</p>}
+        {tokenErrorKey && <p id="settings-token-error" role="alert" className="mt-1 text-xs text-red-700">{t(tokenErrorKey)}</p>}
         {tokenState === 'load-error' && <button type="button" onClick={() => {
           const session = sessionRef.current;
           if (!session?.active || session.state !== 'load-error') return;

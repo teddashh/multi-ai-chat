@@ -15,10 +15,18 @@ export const META_SEND_SELECTORS = ['[data-testid="composer-send-button"]', 'but
 export const META_STOP_SELECTORS = ['[data-testid="composer-stop-button"]', 'button[aria-label="Stop"]'];
 export const META_RESPONSE_SELECTORS = ['[data-message-item]:not([data-user-message])', '[data-testid="assistant-message"]'];
 
+const META_COMPOSER_CONTAINER = '[data-testid*="composer"], [class*="composer"], [class*="input-area"], form, fieldset';
+
 interface MetaControl {
   disabled?: boolean;
   readOnly?: boolean;
   closest(selector: string): unknown;
+  getAttribute?(name: string): string | null;
+}
+
+interface QueryCapableContainer {
+  querySelector(selectors: string): unknown;
+  querySelectorAll?(selectors: string): ArrayLike<unknown>;
 }
 
 export function isUsableMetaControl(element: MetaControl): boolean {
@@ -53,4 +61,33 @@ export function metaLoginStatus(
 
 export function isMetaLoginLabel(text: string): boolean {
   return /^(?:log in|sign in|登入|登录|ログイン|anmelden|로그인)$/i.test(text.trim());
+}
+
+export function isMetaSendControl(element: MetaControl): boolean {
+  return isMetaComposerAction(element, 'composer-send-button');
+}
+
+export function isMetaStopControl(element: MetaControl): boolean {
+  return isMetaComposerAction(element, 'composer-stop-button');
+}
+
+export function isMetaGenerationActive(
+  stops: readonly MetaControl[],
+  isVisible: (element: MetaControl) => boolean,
+): boolean {
+  return stops.some((element) => isVisible(element) && isMetaStopControl(element));
+}
+
+function isMetaComposerAction(element: MetaControl, explicitTestId: string): boolean {
+  if (!isUsableMetaControl(element)) return false;
+  if (element.getAttribute?.('data-testid') === explicitTestId) return true;
+  const container = element.closest(META_COMPOSER_CONTAINER) as QueryCapableContainer | null;
+  return Boolean(container && containerHasUsableMetaInput(container));
+}
+
+function containerHasUsableMetaInput(container: QueryCapableContainer): boolean {
+  const candidates = container.querySelectorAll
+    ? Array.from(container.querySelectorAll(META_INPUT_SELECTORS.join(', ')))
+    : [container.querySelector(META_INPUT_SELECTORS.join(', '))];
+  return candidates.some((candidate) => candidate != null && isUsableMetaControl(candidate as MetaControl));
 }

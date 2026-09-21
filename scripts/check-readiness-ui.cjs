@@ -535,6 +535,65 @@ async function run(browser) {
       assert.deepEqual(sent[0].targets, ['chatgpt', 'meta']);
       assert.equal(await page.locator('textarea').inputValue(), '');
       passed.push('Simulated IME confirmation preserves the draft without sending; Shift+Enter adds a newline and plain Enter sends exactly once to the selected targets');
+
+      const newChat = async () => {
+        const previous = await page.evaluate(() => window.readinessFixture.scope.sessionId);
+        await button('app.menu').click();
+        await page.getByRole('button', { name: `＋ ${label('app.new')}`, exact: true }).click();
+        await page.waitForFunction(previous => window.readinessFixture.scope.sessionId !== previous, previous);
+      };
+      const savedCurrent = () => page.evaluate(() => {
+        const stored = window.readinessFixture.stored();
+        return stored.conversations?.find(conversation => conversation.id === stored.activeConversationId);
+      });
+      await page.evaluate(() => {
+        const send = chrome.runtime.sendMessage;
+        chrome.runtime.sendMessage = (message, callback) => {
+          if (message.action === 'GET_PROVIDER_URLS') return new Promise(resolve => {
+            window.readinessFixture.releaseUrls = () => resolve({ meta: 'https://www.meta.ai/prompt/previous-fixture-conversation' });
+          });
+          if (message.action === 'RESET_PROVIDER_SESSIONS' || message.action === 'CANCEL_WORKFLOW') return Promise.resolve({ ok: true });
+          return send(message, callback);
+        };
+        const scope = window.readinessFixture.sent.at(-1);
+        window.readinessFixture.emit({ action: 'WORKFLOW_STATUS', payload: { ...scope, key: '', done: true } });
+      });
+      await page.waitForFunction(() => Boolean(window.readinessFixture.releaseUrls));
+      await newChat();
+      await page.evaluate(() => window.readinessFixture.releaseUrls());
+      await page.waitForTimeout(500); // Allow React and the existing 350ms autosave to settle.
+      const afterUrls = await savedCurrent();
+      assert.equal(afterUrls?.providerUrls?.meta, undefined, `${language}: previous workflow URLs must not attach to a new conversation`);
+      assert.deepEqual(afterUrls?.messages, []);
+      passed.push('Delayed provider URLs from a completed workflow cannot pollute a newly selected conversation');
+
+      await page.evaluate(() => {
+        const send = chrome.runtime.sendMessage;
+        chrome.runtime.sendMessage = (message, callback) => {
+          if (message.action === 'SEND_MESSAGE') {
+            window.readinessFixture.sent.push(message.payload);
+            return new Promise((resolve, reject) => {
+              window.readinessFixture.rejectSend = () => reject(new Error('Simulated delayed send failure'));
+            });
+          }
+          return send(message, callback);
+        };
+      });
+      await page.locator('textarea').fill('Delayed failure fixture');
+      await page.locator('textarea').press('Enter');
+      await button('input.stop').click();
+      await newChat();
+      await page.evaluate(() => window.readinessFixture.rejectSend());
+      await page.waitForTimeout(500);
+      assert.deepEqual((await savedCurrent())?.messages, [], `${language}: cancelled send failure must not appear in a new conversation`);
+      assert.equal(await page.locator('textarea').isEnabled(), true);
+      // A failure of the current request must still be shown and release processing.
+      await page.locator('textarea').fill('Current failure fixture');
+      await page.locator('textarea').press('Enter');
+      await page.evaluate(() => window.readinessFixture.rejectSend());
+      await page.getByText('⚠️ Error: Simulated delayed send failure', { exact: true }).waitFor();
+      assert.equal(await page.locator('textarea').isEnabled(), true);
+      passed.push('Cancelled request failures cannot alter a new conversation, while the current request failure remains visible');
     } catch (error) {
       report.status = 'FAIL';
       report.errors.push(`${language}: ${error.message}`);
