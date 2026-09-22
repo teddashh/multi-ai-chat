@@ -2,23 +2,25 @@
 
 [English](./README.md) · [繁體中文](./README.zh-TW.md) · [日本語](./README.ja.md) · [Deutsch](./README.de.md) · **한국어**
 
-[Chrome 웹 스토어에서 설치](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah) · [공식 웹사이트](https://teddashh.github.io/multi-ai-chat/?lang=ko) · [v0.2.3 릴리스](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.3) · [데스크톱 버전](https://teddashh.github.io/multi-ai-chat-desktop/)
+[Chrome 웹 스토어에서 설치](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah) · [공식 웹사이트](https://teddashh.github.io/multi-ai-chat/?lang=ko) · [v0.3.0 릴리스](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.3.0) · [데스크톱 버전](https://teddashh.github.io/multi-ai-chat-desktop/)
 
 한 번 질문하고 네 개의 AI를 함께 활용하세요. Multi-AI Chat은 로그인된 **ChatGPT, Claude, Gemini, Grok** 탭을 조율하는 가벼운 Chrome Side Panel입니다. 이미 이용 권한이 있는 provider 페이지를 그대로 사용하므로 모델 API 키나 별도의 채팅 backend가 필요하지 않습니다.
 
-**최신 릴리스: v0.2.3** · Chrome 114+ · Manifest V3 · 5개 인터페이스 언어 · MIT
+**GitHub 릴리스: v0.3.0** · Chrome 웹 스토어 등록 버전: v0.2.3 · Chrome 114+ · Manifest V3 · 5개 인터페이스 언어 · MIT
 
-**아직 출시되지 않은 소스 기능(0.3.0): 실험적 Meta AI 대기 옵션.** 기본적으로 기존 네 제공자가 활성화됩니다. **설정 → 대기 AI**에서 기존 제공자 하나를 선택하면 Meta AI가 대신 활성화되며, 항상 네 제공자만 활성화됩니다. Meta를 활성화하면 meta.ai 접근을 요청하고, 거부하면 Meta는 대기 상태로 유지됩니다. 전송 대상과 역할이 조정되고 재시작 후에도 선택이 유지됩니다. 기존 탭과 로그인은 삭제하지 않습니다. 게스트 이용은 Meta 사이트와 지역에 따라 달라지며 비활성 입력란은 준비 완료로 표시하지 않습니다. 로그인 후 전송·수신·완료 감지는 아직 [실제 테스트가 필요합니다](./store/META-AI-SMOKE.md). v0.2.3 및 기존 스토어 버전에는 포함되지 않습니다.
+**GitHub 릴리스 v0.3.0에는 기본적으로 꺼져 있는 실험적 Meta AI 대기 옵션이 있습니다. Chrome 웹 스토어 등록 버전은 여전히 v0.2.3이며 Meta AI가 없습니다.** 기본적으로 기존 네 제공자가 활성화됩니다. **설정 → 대기 AI**에서 기존 제공자 하나를 선택하면 Meta AI가 대신 활성화되며, 항상 네 제공자만 활성화됩니다. Meta를 활성화하면 meta.ai 접근을 요청하고, 거부하면 Meta는 대기 상태로 유지됩니다. 전송 대상과 역할이 조정되고 재시작 후에도 선택이 유지됩니다. 기존 탭과 로그인은 삭제하지 않습니다. 게스트 이용은 Meta 사이트와 지역에 따라 달라지며 비활성 입력란은 준비 완료로 표시하지 않습니다. 로그인한 상태의 Meta 전송과 수신은 실제로 로그인한 페이지에서 실행된 적이 없습니다. 권한 요청, content script의 동적 등록, 브라우저를 다시 시작한 뒤의 유지는 브라우저에서 실행한 기록이 아니라 단위 테스트 범위입니다. Meta가 예상대로 동작하지 않으면 [이슈를 열어](https://github.com/teddashh/multi-ai-chat/issues) 주세요. 그때 볼 항목은 [체크리스트](./store/META-AI-SMOKE.md)에 있습니다. 나머지 네 제공자는 영향을 받지 않습니다. 이 동작은 GitHub v0.3.0 ZIP에 있으며 Chrome 웹 스토어 등록 버전에는 없습니다.
 
 > Multi-AI Chat은 제3자 웹 UI를 자동으로 조작합니다. Provider의 화면 변경으로 페이지 selector가 일시적으로 작동하지 않을 수 있으며 자동화 사용에는 각 서비스 약관이 적용될 수 있습니다. 사용 권한이 있는 계정과 콘텐츠만 이용하세요.
 
 ![Chrome에서 여러 provider workflow를 실행하는 Multi-AI Chat](./store/screenshot-1280x800.png)
 
-## v0.2.3 변경 사항
+## v0.3.0 변경 사항
 
-- **정확한 Grok 완료 감지.** 현재 사용자의 정확한 발언 뒤에 오는 응답만 인정하므로 화면에 답변이 완료됐는데도 'Grok이 이번 차례를 완료할 수 없습니다'라고 잘못 판단하지 않습니다.
-- **재시도 완전 분리.** Stop, thinking 상태, 타이머, 응답 추적, 복구를 각각의 request에 한정합니다. 실패한 차례의 숨겨진 신호나 이전 신호가 Retry를 즉시 다시 실패시키지 않습니다.
-- **최신 Grok UI 지원.** 현재 textarea composer와 기존 ProseMirror를 모두 지원하고 생성 중에도 연결을 유지합니다. Thinking UI를 제외한 답변 본문만 가져옵니다.
+- **실험적 Meta AI 대기 옵션. 기본값은 꺼짐입니다.** 기존 네 제공자는 활성 상태입니다. **설정 → 대기 AI**에서 그중 하나를 Meta AI로 바꿀 수 있으며, 항상 네 제공자만 활성화됩니다. `https://www.meta.ai/*`와 `https://meta.ai/*` 접근은 사용자가 Meta를 활성화할 때만 요청합니다. 거부하면 Meta는 대기 상태로 남습니다. meta.ai는 설치 시 필수 호스트 권한이 아니므로, 업데이트로 기존 사용자에게 확장 프로그램 재승인을 요구하지 않습니다. 허용 뒤에 `content/meta.js`를 동적으로 등록합니다. 정적 Meta content script는 없습니다.
+- **더 엄격한 Meta 준비 판정.** 로그인 컨트롤이 페이지에 남아 있어도 사용할 수 있는 입력란은 준비됨입니다. 비활성 입력란이나 명시적인 로그인 화면은 여전히 로그인이 필요하다는 뜻입니다. `data-disabled="true"`이거나 `opacity: 0`으로 그려진 입력란이나 컨트롤은 준비됨으로 보지 않습니다.
+- **workflow, 설정, 입력.** 이전 요청의 늦은 결과, provider URL, 전송 실패는 새 대화에 들어가지 않습니다. 대화 저장소는 최신 스냅샷을 기록하고, 읽기에 실패하면 기록을 지우지 않고 다시 시도하며, 형식이 잘못된 행은 건너뜁니다. 준비되지 않은 provider는 workflow나 일부만 보내는 자유 전송 전에 이름을 표시합니다. 준비 상태 안내에서 선택되었지만 준비되지 않은 provider를 열 수 있고, 자유 전송에서는 준비된 활성 provider만 선택할 수 있습니다. 패널을 닫아도 자유 전송 선택은 유지됩니다. IME 확정으로는 초안을 보내지 않습니다. 모드 선택을 표시하고, 키보드 포커스를 보이게 하며, 설정 대화 상자의 포커스는 Escape나 닫기까지 대화 상자 안에 남습니다. 높이가 낮은 패널에서도 전송과 다른 입력 동작이 보이고, 프롬프트에는 안정적인 지역화 레이블이 있습니다. 설정 대화 상자가 닫힌 뒤에 끝난 Token 불러오기나 저장은 무시합니다. 실패한 불러오기나 저장은 화면에 남고 다시 시도할 수 있습니다.
+- **다섯 가지 인터페이스 언어.** 대기, Meta 권한 거부, 준비 상태, 설정, 입력 문구를 English, 繁體中文, 日本語, Deutsch, 한국어로 제공합니다.
+- **알려진 한계.** Meta AI는 실험 기능이며 기본값은 꺼짐입니다. 로그인한 상태의 전송과 수신은 실제로 로그인한 페이지에서 실행된 적이 없습니다. 권한 요청, content script의 동적 등록, 브라우저를 다시 시작한 뒤의 유지는 브라우저에서 실행한 기록이 아니라 단위 테스트 범위입니다. Meta가 예상대로 동작하지 않으면 [이슈를 열어](https://github.com/teddashh/multi-ai-chat/issues) 주세요. 그때 볼 항목은 [체크리스트](./store/META-AI-SMOKE.md)에 있습니다. 나머지 네 제공자는 영향을 받지 않습니다.
 
 ## 버전 선택
 
@@ -56,23 +58,23 @@
 
 [Chrome 웹 스토어에서 Multi-AI Chat을 설치](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah)하세요. 승인된 업데이트는 Chrome이 자동으로 설치하므로 일반 사용자에게 가장 적합한 방법입니다.
 
-Google 검토 중에는 Chrome 웹 스토어 업데이트가 GitHub 릴리스보다 늦을 수 있습니다. 스토어에 이전 버전이 표시되면 아래의 버전별 ZIP을 즉시 수동 설치할 수 있습니다.
+Chrome 웹 스토어 등록 버전은 여전히 **v0.2.3**입니다. 그 링크에서 설치하면 v0.2.3이며 Meta AI는 포함되지 않습니다. v0.3.0은 GitHub에만 있습니다. 아래 버전별 ZIP이 그 GitHub 패키지입니다.
 
 ### 수동 또는 개발자 설치
 
 GitHub Release ZIP은 수동 설치용 대안이며 unpacked extension으로 바로 불러올 수 있어 소스 build가 필요하지 않습니다.
 
-> v0.2.3은 현재 정식 릴리스입니다. 아래 ZIP과 checksum은 GitHub Release에 첨부된 정식 파일입니다.
+> v0.3.0은 현재 GitHub 릴리스입니다. 아래 ZIP과 checksum은 그 GitHub 릴리스에 첨부된 정식 파일입니다. Chrome 웹 스토어에 등록된 v0.2.3은 다른 빌드입니다.
 
-1. [`multi-ai-chat-store-v0.2.3.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.3/multi-ai-chat-store-v0.2.3.zip)과 [checksum 파일](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.3/multi-ai-chat-store-v0.2.3.zip.sha256)을 다운로드합니다.
-2. 압축 파일을 검증합니다. 올바른 SHA-256은 `8fea5b0edbed1b7d818898febef7e2bf4151a0e180ca9dcbc452de1759bd9cca`입니다.
+1. [`multi-ai-chat-store-v0.3.0.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip)과 [checksum 파일](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip.sha256)을 다운로드합니다.
+2. 압축 파일을 검증합니다. 올바른 SHA-256은 `d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80`입니다.
 
    ```powershell
-   (Get-FileHash .\multi-ai-chat-store-v0.2.3.zip -Algorithm SHA256).Hash.ToLower()
+   (Get-FileHash .\multi-ai-chat-store-v0.3.0.zip -Algorithm SHA256).Hash.ToLower()
    ```
 
    ```sh
-   shasum -a 256 multi-ai-chat-store-v0.2.3.zip
+   shasum -a 256 multi-ai-chat-store-v0.3.0.zip
    ```
 
 3. ZIP을 계속 사용할 폴더에 풉니다. 그 폴더의 루트에 `manifest.json`이 있습니다.

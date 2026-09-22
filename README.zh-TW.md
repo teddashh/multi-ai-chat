@@ -2,23 +2,25 @@
 
 [English](./README.md) · **繁體中文** · [日本語](./README.ja.md) · [Deutsch](./README.de.md) · [한국어](./README.ko.md)
 
-[從 Chrome 線上應用程式商店安裝](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah) · [官方網站](https://teddashh.github.io/multi-ai-chat/?lang=zh-TW) · [v0.2.3 Release](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.3) · [桌面版](https://teddashh.github.io/multi-ai-chat-desktop/?lang=zh-TW)
+[從 Chrome 線上應用程式商店安裝](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah) · [官方網站](https://teddashh.github.io/multi-ai-chat/?lang=zh-TW) · [v0.3.0 Release](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.3.0) · [桌面版](https://teddashh.github.io/multi-ai-chat-desktop/?lang=zh-TW)
 
 只問一次，讓四個 AI 一起工作。Multi-AI Chat 是輕量的 Chrome Side Panel，能協調你已登入的 **ChatGPT、Claude、Gemini、Grok** 分頁。它直接使用你原本就能存取的 provider 網頁，不需要模型 API Key，也沒有額外的對話後端。
 
-**目前正式版本：v0.2.3** · Chrome 114+ · Manifest V3 · 五種介面語言 · MIT
+**GitHub 版本：v0.3.0** · Chrome 線上應用程式商店上架版本：v0.2.3 · Chrome 114+ · Manifest V3 · 五種介面語言 · MIT
 
-**尚未發布的 source 功能（0.3.0）：實驗性 Meta AI 備用選項。** 預設仍啟用原本四家。在「**設定 → 備用 AI**」選擇其中一家，即可讓 Meta AI 接替；同時固定啟用四家。啟用 Meta 時會要求 meta.ai 的存取權限，若拒絕則 Meta 維持備用。自由分送目標與工作流角色會同步調整，重開後保留選擇，既有分頁與登入不會被刪除。Meta 訪客使用取決於當下網站／區域，停用或 inert 的輸入框不會被判定為就緒。登入後的送出、收回與完成偵測仍待[人工測試](./store/META-AI-SMOKE.md)；v0.2.3 下載與現有商店版本尚未包含此功能。
+**GitHub 版本 v0.3.0 包含實驗性 Meta AI 備用提供者，預設關閉。Chrome 線上應用程式商店目前上架的仍是 v0.2.3，不含 Meta AI。** 預設仍啟用原本四家。在「**設定 → 備用 AI**」選擇其中一家，即可讓 Meta AI 接替；同時固定啟用四家。啟用 Meta 時會要求 meta.ai 的存取權限，若拒絕則 Meta 維持備用。自由分送目標與工作流角色會同步調整，重開後保留選擇，既有分頁與登入不會被刪除。Meta 訪客使用取決於當下網站／區域，停用或 inert 的輸入框不會被判定為就緒。已登入狀態下的 Meta 送出與收回，尚未在真實登入的頁面上操作過。權限提示、content script 的動態註冊，以及瀏覽器重新啟動後是否仍保留，目前只有單元測試涵蓋，沒有瀏覽器執行紀錄。若 Meta 出現問題，請[開啟 issue](https://github.com/teddashh/multi-ai-chat/issues)；對照項目見[檢查表](./store/META-AI-SMOKE.md)。其餘四家不受影響。這項行為在 GitHub v0.3.0 ZIP 裡，不在 Chrome 線上應用程式商店的上架版本裡。
 
 > Multi-AI Chat 會自動操作第三方網頁介面。Provider 改版可能暫時使頁面 selector 失效，自動化也可能受各服務條款約束。請只使用你有權使用的帳號與內容。
 
 ![Multi-AI Chat 在 Chrome 中執行多 provider workflow](./store/screenshot-1280x800.png)
 
-## v0.2.3 更新
+## v0.3.0 更新
 
-- **可靠辨識 Grok 已完成的回答。** 回應必須出現在本次確切的使用者訊息之後，因此畫面上已完成的回答不會再被誤判為「Grok 無法完成這一棒」。
-- **重試彼此隔離。** Stop、thinking 狀態、計時器、回應追蹤與錯誤復原都綁定單次 request；失敗回合留下的隱藏或歷史訊號，不會讓 Retry 立刻再次失敗。
-- **支援 Grok 現行介面。** 同時支援目前的 textarea composer 與舊版 ProseMirror；生成期間會維持連線，並且只擷取回答正文，不混入 thinking UI。
+- **實驗性 Meta AI 備用，預設關閉。** 原本四家維持啟用。在「**設定 → 備用 AI**」可把其中一家換成 Meta AI，同時仍只啟用四家。只有在使用者啟用 Meta 時，才會要求 `https://www.meta.ai/*` 與 `https://meta.ai/*` 的存取權限；拒絕則 Meta 維持備用。meta.ai 不是安裝時的必要主機權限，因此更新不會強迫既有使用者重新核准擴充功能。授權之後才動態註冊 `content/meta.js`，沒有靜態的 Meta content script。
+- **更嚴格的 Meta 就緒判定。** 即使頁面上還留著登入控制項，只要輸入框可用，就視為就緒。inert 的輸入框或明確的登入牆仍代表需要登入。帶有 `data-disabled="true"`，或繪製為 `opacity: 0` 的輸入框或控制項，不會被當成就緒。
+- **workflow、設定與輸入。** 前一次要求的晚到結果、provider URL 或傳送失敗不會進入新對話。對話儲存會寫入最新快照；讀取失敗會重試，而不是清掉歷史，並略過格式錯誤的資料列。workflow 或只送出部分的自由分送之前，會先點名尚未就緒的 provider。就緒提示可以開啟已選但未就緒的 provider，自由分送也可以只選取已就緒且啟用中的 provider。關閉面板後，自由分送仍保持選取。輸入法選字確認不會送出草稿。模式選擇會顯示出來，鍵盤焦點可見，設定對話框的焦點會留在框內，直到按下 Escape 或關閉。較矮的面板仍看得到送出與其他輸入動作，提示文字有穩定的在地化標籤。設定對話框關閉之後才完成的 Token 載入或儲存會被忽略。載入或儲存失敗會留在畫面上，可以再試一次。
+- **五種介面語言。** 備用、Meta 權限遭拒、就緒狀態、設定與輸入文案，涵蓋 English、繁體中文、日本語、Deutsch、한국어。
+- **已知限制。** Meta AI 是實驗功能，預設關閉。已登入狀態下的送出與收回，尚未在真實登入的頁面上操作過。權限提示、content script 的動態註冊，以及瀏覽器重新啟動後是否仍保留，目前只有單元測試涵蓋，沒有瀏覽器執行紀錄。若 Meta 出現問題，請[開啟 issue](https://github.com/teddashh/multi-ai-chat/issues)。對照項目見[檢查表](./store/META-AI-SMOKE.md)。其餘四家不受影響。
 
 ## 選擇適合的版本
 
@@ -56,23 +58,23 @@
 
 [從 Chrome 線上應用程式商店安裝 Multi-AI Chat](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah)。Chrome 會自動安裝審核通過的更新，一般使用建議選這個方式。
 
-Chrome 線上應用程式商店的更新可能會因 Google 審核而晚於 GitHub Release。如果商店頁仍顯示舊版，可立即使用下方的版本化 ZIP 手動安裝。
+Chrome 線上應用程式商店目前上架的仍是 **v0.2.3**。從該連結安裝得到的是 v0.2.3，不含 Meta AI。v0.3.0 只在 GitHub 提供。下方的版本化 ZIP 就是這份 GitHub 套件。
 
 ### 手動或開發者安裝
 
 GitHub Release ZIP 是手動安裝的備援方案，可以直接當作 unpacked extension 載入，不必建置原始碼。
 
-> v0.2.3 是目前的正式發佈版本；下方 ZIP 與 checksum 是 GitHub Release 所附的正式檔案。
+> v0.3.0 是目前的 GitHub Release。下方 ZIP 與 checksum 是該 Release 所附的正式檔案。Chrome 線上應用程式商店目前上架的 v0.2.3 是另一個版本。
 
-1. 下載 [`multi-ai-chat-store-v0.2.3.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.3/multi-ai-chat-store-v0.2.3.zip) 與它的 [checksum 檔](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.3/multi-ai-chat-store-v0.2.3.zip.sha256)。
-2. 驗證壓縮檔；正確的 SHA-256 是 `8fea5b0edbed1b7d818898febef7e2bf4151a0e180ca9dcbc452de1759bd9cca`。
+1. 下載 [`multi-ai-chat-store-v0.3.0.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip) 與它的 [checksum 檔](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip.sha256)。
+2. 驗證壓縮檔；正確的 SHA-256 是 `d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80`。
 
    ```powershell
-   (Get-FileHash .\multi-ai-chat-store-v0.2.3.zip -Algorithm SHA256).Hash.ToLower()
+   (Get-FileHash .\multi-ai-chat-store-v0.3.0.zip -Algorithm SHA256).Hash.ToLower()
    ```
 
    ```sh
-   shasum -a 256 multi-ai-chat-store-v0.2.3.zip
+   shasum -a 256 multi-ai-chat-store-v0.3.0.zip
    ```
 
 3. 把 ZIP 解壓縮到固定資料夾；該資料夾根目錄中會有 `manifest.json`。

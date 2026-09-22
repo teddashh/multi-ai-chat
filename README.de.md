@@ -2,23 +2,25 @@
 
 [English](./README.md) · [繁體中文](./README.zh-TW.md) · [日本語](./README.ja.md) · **Deutsch** · [한국어](./README.ko.md)
 
-[Im Chrome Web Store installieren](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah) · [Offizielle Website](https://teddashh.github.io/multi-ai-chat/?lang=de) · [Release v0.2.3](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.3) · [Desktop-Version](https://teddashh.github.io/multi-ai-chat-desktop/?lang=de)
+[Im Chrome Web Store installieren](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah) · [Offizielle Website](https://teddashh.github.io/multi-ai-chat/?lang=de) · [Release v0.3.0](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.3.0) · [Desktop-Version](https://teddashh.github.io/multi-ai-chat-desktop/?lang=de)
 
 Einmal fragen, vier KIs gemeinsam einsetzen. Multi-AI Chat ist ein leichtes Chrome Side Panel, das deine angemeldeten **ChatGPT-, Claude-, Gemini- und Grok-Tabs** koordiniert. Es verwendet die Provider-Seiten, auf die du bereits Zugriff hast – ohne Modell-API-Schlüssel und ohne separaten Chat-Server.
 
-**Aktuelle Version: v0.2.3** · Chrome 114+ · Manifest V3 · Fünf Oberflächensprachen · MIT
+**GitHub-Release: v0.3.0** · Eintrag im Chrome Web Store: v0.2.3 · Chrome 114+ · Manifest V3 · Fünf Oberflächensprachen · MIT
 
 > Multi-AI Chat automatisiert Weboberflächen Dritter. Eine Änderung beim Provider kann Seiten-Selektoren vorübergehend unbrauchbar machen. Automatisierte Nutzung kann außerdem den jeweiligen Nutzungsbedingungen unterliegen. Verwende nur Konten und Inhalte, zu deren Nutzung du berechtigt bist.
 
 ![Multi-AI Chat führt in Chrome einen Workflow mit mehreren Providern aus](./store/screenshot-1280x800.png)
 
-**Noch unveröffentlichte Quellcode-Funktion (0.3.0): experimentelle Meta-AI-Option.** Standardmäßig bleiben die bisherigen vier Anbieter aktiv. Unter **Einstellungen → Inaktiver Anbieter** lässt sich einer davon durch Meta AI ersetzen; immer bleiben genau vier aktiv. Beim Aktivieren von Meta wird der Zugriff auf meta.ai angefragt; lehnst du ab, bleibt Meta inaktiv. Ziele und Rollen werden angepasst, die Auswahl bleibt nach Neustarts erhalten und vorhandene Tabs sowie Anmeldungen bleiben bestehen. Metas Gastzugang hängt von Website und Region ab. Deaktivierte Eingabefelder gelten nicht als bereit. Angemeldetes Senden, Empfangen und die Abschlusserkennung benötigen noch einen [Live-Test](./store/META-AI-SMOKE.md). Die Funktion ist weder in v0.2.3 noch in der bisherigen Store-Version enthalten.
+**GitHub-Release v0.3.0 enthält Meta AI als experimentellen Standby-Anbieter, standardmäßig aus. Der Eintrag im Chrome Web Store ist weiterhin v0.2.3 und enthält Meta AI nicht.** Standardmäßig bleiben die bisherigen vier Anbieter aktiv. Unter **Einstellungen → Inaktiver Anbieter** lässt sich einer davon durch Meta AI ersetzen; immer bleiben genau vier aktiv. Beim Aktivieren von Meta wird der Zugriff auf meta.ai angefragt; lehnst du ab, bleibt Meta inaktiv. Ziele und Rollen werden angepasst, die Auswahl bleibt nach Neustarts erhalten und vorhandene Tabs sowie Anmeldungen bleiben bestehen. Metas Gastzugang hängt von Website und Region ab. Deaktivierte Eingabefelder gelten nicht als bereit. Authentifiziertes Senden und Empfangen mit Meta wurde auf einer wirklich angemeldeten Seite nicht ausgeführt. Die Berechtigungsabfrage, die dynamische Content-Script-Registrierung und das Beibehalten nach einem Browser-Neustart haben eine Unit-Test-Abdeckung und keinen Lauf im Browser. Wenn Meta sich falsch verhält, [öffne ein Issue](https://github.com/teddashh/multi-ai-chat/issues). Die [Checkliste](./store/META-AI-SMOKE.md) ist die Referenz für diesen Bericht. Die anderen vier Anbieter sind nicht betroffen. Dieses Verhalten steckt im ZIP von GitHub v0.3.0, nicht im Eintrag des Chrome Web Store.
 
-## Änderungen in v0.2.3
+## Änderungen in v0.3.0
 
-- **Zuverlässige Grok-Abschlusserkennung.** Nur Antworten nach dem exakten aktuellen Nutzerbeitrag werden berücksichtigt. Eine sichtbar fertige Antwort wird dadurch nicht mehr fälschlich als „Grok kann diesen Beitrag nicht abschließen“ gemeldet.
-- **Sauber getrennte Wiederholungsversuche.** Stop, Thinking-Status, Timer, Antwortverfolgung und Wiederherstellung gelten nur für den jeweiligen Request. Verborgene oder alte Signale eines fehlgeschlagenen Versuchs lassen Retry nicht mehr sofort erneut scheitern.
-- **Unterstützung der aktuellen Grok-Oberfläche.** Sowohl der aktuelle Textarea-Composer als auch der ältere ProseMirror werden unterstützt. Grok bleibt während der Generierung verbunden, und erfasst wird nur der Antworttext ohne Thinking-UI.
+- **Experimenteller Meta-AI-Standby, standardmäßig aus.** Die bisherigen vier Anbieter bleiben aktiv. Unter **Einstellungen → Inaktiver Anbieter** kann einer davon durch Meta AI ersetzt werden; genau vier bleiben aktiv. Zugriff auf `https://www.meta.ai/*` und `https://meta.ai/*` wird nur angefragt, wenn Meta aktiviert wird. Bei Ablehnung bleibt Meta inaktiv. meta.ai ist keine erforderliche Host-Berechtigung bei der Installation, daher erzwingt ein Update keine erneute Freigabe durch bestehende Nutzer. `content/meta.js` wird erst nach der Freigabe dynamisch registriert. Es gibt kein statisches Meta-Content-Script.
+- **Strengere Meta-Bereitschaft.** Ein benutzbares Eingabefeld gilt als bereit, auch wenn noch Anmelde-Steuerelemente auf der Seite stehen. Ein inertes Eingabefeld oder eine ausdrückliche Anmeldeseite bedeutet weiterhin Anmeldung. Ein Eingabefeld oder Steuerelement mit `data-disabled="true"` oder mit `opacity: 0` gilt nicht als bereit.
+- **Workflow, Einstellungen und Eingabe.** Ein verspätetes Ergebnis, eine Provider-URL oder ein Sendefehler aus der vorherigen Anfrage gelangt nicht in einen neuen Chat. Der Gesprächsspeicher schreibt den letzten Snapshot, wiederholt ein fehlgeschlagenes Lesen, statt den Verlauf zu löschen, und überspringt ungültige Zeilen. Nicht bereite Anbieter werden vor einem Workflow oder einem teilweisen freien Senden benannt. Der Bereitschaftshinweis öffnet die ausgewählten, noch nicht bereiten Anbieter, und der freie Modus kann nur die bereiten aktiven Anbieter auswählen. Der freie Modus bleibt ausgewählt, wenn das Panel geschlossen wird. Eine IME-Bestätigung sendet keinen Entwurf. Die Modusauswahl ist sichtbar, der Tastaturfokus wird angezeigt, und der Fokus der Einstellungen bleibt bis Escape oder Schließen im Dialog. Senden und die übrigen Eingabeaktionen bleiben in einem niedrigen Panel sichtbar, und die Eingabeaufforderung hat eine stabile lokalisierte Bezeichnung. Ein Laden oder Speichern des Tokens, das nach dem Schließen dieses Dialogs endet, wird ignoriert. Ein fehlgeschlagenes Laden oder Speichern bleibt sichtbar und kann erneut versucht werden.
+- **Fünf Oberflächensprachen.** Texte zum inaktiven Anbieter, zur abgelehnten Meta-Berechtigung, zur Bereitschaft, zu Einstellungen und zur Eingabe gibt es auf Englisch, traditionellem Chinesisch, Japanisch, Deutsch und Koreanisch.
+- **Bekannte Einschränkung.** Meta AI ist experimentell und standardmäßig aus. Authentifiziertes Senden und Empfangen wurde auf einer wirklich angemeldeten Seite nicht ausgeführt. Die Berechtigungsabfrage, die dynamische Content-Script-Registrierung und das Beibehalten nach einem Browser-Neustart haben eine Unit-Test-Abdeckung und keinen Lauf im Browser. Wenn Meta sich falsch verhält, [öffne ein Issue](https://github.com/teddashh/multi-ai-chat/issues). Die [Checkliste](./store/META-AI-SMOKE.md) ist die Referenz für diesen Bericht. Die anderen vier Anbieter sind nicht betroffen.
 
 ## Die passende Version wählen
 
@@ -56,23 +58,23 @@ Fällt ein Provider während des Rundtischs aus, pausiert der Workflow und biete
 
 [Installiere Multi-AI Chat aus dem Chrome Web Store](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah). Chrome installiert freigegebene Updates automatisch; für die normale Nutzung ist dies die beste Option.
 
-Während der Google-Prüfung kann die Version im Chrome Web Store hinter dem GitHub Release zurückliegen. Zeigt der Store noch eine ältere Version, steht das versionierte ZIP unten sofort zur manuellen Installation bereit.
+Der Eintrag im Chrome Web Store ist weiterhin **v0.2.3**. Diese Installation liefert v0.2.3 und enthält Meta AI nicht. v0.3.0 gibt es nur auf GitHub. Das versionierte ZIP unten ist dieses GitHub-Paket.
 
 ### Manuelle oder Entwickler-Installation
 
 Die ZIP-Datei aus GitHub Releases dient als manuelle Alternative und kann direkt als entpackte Erweiterung geladen werden; ein Build aus dem Quellcode ist nicht erforderlich.
 
-> v0.2.3 ist die aktuelle Veröffentlichung. Die folgende ZIP-Datei und Prüfsumme sind die offiziellen Dateien aus dem GitHub Release.
+> v0.3.0 ist das aktuelle GitHub-Release. Die folgende ZIP-Datei und Prüfsumme sind die offiziellen Dateien dieses GitHub-Releases. Der Eintrag im Chrome Web Store ist weiterhin v0.2.3 und ein anderer Build.
 
-1. Lade [`multi-ai-chat-store-v0.2.3.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.3/multi-ai-chat-store-v0.2.3.zip) und die zugehörige [Prüfsummendatei](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.3/multi-ai-chat-store-v0.2.3.zip.sha256) herunter.
-2. Prüfe das Archiv. Die erwartete SHA-256-Prüfsumme lautet `8fea5b0edbed1b7d818898febef7e2bf4151a0e180ca9dcbc452de1759bd9cca`.
+1. Lade [`multi-ai-chat-store-v0.3.0.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip) und die zugehörige [Prüfsummendatei](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip.sha256) herunter.
+2. Prüfe das Archiv. Die erwartete SHA-256-Prüfsumme lautet `d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80`.
 
    ```powershell
-   (Get-FileHash .\multi-ai-chat-store-v0.2.3.zip -Algorithm SHA256).Hash.ToLower()
+   (Get-FileHash .\multi-ai-chat-store-v0.3.0.zip -Algorithm SHA256).Hash.ToLower()
    ```
 
    ```sh
-   shasum -a 256 multi-ai-chat-store-v0.2.3.zip
+   shasum -a 256 multi-ai-chat-store-v0.3.0.zip
    ```
 
 3. Entpacke die ZIP-Datei in einen dauerhaften Ordner. Direkt darin befindet sich `manifest.json`.
