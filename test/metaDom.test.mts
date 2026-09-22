@@ -7,6 +7,7 @@ import {
   isMetaSendControl,
   isMetaStopControl,
   isUsableMetaControl,
+  isVisibleMetaElement,
   metaLoginStatus,
   metaSessionReady,
 } from '../src/content/metaDom.ts';
@@ -21,15 +22,35 @@ test('Meta never reports an inert, disabled, readonly or hidden composer as read
   const blocked = [
     control({ disabled: true }),
     control({ readOnly: true }),
-    ...['[inert]', '[disabled]', '[readonly]', '[aria-readonly="true"]', '[aria-disabled="true"]', '[aria-hidden="true"]']
+    ...['[inert]', '[disabled]', '[data-disabled="true"]', '[readonly]', '[aria-readonly="true"]', '[aria-disabled="true"]', '[aria-hidden="true"]']
       .map((ancestor) => control({ ancestor })),
   ];
   for (const input of blocked) {
-    assert.equal(isUsableMetaControl(input), false);
-    assert.equal(metaSessionReady([input], () => true), false);
+    const label = input.ancestor ?? (input.disabled ? 'disabled' : 'readOnly');
+    assert.equal(isUsableMetaControl(input), false, label);
+    assert.equal(metaSessionReady([input], () => true), false, label);
   }
   assert.equal(metaSessionReady([control()], () => false), false);
   assert.equal(metaSessionReady([], () => true), false);
+});
+
+test('a laid-out Meta element with computed opacity 0 is not visible', (t) => {
+  const element = Object.assign(control(), { getClientRects: () => [{}] });
+  let opacity = '0';
+  const previousWindow = globalThis.window;
+  globalThis.window = {
+    getComputedStyle: () => ({ display: 'block', visibility: 'visible', opacity }),
+  } as unknown as Window & typeof globalThis;
+  t.after(() => {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  });
+
+  assert.equal(isVisibleMetaElement(element as unknown as Element), false, 'opacity 0');
+  for (const value of ['', '1', '0.01']) {
+    opacity = value;
+    assert.equal(isVisibleMetaElement(element as unknown as Element), true, `opacity ${JSON.stringify(value)}`);
+  }
 });
 
 test('Meta can select the live composer after an inert prehydration placeholder', () => {
@@ -85,6 +106,7 @@ test('missing, hidden or temporarily disabled inputs without login evidence stay
   assert.equal(metaLoginStatus([control({ readOnly: true })], () => true, false), null);
   assert.equal(metaLoginStatus([control({ ancestor: '[aria-disabled="true"]' })], () => true, false), null);
   assert.equal(metaLoginStatus([control({ ancestor: '[aria-readonly="true"]' })], () => true, false), null);
+  assert.equal(metaLoginStatus([control({ ancestor: '[data-disabled="true"]' })], () => true, false), null);
 });
 
 test('login modal controls can be recognized without a test id', () => {

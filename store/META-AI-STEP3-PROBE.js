@@ -22,9 +22,14 @@
     }
     const visible = (element) => {
       const style = getComputedStyle(element);
-      return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
+      // Opacity is self-only, like the desktop helper: an opacity: 0 ancestor still
+      // reports opacity: 1 on its children.
+      return style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && !(style.opacity !== '' && Number(style.opacity) === 0)
+        && element.getClientRects().length > 0;
     };
-    const usable = (element) => !element.closest('[inert], [disabled], [readonly], [aria-disabled="true"], [aria-readonly="true"], [aria-hidden="true"]');
+    const usable = (element) => !element.closest('[inert], [disabled], [data-disabled="true"], [readonly], [aria-disabled="true"], [aria-readonly="true"], [aria-hidden="true"]');
     // Inline copy of META_INPUT_SELECTORS. The snippet stays standalone and cannot import src/.
     const broadTextbox = '[contenteditable="true"][role="textbox"]';
     const META_INPUT_SELECTORS = [

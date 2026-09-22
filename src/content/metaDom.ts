@@ -34,13 +34,18 @@ interface QueryCapableContainer {
 
 export function isUsableMetaControl(element: MetaControl): boolean {
   return !element.disabled && !element.readOnly && !element.closest(
-    '[inert], [disabled], [readonly], [aria-readonly="true"], [aria-disabled="true"], [aria-hidden="true"]',
+    '[inert], [disabled], [data-disabled="true"], [readonly], [aria-readonly="true"], [aria-disabled="true"], [aria-hidden="true"]',
   );
 }
 
 export function isVisibleMetaElement(element: Element): boolean {
   const style = window.getComputedStyle(element);
-  return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
+  // Opacity is self-only, like the desktop helper: an opacity: 0 ancestor still
+  // reports opacity: 1 on its children.
+  return style.display !== 'none'
+    && style.visibility !== 'hidden'
+    && !(style.opacity !== '' && Number(style.opacity) === 0)
+    && element.getClientRects().length > 0;
 }
 
 export function metaSessionReady(inputs: readonly MetaControl[], isVisible: (element: MetaControl) => boolean): boolean {

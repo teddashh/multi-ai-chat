@@ -84,6 +84,14 @@ test('disabled, read-only, and aria-gated composers without login evidence stay 
   }
 });
 
+test('a data-disabled composer without login evidence stays checking', () => {
+  // Desktop isDisabled rejects data-disabled="true". With no login evidence this
+  // extension stays on checking; a usable reading would publish connected.
+  const observed = reportMetaStatus({ composers: [control({ ancestor: '[data-disabled="true"]' })] });
+  assert.equal(observed.status, 'checking');
+  assert.equal(observed.retryInMs, undefined);
+});
+
 test('a hidden but otherwise usable composer without login evidence stays checking', () => {
   const observed = reportMetaStatus({ composers: [control({ visible: false })] });
   assert.equal(observed.status, 'checking');
