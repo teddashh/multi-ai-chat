@@ -43,6 +43,9 @@ import {
   transferStepRecoveryOwnership,
 } from './roundtableRecovery';
 import { assertCurrentWorkflow, WorkflowStartGate } from './workflowStartGate';
+import { META_ORIGINS } from '../shared/metaOrigins';
+import { syncMetaHostAccess } from './metaHostAccess';
+import type { MetaHostAccessSyncResult } from './metaHostAccess';
 import {
   canRetryStatusProbe,
   compareProviderTabPriority,
@@ -111,6 +114,9 @@ let standbyProvider = normalizeStandbyProvider(undefined);
 const providerSelectionReady = chrome.storage.local.get('standbyProvider').then((stored) => {
   standbyProvider = normalizeStandbyProvider(stored.standbyProvider);
 });
+// registerContentScripts rejects a duplicate id, and the standby seat must match
+// host access. Startup, install, and wake can overlap, so one reconcile runs at a time.
+let metaHostAccessChain: Promise<void> = Promise.resolve();
 
 void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 void chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }).catch(() => {});
@@ -121,8 +127,21 @@ chrome.runtime.onConnect.addListener((port) => {
   port.onMessage.addListener(() => {});
 });
 
-chrome.runtime.onInstalled.addListener(() => void refreshConnections());
-chrome.runtime.onStartup.addListener(() => void refreshConnections());
+chrome.runtime.onInstalled.addListener(() => {
+  void refreshConnections();
+  trackMetaHostAccess();
+});
+chrome.runtime.onStartup.addListener(() => {
+  void refreshConnections();
+  trackMetaHostAccess();
+});
+chrome.permissions.onAdded.addListener(() => {
+  trackMetaHostAccess();
+});
+chrome.permissions.onRemoved.addListener(() => {
+  trackMetaHostAccess();
+});
+trackMetaHostAccess();
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   // onUpdated 也會因為標題、favicon 等變化觸發，此時 changeInfo 沒有 status 或 url。
@@ -215,20 +234,9 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
         sendResponse({ ok: false });
         return false;
       }
-      void workflowStartGate.run(async () => {
-        await providerSelectionReady;
-        if (activeWorkflowId) throw new Error(encodeError('error.provider_change_busy'));
-        const next = requested as AIProvider;
-        const stored = await chrome.storage.local.get('freeTargets');
-        const freeTargets = swapFreeTargets(stored.freeTargets, next, standbyProvider);
-        await chrome.storage.local.set({ standbyProvider: next, freeTargets });
-        standbyProvider = next;
-        chrome.runtime.sendMessage({
-          action: 'PROVIDER_SELECTION_UPDATE',
-          payload: { standbyProvider, freeTargets },
-        }).catch(() => {});
-        return { ok: true, standbyProvider, freeTargets };
-      }).then(sendResponse).catch((error) => sendResponse({ ok: false, error: errorMessage(error) }));
+      void commitStandbyProvider(requested as AIProvider)
+        .then(sendResponse)
+        .catch((error) => sendResponse({ ok: false, error: errorMessage(error) }));
       return true;
     }
     case 'GET_CONNECTIONS':
@@ -1084,6 +1092,63 @@ async function handleHackMDPublish(payload: { token: string; title: string; cont
   const publishLink = data.publishLink || (data.id ? `https://hackmd.io/@/${data.id}/publish` : '');
   if (!publishLink) throw new Error(encodeError('error.hackmd_no_link'));
   return { publishLink, editLink: data.id ? `https://hackmd.io/${data.id}` : '' };
+}
+
+function enqueueMetaHostAccess<T>(operation: () => Promise<T>): Promise<T> {
+  const run = metaHostAccessChain.then(operation, operation);
+  metaHostAccessChain = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+function syncMetaHostAccessWithChrome(): Promise<MetaHostAccessSyncResult> {
+  return syncMetaHostAccess({
+    hasPermission: () => chrome.permissions.contains({ origins: [...META_ORIGINS] }),
+    getRegistered: async () => {
+      const scripts = await chrome.scripting.getRegisteredContentScripts();
+      return scripts.map((script) => ({ id: script.id }));
+    },
+    register: (script) => chrome.scripting.registerContentScripts([script]),
+    unregister: (ids) => chrome.scripting.unregisterContentScripts({ ids: [...ids] }),
+  });
+}
+
+// Standby other than Meta is legal only while the meta origins are granted.
+// A running workflow blocks the seat change; leave storage unchanged so the next
+// reconcile can retry instead of treating the blocked attempt as finished.
+function reconcileMetaHostAccess(): Promise<void> {
+  return enqueueMetaHostAccess(async () => {
+    try {
+      console.info('Meta host access', await syncMetaHostAccessWithChrome());
+    } catch (error: unknown) {
+      console.error('Meta host access sync failed', error);
+    }
+    await providerSelectionReady;
+    const permitted = await chrome.permissions.contains({ origins: [...META_ORIGINS] });
+    if (permitted || standbyProvider === 'meta') return;
+    await commitStandbyProvider('meta');
+  });
+}
+
+function trackMetaHostAccess(): void {
+  void reconcileMetaHostAccess().catch((error: unknown) => {
+    console.error('Could not reconcile Meta AI host access', error);
+  });
+}
+
+function commitStandbyProvider(next: AIProvider): Promise<{ ok: true; standbyProvider: AIProvider; freeTargets: AIProvider[] }> {
+  return workflowStartGate.run(async () => {
+    await providerSelectionReady;
+    if (activeWorkflowId) throw new Error(encodeError('error.provider_change_busy'));
+    const stored = await chrome.storage.local.get('freeTargets');
+    const freeTargets = swapFreeTargets(stored.freeTargets, next, standbyProvider);
+    await chrome.storage.local.set({ standbyProvider: next, freeTargets });
+    standbyProvider = next;
+    chrome.runtime.sendMessage({
+      action: 'PROVIDER_SELECTION_UPDATE',
+      payload: { standbyProvider, freeTargets },
+    }).catch(() => {});
+    return { ok: true as const, standbyProvider, freeTargets };
+  });
 }
 
 function errorMessage(error: unknown): string {

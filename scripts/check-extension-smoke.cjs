@@ -1,5 +1,14 @@
 // Optional installed-extension fixture QA. All provider pages are intercepted.
 // Requires a fresh disposable browser/profile; never connect to a personal browser.
+//
+// Meta's content script is not injected when this unpacked extension loads. It is
+// registered only after the optional host permissions https://www.meta.ai/* and
+// https://meta.ai/* are granted. chrome.permissions.request() always prompts for
+// those optional origins and cannot grant them headlessly; do not stub the grant.
+// Before running, grant both origins by hand in this disposable browser (open the
+// extension, choose a standby provider other than Meta, and accept the meta.ai
+// prompt). Declining keeps Meta on standby, so content/meta.js is not registered.
+// See store/META-AI-SMOKE.md.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -211,6 +220,15 @@ async function run() {
     const selected = () => targets().getByRole('button', { pressed: true }).allTextContents();
     assert.deepEqual(await selected(), ['ChatGPT', 'Claude', 'Gemini', 'Grok']);
     report.passed.push('Actual Side Panel loads with the original four selected and Meta on standby');
+    const optionalOrigins = JSON.parse(fs.readFileSync(path.join(dist, 'manifest.json'), 'utf8')).optional_host_permissions;
+    const metaAccessGranted = await panel.evaluate(async (origins) => chrome.permissions.contains({ origins }), optionalOrigins);
+    assert.equal(
+      metaAccessGranted,
+      true,
+      `Grant optional host access by hand before this run (${Array.isArray(optionalOrigins) ? optionalOrigins.join(', ') : 'https://www.meta.ai/* and https://meta.ai/*'}). `
+      + 'content/meta.js is registered only after that grant. This runner cannot accept the permission prompt headlessly. '
+      + 'Declining keeps Meta on standby.',
+    );
     const standby = async provider => {
       await panel.getByRole('button', { name: 'Settings', exact: true }).click();
       const dialog = panel.getByRole('dialog');
