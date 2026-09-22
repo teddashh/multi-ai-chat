@@ -17,9 +17,10 @@ interface ExtensionManifest {
   content_scripts: ManifestContentScript[];
 }
 
-test('manifest keeps meta host access optional, version 0.2.3, and the other content scripts in place', () => {
+test('manifest keeps meta host access optional, matches package.json, and the other content scripts in place', () => {
   const manifest = JSON.parse(readFileSync(new URL('../public/manifest.json', import.meta.url), 'utf8')) as ExtensionManifest;
-  assert.equal(manifest.version, '0.2.3');
+  const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
+  assert.equal(manifest.version, packageJson.version);
   assert.equal(manifest.permissions.includes('scripting'), true);
   assert.deepEqual(manifest.host_permissions, [
     'https://chatgpt.com/*',
