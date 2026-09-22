@@ -4,12 +4,12 @@ Everything needed for the Developer Dashboard listing of **Multi-AI Chat** (v0.2
 Copy each block into the matching field. Items marked **[you]** can only be done by the
 publishing Google account.
 
-**Next release only:** current source adds an experimental Meta AI replacement while keeping
+**Pending release 0.3.0:** the source version is already 0.3.0. Current source adds an experimental Meta AI replacement while keeping
 four active providers and the original four as defaults. `https://www.meta.ai/*` and
 `https://meta.ai/*` are optional host permissions, requested only when the user activates
 Meta. Declining keeps Meta on standby. There is no static Meta content script; it is
 registered dynamically after access is granted. Before packaging that source for
-submission, update the version and listing/permission justifications together and complete
+submission, update the listing and permission justifications for 0.3.0 and complete
 [the Meta AI smoke checklist](./META-AI-SMOKE.md). The v0.2.3 listing and assets below describe
 the already released four-provider build.
 
@@ -105,7 +105,7 @@ The v0.2.3 rows above do not include Meta. In the current source, `https://www.m
 `https://meta.ai/*` are **optional** host permissions. Chrome asks for them only when the user
 activates experimental Meta AI. If the user declines, Meta stays on standby. The packaged
 `content/meta.js` is registered dynamically after the grant; it is not a static content script
-and not a required install-time host permission. Add that justification when the Meta release
+and not a required install-time host permission. Add that justification when 0.3.0
 is submitted, not on the v0.2.3 listing.
 
 ---
