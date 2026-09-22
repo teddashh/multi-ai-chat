@@ -10,6 +10,9 @@ import { AI_PROVIDERS } from '../src/shared/constants.ts';
 import type { AIProvider, ConsultRoles, DebateRoles, RoundtableRoles } from '../src/shared/types.ts';
 import { decodeError } from '../src/shared/errors.ts';
 import { openUnreadyProviders } from '../src/sidepanel/openUnreadyProviders.ts';
+import { META_ORIGINS } from '../src/shared/metaOrigins.ts';
+
+const META_CONTENT_SCRIPT_ID = 'meta-ai';
 
 const META_DEBATE: DebateRoles = { pro: 'meta', con: 'chatgpt', judge: 'claude', summary: 'gemini' };
 const META_CONSULT: ConsultRoles = { first: 'meta', second: 'chatgpt', reviewer: 'claude', summary: 'gemini' };
@@ -52,7 +55,7 @@ function worker(
   autoRespond = true,
   readiness: Partial<Record<AIProvider, boolean | null>> = {},
   missingTabs: AIProvider[] = [],
-  extras: { session?: Record<string, unknown>; rejectSend?: AIProvider[] } = {},
+  extras: { session?: Record<string, unknown>; rejectSend?: AIProvider[]; metaHostPermitted?: boolean } = {},
 ) {
   const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
   const sent: any[] = [];
@@ -65,6 +68,20 @@ function worker(
   const session: Record<string, unknown> = { ...extras.session };
   const rejectSend = extras.rejectSend ?? [];
   const tabs = ALL_PROVIDERS.flatMap((provider, index) => missingTabs.includes(provider) ? [] : [{ id: index + 1, url: AI_PROVIDERS[provider].url }]);
+  interface DynamicScript {
+    id: string;
+    matches?: readonly string[];
+    js?: readonly string[];
+    runAt?: string;
+    persistAcrossSessions?: boolean;
+  }
+  const dynamicScripts: DynamicScript[] = [];
+  const contentScriptErrors: string[] = [];
+  // A stored non-meta standby is only legal while meta.ai access is granted.
+  // Tests of the stuck state pass metaHostPermitted: false.
+  let metaHostPermitted = extras.metaHostPermitted ?? (
+    typeof stored.standbyProvider === 'string' && stored.standbyProvider !== 'meta'
+  );
   function event() {
     return { listeners: [] as Function[], addListener(listener: Function) { this.listeners.push(listener); } };
   }
@@ -104,7 +121,41 @@ function worker(
       },
     },
     windows: { update: async () => {} },
-    scripting: { executeScript: async () => {} },
+    permissions: {
+      contains: async () => metaHostPermitted,
+      onAdded: event(),
+      onRemoved: event(),
+    },
+    scripting: {
+      executeScript: async () => {},
+      getRegisteredContentScripts: async () => dynamicScripts.map((script) => ({ ...script })),
+      registerContentScripts: async (scripts: DynamicScript[]) => {
+        for (const script of scripts) {
+          if (dynamicScripts.some((existing) => existing.id === script.id)) {
+            const error = new Error(`Duplicate script ID '${script.id}'`);
+            contentScriptErrors.push(error.message);
+            throw error;
+          }
+          dynamicScripts.push({
+            ...script,
+            matches: script.matches ? [...script.matches] : undefined,
+            js: script.js ? [...script.js] : undefined,
+          });
+        }
+      },
+      unregisterContentScripts: async (filter?: { ids?: readonly string[] }) => {
+        const ids = filter?.ids;
+        if (!ids || ids.length === 0) {
+          const error = new Error('refusing to unregister every dynamic content script');
+          contentScriptErrors.push(error.message);
+          throw error;
+        }
+        for (const id of ids) {
+          const index = dynamicScripts.findIndex((script) => script.id === id);
+          if (index >= 0) dynamicScripts.splice(index, 1);
+        }
+      },
+    },
   };
   function receive(message: any, sender: any = {}, reply: Function = () => {}) {
     return chrome.runtime.onMessage.listeners[0](message, sender, reply);
@@ -148,6 +199,8 @@ function worker(
   const ready = new Promise<void>((resolve) => setImmediate(resolve));
   return {
     command, sent, stops, broadcasts, local, session, navigated, created, ready, complete, fail, removeTab,
+    dynamicScripts, contentScriptErrors, permissions: chrome.permissions, runtime: chrome.runtime,
+    grantMetaHostAccess: (granted: boolean) => { metaHostPermitted = granted; },
     close: () => { for (const timer of timers) clearTimeout(timer); },
     send: (mode = 'free', targets?: string[], options: {
       roles?: DebateRoles | ConsultRoles | RoundtableRoles;
@@ -507,6 +560,77 @@ test('panel reconnect during Meta recovery rotates the decision identity', async
   assert.equal(app.sent.length, 20);
 });
 
+async function flushWorkerTurns(): Promise<void> {
+  for (let turn = 0; turn < 8; turn += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+}
+
+test('granting meta host access registers one persistent content script and does not register twice', async (t) => {
+  const app = worker();
+  t.after(app.close);
+  await app.ready;
+  assert.equal(app.dynamicScripts.length, 0);
+  app.grantMetaHostAccess(true);
+  app.permissions.onAdded.listeners[0]({ origins: [...META_ORIGINS] });
+  await waitUntil(() => app.dynamicScripts.length === 1, 'meta content script registered');
+  assert.equal(app.dynamicScripts[0].id, META_CONTENT_SCRIPT_ID);
+  assert.equal(app.dynamicScripts[0].persistAcrossSessions, true);
+  assert.deepEqual(app.dynamicScripts[0].matches, [...META_ORIGINS]);
+  assert.deepEqual(app.dynamicScripts[0].js, ['content/meta.js']);
+  assert.equal(app.dynamicScripts[0].runAt, 'document_idle');
+  app.permissions.onAdded.listeners[0]({ origins: [...META_ORIGINS] });
+  await flushWorkerTurns();
+  assert.equal(app.dynamicScripts.length, 1);
+  assert.deepEqual(app.contentScriptErrors, []);
+});
+
+test('removing meta host access unregisters only the meta script and restores the original four', async (t) => {
+  const app = worker({
+    standbyProvider: 'grok',
+    freeTargets: ['chatgpt', 'claude', 'gemini', 'meta'],
+  });
+  t.after(app.close);
+  await app.ready;
+  app.dynamicScripts.push({ id: 'chatgpt-extra', js: ['content/chatgpt.js'] });
+  app.grantMetaHostAccess(true);
+  app.permissions.onAdded.listeners[0]({ origins: [...META_ORIGINS] });
+  await waitUntil(() => app.dynamicScripts.some((script) => script.id === META_CONTENT_SCRIPT_ID), 'meta script registered');
+  app.grantMetaHostAccess(false);
+  app.permissions.onRemoved.listeners[0]({ origins: [...META_ORIGINS] });
+  await waitUntil(() => app.local.standbyProvider === 'meta', 'standby reset to meta');
+  assert.equal(app.dynamicScripts.some((script) => script.id === META_CONTENT_SCRIPT_ID), false);
+  assert.equal(app.dynamicScripts.some((script) => script.id === 'chatgpt-extra'), true);
+  assert.deepEqual(Array.from(app.local.freeTargets as string[]), ['chatgpt', 'claude', 'gemini', 'grok']);
+  const updates = app.broadcasts.filter((message) => message.action === 'PROVIDER_SELECTION_UPDATE');
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].payload.standbyProvider, 'meta');
+  assert.deepEqual(Array.from(updates[0].payload.freeTargets as string[]), ['chatgpt', 'claude', 'gemini', 'grok']);
+  assert.deepEqual(app.contentScriptErrors, []);
+});
+
+test('removing meta host access is a no-op when Meta is already standby', async (t) => {
+  const app = worker({ standbyProvider: 'meta', freeTargets: ['chatgpt', 'claude', 'gemini', 'grok'] });
+  t.after(app.close);
+  await app.ready;
+  app.permissions.onRemoved.listeners[0]({ origins: [...META_ORIGINS] });
+  await flushWorkerTurns();
+  assert.equal(app.local.standbyProvider, 'meta');
+  assert.deepEqual(app.local.freeTargets, ['chatgpt', 'claude', 'gemini', 'grok']);
+  assert.equal(app.broadcasts.some((message) => message.action === 'PROVIDER_SELECTION_UPDATE'), false);
+});
+
+test('removing an unrelated host does not reset an active Meta seat', async (t) => {
+  const app = worker({ standbyProvider: 'grok', freeTargets: ['chatgpt', 'claude', 'gemini', 'meta'] });
+  t.after(app.close);
+  await app.ready;
+  app.permissions.onRemoved.listeners[0]({ origins: ['https://api.hackmd.io/*'] });
+  await flushWorkerTurns();
+  assert.equal(app.local.standbyProvider, 'grok');
+  assert.deepEqual(app.local.freeTargets, ['chatgpt', 'claude', 'gemini', 'meta']);
+  assert.equal(app.broadcasts.some((message) => message.action === 'PROVIDER_SELECTION_UPDATE'), false);
+});
+
 test('a replacement worker tells the reopened panel that a Meta workflow was interrupted', async (t) => {
   const first = worker({ standbyProvider: 'grok' }, false);
   t.after(first.close);
@@ -567,6 +691,109 @@ test('GET_CONNECTIONS after a finished Meta debate does not replay status or rol
   assert.equal(extra.some((message) => (
     message.action === 'WORKFLOW_STATUS' && message.payload?.clientId === 'panel-2' && !message.payload?.done
   )), false);
+});
+
+function selectionUpdates(app: { broadcasts: { action?: string; payload?: { standbyProvider?: string; freeTargets?: string[] } }[] }) {
+  return app.broadcasts.filter((message) => message.action === 'PROVIDER_SELECTION_UPDATE');
+}
+
+test('absent meta permission resets standby grok to meta when the worker starts', async (t) => {
+  const app = worker({
+    standbyProvider: 'grok',
+    freeTargets: ['chatgpt', 'claude', 'gemini', 'meta'],
+  }, true, {}, [], { metaHostPermitted: false });
+  t.after(app.close);
+  await app.ready;
+  await waitUntil(() => app.local.standbyProvider === 'meta', 'startup standby reset');
+  assert.deepEqual(Array.from(app.local.freeTargets as string[]), ['chatgpt', 'claude', 'gemini', 'grok']);
+  assert.equal(app.dynamicScripts.some((script) => script.id === META_CONTENT_SCRIPT_ID), false);
+  const updates = selectionUpdates(app);
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].payload?.standbyProvider, 'meta');
+  assert.deepEqual(Array.from(updates[0].payload?.freeTargets ?? []), ['chatgpt', 'claude', 'gemini', 'grok']);
+});
+
+test('onStartup resets standby when meta permission disappeared without an onRemoved event', async (t) => {
+  const app = worker({
+    standbyProvider: 'grok',
+    freeTargets: ['chatgpt', 'claude', 'gemini', 'meta'],
+  });
+  t.after(app.close);
+  await app.ready;
+  assert.equal(app.local.standbyProvider, 'grok');
+  assert.equal(selectionUpdates(app).length, 0);
+  app.grantMetaHostAccess(false);
+  app.runtime.onStartup.listeners[0]();
+  app.runtime.onStartup.listeners[0]();
+  await waitUntil(() => app.local.standbyProvider === 'meta', 'onStartup standby reset');
+  await flushWorkerTurns();
+  assert.deepEqual(Array.from(app.local.freeTargets as string[]), ['chatgpt', 'claude', 'gemini', 'grok']);
+  const updates = selectionUpdates(app);
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].payload?.standbyProvider, 'meta');
+  assert.deepEqual(Array.from(updates[0].payload?.freeTargets ?? []), ['chatgpt', 'claude', 'gemini', 'grok']);
+});
+
+test('absent meta permission does nothing when Meta is already standby', async (t) => {
+  const app = worker({
+    standbyProvider: 'meta',
+    freeTargets: ['chatgpt', 'claude', 'gemini', 'grok'],
+  }, true, {}, [], { metaHostPermitted: false });
+  t.after(app.close);
+  await app.ready;
+  app.runtime.onStartup.listeners[0]();
+  app.runtime.onInstalled.listeners[0]();
+  await flushWorkerTurns();
+  assert.equal(app.local.standbyProvider, 'meta');
+  assert.deepEqual(app.local.freeTargets, ['chatgpt', 'claude', 'gemini', 'grok']);
+  assert.equal(selectionUpdates(app).length, 0);
+  assert.equal(app.dynamicScripts.length, 0);
+});
+
+test('granted meta permission does not reset standby', async (t) => {
+  const app = worker({
+    standbyProvider: 'grok',
+    freeTargets: ['chatgpt', 'claude', 'gemini', 'meta'],
+  });
+  t.after(app.close);
+  await app.ready;
+  assert.equal(app.dynamicScripts.some((script) => script.id === META_CONTENT_SCRIPT_ID), true);
+  app.runtime.onStartup.listeners[0]();
+  app.runtime.onInstalled.listeners[0]();
+  app.permissions.onRemoved.listeners[0]({ origins: [...META_ORIGINS] });
+  await flushWorkerTurns();
+  assert.equal(app.local.standbyProvider, 'grok');
+  assert.deepEqual(app.local.freeTargets, ['chatgpt', 'claude', 'gemini', 'meta']);
+  assert.equal(selectionUpdates(app).length, 0);
+  assert.equal(app.dynamicScripts.some((script) => script.id === META_CONTENT_SCRIPT_ID), true);
+});
+
+test('a standby reset blocked by an active workflow is retried by the next reconcile', async (t) => {
+  const app = worker({
+    standbyProvider: 'grok',
+    freeTargets: ['chatgpt', 'claude', 'gemini', 'meta'],
+  }, false);
+  t.after(app.close);
+  await app.ready;
+  const running = app.send('free', ['meta']);
+  await waitUntil(() => app.sent.length === 1, 'workflow holds the standby seat');
+  app.grantMetaHostAccess(false);
+  app.runtime.onStartup.listeners[0]();
+  await flushWorkerTurns();
+  assert.equal(app.local.standbyProvider, 'grok');
+  assert.deepEqual(app.local.freeTargets, ['chatgpt', 'claude', 'gemini', 'meta']);
+  assert.equal(selectionUpdates(app).length, 0);
+  assert.equal(app.dynamicScripts.some((script) => script.id === META_CONTENT_SCRIPT_ID), false);
+  app.complete(app.sent[0]);
+  await running;
+  assert.equal(app.local.standbyProvider, 'grok');
+  app.runtime.onInstalled.listeners[0]();
+  await waitUntil(() => app.local.standbyProvider === 'meta', 'reconcile retries after the workflow');
+  assert.deepEqual(Array.from(app.local.freeTargets as string[]), ['chatgpt', 'claude', 'gemini', 'grok']);
+  const updates = selectionUpdates(app);
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].payload?.standbyProvider, 'meta');
+  assert.deepEqual(Array.from(updates[0].payload?.freeTargets ?? []), ['chatgpt', 'claude', 'gemini', 'grok']);
 });
 
 test('GET_CONNECTIONS for a different session does not rebind a live Meta debate', async (t) => {

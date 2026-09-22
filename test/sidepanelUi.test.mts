@@ -8,6 +8,8 @@ import ts from 'typescript';
 import { AI_PROVIDERS, CHAT_MODES, DEFAULT_DEBATE_ROLES } from '../src/shared/constants.ts';
 import { LOCALE_LABELS, SUPPORTED_LOCALES, setLocale, t } from '../src/shared/i18n.ts';
 import type { AIConnection, AIProvider } from '../src/shared/types.ts';
+import * as metaOrigins from '../src/shared/metaOrigins.ts';
+import * as metaHostPermission from '../src/sidepanel/metaHostPermission.ts';
 
 const ALL_PROVIDERS: AIProvider[] = ['chatgpt', 'claude', 'gemini', 'grok', 'meta'];
 const THEME_MODES = ['system', 'light', 'dark'] as const;
@@ -16,12 +18,16 @@ const activeProviders: AIProvider[] = ['chatgpt', 'claude', 'gemini', 'grok'];
 function loadComponent(
   relativePath: string,
   reactImpl: typeof React = React,
+  sandbox?: Record<string, unknown>,
 ): { default: React.ComponentType<any> } {
   const module = { exports: {} as { default: React.ComponentType<any> } };
   const code = ts.transpileModule(readFileSync(new URL(relativePath, import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React, esModuleInterop: true },
   }).outputText;
-  vm.runInNewContext(`(function(require, module, exports) {${code}\n})`)(
+  const runner = sandbox
+    ? vm.runInNewContext(`(function(require, module, exports) {${code}\n})`, sandbox)
+    : vm.runInNewContext(`(function(require, module, exports) {${code}\n})`);
+  runner(
     (id: string) => {
       if (id === 'react') return reactImpl;
       if (id === '../../shared/i18n') return { t, LOCALE_LABELS, SUPPORTED_LOCALES };
@@ -31,6 +37,8 @@ function loadComponent(
       if (id === '../../shared/hackmd') {
         return { getHackMDToken: async () => null, setHackMDToken: async () => {}, clearHackMDToken: async () => {} };
       }
+      if (id === '../../shared/metaOrigins') return metaOrigins;
+      if (id === '../metaHostPermission') return metaHostPermission;
       throw new Error(`Unexpected dependency: ${id}`);
     },
     module,
@@ -192,6 +200,8 @@ test('open Settings dialog describes loading token and wires token error ids', (
   assert.match(markup, /id="standby-provider"[^>]*aria-describedby="standby-help"/);
   assert.match(markup, /id="standby-help"/);
   const source = readFileSync(new URL('../src/sidepanel/components/SettingsModal.tsx', import.meta.url), 'utf8');
+  assert.match(source, /shared\/metaOrigins/);
+  assert.doesNotMatch(source, /background\/metaHostAccess/);
   assert.match(source, /id="settings-token-error"/);
   assert.match(source, /aria-invalid=\{Boolean\(tokenErrorKey\) \|\| undefined\}/);
   assert.match(source, /tokenErrorKey \? 'settings-token-error'/);
@@ -199,6 +209,84 @@ test('open Settings dialog describes loading token and wires token error ids', (
     isOpen: false, locale: 'en', onLocaleChange: () => {}, theme: 'system', onThemeChange: () => {},
     standbyProvider: 'meta', onStandbyChange: async () => {}, providerSelectionDisabled: false, onClose: () => {},
   })), '');
+});
+
+test('a rejected Meta permission request stays on standby and shows the localized denial', async () => {
+  setLocale('ja');
+  const gestureError = new Error('This function must be called during a user gesture');
+  const logged: unknown[][] = [];
+  const stateUpdates: unknown[] = [];
+  const layoutEffects: Array<() => void> = [];
+  let requestedOrigins: readonly string[] | undefined;
+  let applied = false;
+  const reactImpl = new Proxy(React, {
+    get(target, prop, receiver) {
+      if (prop === 'useState') {
+        return (initial: unknown) => {
+          const [value, setValue] = target.useState(initial);
+          return [value, (next: unknown) => {
+            stateUpdates.push(next);
+            return setValue(next);
+          }];
+        };
+      }
+      if (prop === 'useLayoutEffect') {
+        return (effect: () => void, deps?: unknown) => {
+          layoutEffects.push(effect);
+          return target.useLayoutEffect(effect, deps as undefined);
+        };
+      }
+      if (prop === 'createElement') {
+        return (type: unknown, props: { id?: string; onChange?: (event: { target: { value: string } }) => void } | null, ...children: unknown[]) => {
+          if (type === 'select' && props?.id === 'standby-provider') captured.onChange = props.onChange;
+          return target.createElement(type as React.ElementType, props, ...children);
+        };
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+  const captured: { onChange?: (event: { target: { value: string } }) => void } = {};
+  const SettingsModal = loadComponent('../src/sidepanel/components/SettingsModal.tsx', reactImpl as typeof React, {
+    console: {
+      error: (...args: unknown[]) => { logged.push(args); },
+      info() {},
+      log() {},
+      warn() {},
+    },
+    window: { setTimeout, clearTimeout },
+    chrome: {
+      permissions: {
+        contains: () => new Promise(() => {}),
+        request: (permissions: { origins?: readonly string[] }) => {
+          requestedOrigins = permissions.origins;
+          return Promise.reject(gestureError);
+        },
+        onAdded: { addListener() {}, removeListener() {} },
+        onRemoved: { addListener() {}, removeListener() {} },
+      },
+    },
+  }).default;
+  try {
+    renderToStaticMarkup(React.createElement(SettingsModal, {
+      isOpen: true, locale: 'ja', onLocaleChange: () => {}, theme: 'system', onThemeChange: () => {},
+      standbyProvider: 'meta', onStandbyChange: async () => { applied = true; }, providerSelectionDisabled: false, onClose: () => {},
+    }));
+    assert.equal(layoutEffects.length, 1);
+    layoutEffects[0]();
+    assert.equal(typeof captured.onChange, 'function');
+    captured.onChange!({ target: { value: 'grok' } });
+    await new Promise((resolve) => setImmediate(resolve));
+    const denied = t('settings.meta_permission_denied', undefined, 'ja');
+    assert.equal(stateUpdates.includes(denied), true);
+    assert.equal(stateUpdates.includes(gestureError.message), false);
+    assert.equal(stateUpdates.includes('Meta AI host access was not resolved'), false);
+    assert.notEqual(denied, t('settings.meta_permission_denied', undefined, 'en'));
+    assert.equal(JSON.stringify(requestedOrigins), JSON.stringify([...metaOrigins.META_ORIGINS]));
+    assert.equal(applied, false);
+    assert.equal(logged.some((entry) => entry.includes(gestureError)), true);
+  } finally {
+    setLocale('en');
+  }
 });
 
 test('mode selector keeps a named group with exactly one pressed mode', () => {
@@ -214,7 +302,7 @@ test('mode selector keeps a named group with exactly one pressed mode', () => {
 test('ja, de and ko no longer fall back to English for product strings zh already translated', () => {
   const params = { provider: 'ChatGPT', providers: 'ChatGPT · Claude', ready: 'Meta AI', detail: 'closed', seconds: 30, status: '401' };
   const keys = [
-    'session.delete', 'settings.hackmd.label', 'connection.connect_all',
+    'session.delete', 'settings.hackmd.label', 'settings.meta_permission_denied', 'connection.connect_all',
     'error.input_not_found', 'error.input_injection_failed', 'error.input_disappeared',
     'error.send_failed', 'error.send_rejected', 'error.no_response_text', 'error.response_in_progress',
     'error.empty_message', 'error.not_ready', 'error.navigated_away', 'error.reloaded', 'error.tab_closed',

@@ -5,6 +5,8 @@ import { AI_PROVIDERS } from '../../shared/constants';
 import { getHackMDToken, setHackMDToken, clearHackMDToken } from '../../shared/hackmd';
 import { LOCALE_LABELS, SUPPORTED_LOCALES, t } from '../../shared/i18n';
 import { THEME_MODES } from '../../shared/theme';
+import { includesMetaOrigin, META_ORIGINS } from '../../shared/metaOrigins';
+import { planMetaHostPermission } from '../metaHostPermission';
 
 interface Props {
   isOpen: boolean;
@@ -35,6 +37,7 @@ export default function SettingsModal({ isOpen, locale, onLocaleChange, theme, o
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const sessionRef = useRef<SettingsSession | null>(null);
   const pendingWriteRef = useRef<Promise<void> | null>(null);
+  const metaAccessRef = useRef(false);
 
   const updateTokenState = (session: SettingsSession, state: TokenState) => {
     if (!session.active) return;
@@ -79,12 +82,31 @@ export default function SettingsModal({ isOpen, locale, onLocaleChange, theme, o
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    const update = (granted: boolean) => (changed: chrome.permissions.Permissions) => {
+      if (includesMetaOrigin(changed.origins)) metaAccessRef.current = granted;
+    };
+    const onAdded = update(true);
+    const onRemoved = update(false);
+    chrome.permissions.onAdded.addListener(onAdded);
+    chrome.permissions.onRemoved.addListener(onRemoved);
+    return () => {
+      chrome.permissions.onAdded.removeListener(onAdded);
+      chrome.permissions.onRemoved.removeListener(onRemoved);
+    };
+  }, []);
+
   useLayoutEffect(() => {
     if (!isOpen) return;
     const session: SettingsSession = { active: true, state: 'loading' };
     sessionRef.current = session;
     setProviderError('');
     void loadToken(session);
+    void chrome.permissions.contains({ origins: [...META_ORIGINS] }).then((granted) => {
+      if (session.active) metaAccessRef.current = granted;
+    }, (error: unknown) => {
+      console.error('Could not check Meta AI host access', error);
+    });
     return () => {
       session.active = false;
       window.clearTimeout(session.closeTimer);
@@ -154,6 +176,51 @@ export default function SettingsModal({ isOpen, locale, onLocaleChange, theme, o
   };
   const tokenControlsDisabled = tokenState !== 'ready';
 
+  const handleStandbyChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const session = sessionRef.current;
+    const next = event.target.value as AIProvider;
+    const plan = planMetaHostPermission({
+      nextStandby: next,
+      hasPermission: metaAccessRef.current,
+    });
+    // chrome.permissions.request() only counts as a user gesture in this turn, before any await.
+    let requested: Promise<boolean> | undefined;
+    if (plan.action === 'request') {
+      try {
+        requested = chrome.permissions.request({ origins: [...META_ORIGINS] });
+      } catch (error: unknown) {
+        console.error('Could not request Meta AI host access', error);
+        requested = Promise.resolve(false);
+      }
+    }
+    setSwitchingProvider(true);
+    setProviderError('');
+    void (async () => {
+      if (requested) {
+        let granted = false;
+        try {
+          granted = await requested;
+        } catch (error: unknown) {
+          // A rejected request (for example, no user gesture) is "not granted", same as resolving false.
+          console.error('Could not request Meta AI host access', error);
+        }
+        metaAccessRef.current = granted;
+        const after = planMetaHostPermission({
+          nextStandby: next,
+          hasPermission: granted,
+          requested: true,
+        });
+        if (after.action === 'keep') {
+          if (session?.active) setProviderError(t(after.messageKey));
+          return;
+        }
+      }
+      await onStandbyChange(next);
+    })().catch((error: unknown) => {
+      if (session?.active) setProviderError(error instanceof Error ? error.message : String(error));
+    }).finally(() => setSwitchingProvider(false));
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={dismiss}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="settings-title" tabIndex={-1} onKeyDown={handleKeyDown} className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
@@ -180,14 +247,7 @@ export default function SettingsModal({ isOpen, locale, onLocaleChange, theme, o
           aria-busy={switchingProvider || undefined}
           aria-invalid={Boolean(providerError) || undefined}
           aria-describedby={providerError ? 'standby-help standby-error' : 'standby-help'}
-          onChange={(event) => {
-            const session = sessionRef.current;
-            setSwitchingProvider(true);
-            setProviderError('');
-            void onStandbyChange(event.target.value as AIProvider)
-              .catch((error) => { if (session?.active) setProviderError(String(error.message ?? error)); })
-              .finally(() => setSwitchingProvider(false));
-          }}
+          onChange={handleStandbyChange}
           className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-400 disabled:opacity-50"
         >
           {ALL_PROVIDERS.map((provider) => <option key={provider} value={provider}>{AI_PROVIDERS[provider].name}</option>)}

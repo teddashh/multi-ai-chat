@@ -57,6 +57,15 @@ four-provider fanout through the real worker with mocked Chrome APIs, standby ex
 session reset/restore, workflow-time change rejection, and Meta roundtable recovery. The build
 includes `content/meta.js` and the two exact Meta app host matches.
 
+`scripts/check-extension-smoke.cjs` loads unpacked `dist/` and activates Meta by changing
+the standby provider. The Meta content script is no longer injected when that extension
+loads. It is registered only after Chrome grants the optional host permissions
+`https://www.meta.ai/*` and `https://meta.ai/*`. `chrome.permissions.request()` cannot
+grant those origins without a user prompt, and this headless runner cannot accept that
+prompt. Before the run, grant both origins by hand in the disposable browser: open the
+extension, choose a standby provider other than Meta, and accept the meta.ai access
+prompt. Declining keeps Meta on standby, so the script cannot inject `content/meta.js`.
+
 ## VM handoff: get the correct unpacked build
 
 PR: <https://github.com/teddashh/multi-ai-chat/pull/42> (`feat/meta-ai-provider`).
