@@ -66,7 +66,7 @@
     <main id="main">
       <section class="hero shell" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span><span data-i18n="eyebrow">Open-source · v0.2.3 · Chrome 114+</span></p>
+          <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span><span data-i18n="eyebrow">Open-source · GitHub v0.3.0 · Chrome Web Store v0.2.3</span></p>
           <h1 id="hero-title" data-i18n="heroTitle">One prompt.<br>Four perspectives.<br>A clearer answer.</h1>
           <p class="hero-lead" data-i18n="heroLead">Coordinate ChatGPT, Claude, Gemini, and Grok from one focused Side Panel. Multi-AI Chat uses the tabs you are already signed into—no model API keys and no separate chat backend.</p>
           <div class="hero-actions">
@@ -194,7 +194,7 @@
           <div class="section-heading">
             <p class="kicker" data-i18n="installKicker">Official Chrome Web Store release</p>
             <h2 id="install-title" data-i18n="installTitle">Add Multi-AI Chat to Chrome.</h2>
-            <p data-i18n="installLead">Install the reviewed release from the Chrome Web Store; Chrome updates it automatically. Store updates can lag while Google reviews them; the versioned ZIP below is available immediately.</p>
+            <p data-i18n="installLead">The Chrome Web Store listing is v0.2.3, and Chrome updates that listing automatically. It does not include v0.3.0 or Meta AI. v0.3.0 is on GitHub only, in the versioned ZIP below.</p>
           </div>
 
           <div class="install-grid">
@@ -203,7 +203,7 @@
               <h3 data-i18n="installStepOneTitle">Install from the Chrome Web Store</h3>
               <p data-i18n="installStepOneDesc">Open the official listing and choose Add to Chrome.</p>
               <a class="button button-primary" href="https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah" data-i18n="storeInstallButton">Get it from the Chrome Web Store →</a>
-              <p data-i18n="releaseHighlight">New in v0.2.3: more reliable Grok completion detection and Retry handling.</p>
+              <p data-i18n="releaseHighlight">This store install is the v0.2.3 listing and does not include Meta AI. Experimental Meta AI, off by default, is in the GitHub v0.3.0 ZIP only.</p>
             </article>
 
             <article class="install-step">
@@ -215,21 +215,21 @@
             <article class="install-step">
               <span class="step-number">3</span>
               <h3 data-i18n="installStepThreeTitle">Manual / developer install</h3>
-              <p data-i18n="installStepThreeDesc">Need the versioned files? Download the v0.2.3 ZIP and checksum, verify and extract it, then enable Developer mode at chrome://extensions and choose Load unpacked.</p>
+              <p data-i18n="installStepThreeDesc">Need the versioned files? Download the GitHub v0.3.0 ZIP and checksum, verify and extract it, then enable Developer mode at chrome://extensions and choose Load unpacked. That ZIP is v0.3.0. The Chrome Web Store listing is still v0.2.3.</p>
               <div class="inline-actions">
-                <a class="text-link" href="https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.3/multi-ai-chat-store-v0.2.3.zip" data-i18n="zipLink">Release ZIP ↓</a>
-                <a class="text-link" href="https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.3/multi-ai-chat-store-v0.2.3.zip.sha256" data-i18n="checksumLink">Checksum file ↓</a>
+                <a class="text-link" href="https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip" data-i18n="zipLink">Release ZIP ↓</a>
+                <a class="text-link" href="https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip.sha256" data-i18n="checksumLink">Checksum file ↓</a>
               </div>
               <p class="code-label">SHA-256</p>
-              <code class="hash">8fea5b0edbed1b7d818898febef7e2bf4151a0e180ca9dcbc452de1759bd9cca</code>
+              <code class="hash">d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80</code>
               <details>
                 <summary data-i18n="verifyCommands">Show verification commands</summary>
                 <p class="code-label">Windows PowerShell</p>
-                <pre><code>(Get-FileHash .\multi-ai-chat-store-v0.2.3.zip -Algorithm SHA256).Hash.ToLower()</code></pre>
+                <pre><code>(Get-FileHash .\multi-ai-chat-store-v0.3.0.zip -Algorithm SHA256).Hash.ToLower()</code></pre>
                 <p class="code-label">macOS / Linux</p>
-                <pre><code>shasum -a 256 multi-ai-chat-store-v0.2.3.zip</code></pre>
+                <pre><code>shasum -a 256 multi-ai-chat-store-v0.3.0.zip</code></pre>
               </details>
-              <a class="text-link" href="https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.3" data-i18n="releaseNotes">Read the v0.2.3 release notes →</a>
+              <a class="text-link" href="https://github.com/teddashh/multi-ai-chat/releases/tag/v0.3.0" data-i18n="releaseNotes">Read the GitHub v0.3.0 release notes →</a>
             </article>
           </div>
 
@@ -268,7 +268,7 @@ npm run verify</code></pre>
           </article>
           <article>
             <h3 data-i18n="accessTitle">What the extension accesses</h3>
-            <p data-i18n="accessDesc">sidePanel, tabs, scripting, and storage; host access is limited to ChatGPT, Claude, Gemini, Grok, and—only when you publish—api.hackmd.io.</p>
+            <p data-i18n="accessDesc">sidePanel, tabs, scripting, and storage. The Chrome Web Store listing (v0.2.3) limits host access to ChatGPT, Claude, Gemini, Grok, and—only when you publish—api.hackmd.io. The GitHub v0.3.0 ZIP can also ask for meta.ai, and only after Meta is activated.</p>
           </article>
           <article>
             <h3 data-i18n="sentTitle">What leaves your device</h3>

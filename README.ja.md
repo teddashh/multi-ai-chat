@@ -2,23 +2,25 @@
 
 [English](./README.md) · [繁體中文](./README.zh-TW.md) · **日本語** · [Deutsch](./README.de.md) · [한국어](./README.ko.md)
 
-[Chrome ウェブストアからインストール](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah) · [公式サイト](https://teddashh.github.io/multi-ai-chat/?lang=ja) · [v0.2.3 リリース](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.2.3) · [デスクトップ版](https://teddashh.github.io/multi-ai-chat-desktop/?lang=ja)
+[Chrome ウェブストアからインストール](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah) · [公式サイト](https://teddashh.github.io/multi-ai-chat/?lang=ja) · [v0.3.0 リリース](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.3.0) · [デスクトップ版](https://teddashh.github.io/multi-ai-chat-desktop/?lang=ja)
 
 質問は一度だけ。4つのAIをまとめて動かせます。Multi-AI Chat は、ログイン済みの **ChatGPT、Claude、Gemini、Grok** タブを連携させる軽量な Chrome Side Panel です。普段アクセスしている provider ページをそのまま利用するため、モデルAPIキーも独自のチャットbackendも必要ありません。
 
-**最新リリース：v0.2.3** · Chrome 114+ · Manifest V3 · 5言語UI · MIT
+**GitHub リリース：v0.3.0** · Chrome ウェブストア掲載：v0.2.3 · Chrome 114+ · Manifest V3 · 5言語UI · MIT
 
-**未リリースのソース機能（0.3.0）：実験的な Meta AI 待機オプション。** 初期状態では従来の4つが有効です。「**設定 → 待機中の AI**」でそのうち1つを選ぶと Meta AI が代わりに有効になり、同時に有効な AI は常に4つです。Meta を有効にすると meta.ai へのアクセスを求め、拒否した場合は Meta が待機のままになります。送信先と役割は自動調整され、再起動後も選択が保持されます。既存のタブやログインは削除しません。ゲスト利用は Meta の現在のサイトや地域によります。無効な入力欄は準備完了と判定しません。ログイン後の送受信と完了検知は[実機テスト待ち](./store/META-AI-SMOKE.md)です。v0.2.3 と現在のストア版には含まれません。
+**GitHub リリース v0.3.0 には、初期状態ではオフの実験的な Meta AI 待機オプションがあります。Chrome ウェブストアの掲載は引き続き v0.2.3 で、Meta AI は含まれません。** 初期状態では従来の4つが有効です。「**設定 → 待機中の AI**」でそのうち1つを選ぶと Meta AI が代わりに有効になり、同時に有効な AI は常に4つです。Meta を有効にすると meta.ai へのアクセスを求め、拒否した場合は Meta が待機のままになります。送信先と役割は自動調整され、再起動後も選択が保持されます。既存のタブやログインは削除しません。ゲスト利用は Meta の現在のサイトや地域によります。無効な入力欄は準備完了と判定しません。ログインした状態での Meta の送信と受信は、実際にログインしたページではまだ操作されていません。権限の確認、content script の動的登録、ブラウザ再起動後の保持は、ブラウザ上の実行ではなくユニットテストの範囲です。Meta がうまく動かないときは [issue を開いて](https://github.com/teddashh/multi-ai-chat/issues)ください。確認項目は[チェックリスト](./store/META-AI-SMOKE.md)にあります。他の4つには影響しません。この動作は GitHub v0.3.0 の ZIP にあり、Chrome ウェブストアの掲載版にはありません。
 
 > Multi-AI Chat は第三者のWeb UIを自動操作します。Provider 側のデザイン変更によってページ selector が一時的に動作しなくなることがあります。また、自動化は各サービスの利用規約の対象となる場合があります。利用権限のあるアカウントとコンテンツのみを使用してください。
 
 ![Chrome で複数 provider の workflow を実行する Multi-AI Chat](./store/screenshot-1280x800.png)
 
-## v0.2.3 の変更点
+## v0.3.0 の変更点
 
-- **Grok の完了判定を修正。** 応答は今回の正確なユーザー発言より後にあるものだけを採用するため、画面上で回答が完了しているのに「Grok はこのターンを完了できません」と誤判定されなくなりました。
-- **再試行を確実に分離。** Stop、thinking 状態、タイマー、応答追跡、復旧処理を各 request に限定。失敗したターンの非表示または過去のシグナルで Retry が即座に再失敗することを防ぎます。
-- **現行の Grok UI に対応。** 現在の textarea composer と従来の ProseMirror の両方をサポートし、生成中も接続を維持。thinking UI を除いた回答本文だけを取得します。
+- **実験的な Meta AI 待機オプション。初期状態ではオフです。** 従来の4つは有効なままです。「**設定 → 待機中の AI**」でそのうち1つを Meta AI に置き換えられ、同時に有効な AI は常に4つです。`https://www.meta.ai/*` と `https://meta.ai/*` へのアクセスは、利用者が Meta を有効にしたときだけ求めます。拒否すると Meta は待機のままです。meta.ai はインストール時の必須ホスト権限ではないため、更新で既存の利用者に拡張機能の再承認を求めません。許可のあとで `content/meta.js` を動的に登録します。静的な Meta content script はありません。
+- **Meta の準備完了判定を厳しくしました。** ログイン用の操作がページに残っていても、使える入力欄は準備完了です。操作できない入力欄や、明示的なログイン画面は、ログインが必要であることを意味します。`data-disabled="true"` の入力欄や操作、`opacity: 0` で描かれているものは準備完了にしません。
+- **Workflow、設定、入力。** 直前の要求から遅れて届いた結果、provider の URL、送信失敗は、新しいチャットに入りません。会話の保存は最新のスナップショットを書き、読み取りに失敗したときは履歴を消さずに再試行し、壊れた行は読み飛ばします。準備ができていない provider は、Workflow や一部だけの自由送信の前に名前を示します。準備状態のヒントから、選択済みで未準備の provider を開けます。自由送信では、準備完了かつ有効な provider だけを選べます。パネルを閉じても自由送信の選択は残ります。IME の確定では下書きを送信しません。モード選択を表示し、キーボードフォーカスを見えるようにし、設定ダイアログのフォーカスは Escape か閉じるまでダイアログ内に保ちます。高さが足りないパネルでも送信とその他の入力操作を表示し、プロンプトには安定した翻訳済みラベルを付けます。設定ダイアログを閉じたあとに終わった Token の読み込みや保存は無視します。失敗した読み込みや保存は画面に残り、やり直すことができます。
+- **5つのインターフェース言語。** 待機、Meta の権限拒否、準備状態、設定、入力の文言を、English、繁體中文、日本語、Deutsch、한국어で用意しています。
+- **既知の制限。** Meta AI は実験的機能で、初期状態ではオフです。ログインした状態での送信と受信は、実際にログインしたページではまだ操作されていません。権限の確認、content script の動的登録、ブラウザ再起動後の保持は、ブラウザ上の実行ではなくユニットテストの範囲です。Meta がうまく動かないときは [issue を開いて](https://github.com/teddashh/multi-ai-chat/issues)ください。確認項目は[チェックリスト](./store/META-AI-SMOKE.md)にあります。他の4つには影響しません。
 
 ## エディションを選ぶ
 
@@ -56,23 +58,23 @@
 
 [Chrome ウェブストアから Multi-AI Chat をインストール](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah)できます。承認済みの更新は Chrome が自動的に適用するため、通常はこちらをお使いください。
 
-Google の審査中は、Chrome ウェブストアの更新が GitHub Release より遅れることがあります。ストアに古いバージョンが表示されている場合は、下記のバージョン付き ZIP をすぐに手動インストールできます。
+Chrome ウェブストアの掲載は引き続き **v0.2.3** です。そのリンクからインストールすると v0.2.3 になり、Meta AI は含まれません。v0.3.0 は GitHub だけにあります。下記のバージョン付き ZIP がその GitHub パッケージです。
 
 ### 手動または開発者向けインストール
 
 GitHub Release の ZIP は手動インストール用のバックアップです。unpacked extension として直接読み込めるため、ソースの build は不要です。
 
-> v0.2.3 は現在の正式リリースです。以下の ZIP と checksum は GitHub Release に添付された正式なファイルです。
+> v0.3.0 は現在の GitHub Release です。以下の ZIP と checksum は、その GitHub Release に添付された正式なファイルです。Chrome ウェブストアに掲載中の v0.2.3 は別のビルドです。
 
-1. [`multi-ai-chat-store-v0.2.3.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.3/multi-ai-chat-store-v0.2.3.zip) と [checksum ファイル](https://github.com/teddashh/multi-ai-chat/releases/download/v0.2.3/multi-ai-chat-store-v0.2.3.zip.sha256)をダウンロードします。
-2. アーカイブを検証します。正しい SHA-256 は `8fea5b0edbed1b7d818898febef7e2bf4151a0e180ca9dcbc452de1759bd9cca` です。
+1. [`multi-ai-chat-store-v0.3.0.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip) と [checksum ファイル](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip.sha256)をダウンロードします。
+2. アーカイブを検証します。正しい SHA-256 は `d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80` です。
 
    ```powershell
-   (Get-FileHash .\multi-ai-chat-store-v0.2.3.zip -Algorithm SHA256).Hash.ToLower()
+   (Get-FileHash .\multi-ai-chat-store-v0.3.0.zip -Algorithm SHA256).Hash.ToLower()
    ```
 
    ```sh
-   shasum -a 256 multi-ai-chat-store-v0.2.3.zip
+   shasum -a 256 multi-ai-chat-store-v0.3.0.zip
    ```
 
 3. ZIP を常設フォルダーへ展開します。その直下に `manifest.json` があります。
