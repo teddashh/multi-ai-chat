@@ -61,10 +61,12 @@ including its Limited Use requirements.
 `sidePanel` (the UI), `tabs` (find/focus provider tabs and read connection status),
 `scripting` (re-inject the extension's own bundled content script when needed — never remote
 code), `storage` (local settings/conversations/token), host access to the provider app domains
-(`chatgpt.com`, `chat.openai.com`, `claude.ai`, `gemini.google.com`, `grok.com`,
-`www.meta.ai`, and `meta.ai`, to automate their pages) and `api.hackmd.io` (only when you publish).
-Meta authentication domains, Facebook, and Instagram do not receive extension content scripts
-or additional host permissions. Normal browser login navigation remains available.
+(`chatgpt.com`, `chat.openai.com`, `claude.ai`, `gemini.google.com`, and `grok.com`,
+to automate their pages) and `api.hackmd.io` (only when you publish).
+Access to `www.meta.ai` and `meta.ai` is optional, requested only when you activate Meta;
+declining keeps Meta on standby. Meta authentication domains, Facebook, and Instagram do not
+receive extension content scripts or additional host permissions. Normal browser login
+navigation remains available.
 
 ## Changes
 

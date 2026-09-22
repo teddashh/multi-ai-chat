@@ -5,7 +5,7 @@ Not a Store upload, merge, or QC pass. **This branch stays 0.2.3.** The next Met
 ## Inventory (this checkout)
 
 - SHA is the current `feat/meta-ai-provider` head after this checkpoint; version files **0.2.3**.
-- Manifest vs `origin/master`: same `sidePanel` / `tabs` / `storage` / `scripting`; added `https://www.meta.ai/*`, `https://meta.ai/*`, `content/meta.js`. No Facebook/Instagram/Meta-auth hosts. HackMD host unchanged.
+- Manifest vs `origin/master`: same `sidePanel` / `tabs` / `storage` / `scripting`; `https://www.meta.ai/*` and `https://meta.ai/*` are optional host permissions, requested only when the user activates Meta, and declining keeps Meta on standby. No static `content/meta.js` entry. No Facebook/Instagram/Meta-auth hosts. HackMD host unchanged.
 - Defaults in source: ChatGPT, Claude, Gemini, Grok active; Meta experimental standby; exactly four active; standby and targets persist; no model API keys; browser provider sessions.
 - `store/PRIVACY.md` on this branch already describes Meta; listing pack still four-provider; site still four-provider. No live Store item was queried here.
 - `dist/sidepanel.js` SHA-256 `22eb259ef6640942d249f47084b54485289ed37485838723d978007ce52bd82f`.
@@ -81,8 +81,8 @@ providers are active; Meta AI is experimental and off until the user chooses a s
 `tabs`  
 Locates and focuses the user's existing ChatGPT, Claude, Gemini, Grok, and (when selected) Meta AI tabs and detects when a provider tab loads, navigates, reloads, or closes, so the panel shows accurate connection status. Not used to read unrelated tab contents.
 
-**Host access** to `chatgpt.com`, `chat.openai.com`, `claude.ai`, `gemini.google.com`, `grok.com`, `www.meta.ai`, `meta.ai`  
-The content script must run on these provider app pages to type the prompt into the composer, press send, and read back the on-page response so it can be shown in the Side Panel and passed to the next workflow step. These are the only sites the extension automates. Meta authentication, Facebook, and Instagram are not additional host permissions.
+**Host access** to `chatgpt.com`, `chat.openai.com`, `claude.ai`, `gemini.google.com`, `grok.com`  
+The content script must run on these provider app pages to type the prompt into the composer, press send, and read back the on-page response so it can be shown in the Side Panel and passed to the next workflow step. These are the sites the extension automates by default. Access to `www.meta.ai` and `meta.ai` is optional, requested only when the user activates Meta; declining keeps Meta on standby. Meta authentication, Facebook, and Instagram are not additional host permissions.
 
 `storage`  
 Saves the user's own data locally: UI language, appearance, standby provider, selected Free-mode targets, up to 30 recent conversations, and the optional HackMD token. The standby choice persists across restarts. Nothing is sent to the developer.

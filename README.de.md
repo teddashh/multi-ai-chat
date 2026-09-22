@@ -12,7 +12,7 @@ Einmal fragen, vier KIs gemeinsam einsetzen. Multi-AI Chat ist ein leichtes Chro
 
 ![Multi-AI Chat führt in Chrome einen Workflow mit mehreren Providern aus](./store/screenshot-1280x800.png)
 
-**Noch unveröffentlichte Quellcode-Funktion: experimentelle Meta-AI-Option.** Standardmäßig bleiben die bisherigen vier Anbieter aktiv. Unter **Einstellungen → Inaktiver Anbieter** lässt sich einer davon durch Meta AI ersetzen; immer bleiben genau vier aktiv. Ziele und Rollen werden angepasst, die Auswahl bleibt nach Neustarts erhalten und vorhandene Tabs sowie Anmeldungen bleiben bestehen. Metas Gastzugang hängt von Website und Region ab. Deaktivierte Eingabefelder gelten nicht als bereit. Angemeldetes Senden, Empfangen und die Abschlusserkennung benötigen noch einen [Live-Test](./store/META-AI-SMOKE.md). Die Funktion ist weder in v0.2.3 noch in der bisherigen Store-Version enthalten.
+**Noch unveröffentlichte Quellcode-Funktion: experimentelle Meta-AI-Option.** Standardmäßig bleiben die bisherigen vier Anbieter aktiv. Unter **Einstellungen → Inaktiver Anbieter** lässt sich einer davon durch Meta AI ersetzen; immer bleiben genau vier aktiv. Beim Aktivieren von Meta wird der Zugriff auf meta.ai angefragt; lehnst du ab, bleibt Meta inaktiv. Ziele und Rollen werden angepasst, die Auswahl bleibt nach Neustarts erhalten und vorhandene Tabs sowie Anmeldungen bleiben bestehen. Metas Gastzugang hängt von Website und Region ab. Deaktivierte Eingabefelder gelten nicht als bereit. Angemeldetes Senden, Empfangen und die Abschlusserkennung benötigen noch einen [Live-Test](./store/META-AI-SMOKE.md). Die Funktion ist weder in v0.2.3 noch in der bisherigen Store-Version enthalten.
 
 ## Änderungen in v0.2.3
 

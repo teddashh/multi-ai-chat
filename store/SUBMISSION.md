@@ -5,8 +5,10 @@ Copy each block into the matching field. Items marked **[you]** can only be done
 publishing Google account.
 
 **Next release only:** current source adds an experimental Meta AI replacement while keeping
-four active providers and the original four as defaults. It adds host/content-script matches
-only for `https://www.meta.ai/*` and `https://meta.ai/*`. Before packaging that source for
+four active providers and the original four as defaults. `https://www.meta.ai/*` and
+`https://meta.ai/*` are optional host permissions, requested only when the user activates
+Meta. Declining keeps Meta on standby. There is no static Meta content script; it is
+registered dynamically after access is granted. Before packaging that source for
 submission, update the version and listing/permission justifications together and complete
 [the Meta AI smoke checklist](./META-AI-SMOKE.md). The v0.2.3 listing and assets below describe
 the already released four-provider build.
@@ -98,6 +100,13 @@ Paste each into the matching "reason" box on the **Privacy practices** tab.
 | **Host access** to `chatgpt.com`, `chat.openai.com`, `claude.ai`, `gemini.google.com`, `grok.com` | The content script must run on these provider pages to type the prompt into the composer, press send, and read back the on-page response so it can be shown in the Side Panel and passed to the next workflow step. These are the only sites the extension automates. |
 | Host access to `api.hackmd.io` | Contacted only when the user explicitly clicks Publish, to create a HackMD note from the current conversation using the user's own token. Never contacted otherwise. |
 | **Remote code** | **No.** All code is packaged in the extension; nothing is fetched and executed at runtime. |
+
+The v0.2.3 rows above do not include Meta. In the current source, `https://www.meta.ai/*` and
+`https://meta.ai/*` are **optional** host permissions. Chrome asks for them only when the user
+activates experimental Meta AI. If the user declines, Meta stays on standby. The packaged
+`content/meta.js` is registered dynamically after the grant; it is not a static content script
+and not a required install-time host permission. Add that justification when the Meta release
+is submitted, not on the v0.2.3 listing.
 
 ---
 
