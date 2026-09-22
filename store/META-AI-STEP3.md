@@ -93,3 +93,11 @@ selector/capture failure from completion waiting. `errorLike` flags `[Error:`-pr
 for inspection; it does not automatically classify the run. When Step3 passes, continue
 [Step4 fanout/serial and Step5 Retry/Skip/Cancel](META-AI-SMOKE.md#manual-checks--pending-vm-01-through-vm-07)
 with the other required providers ready.
+
+## Desktop signed-in reply (2026-09-21)
+
+The repository owner reported on 2026-09-21 that the sibling desktop app (`multi-ai-chat-desktop`) did receive Meta AI replies on a real signed-in meta.ai page. Build, platform and timestamp were not recorded. That is a desktop result, not a Chrome-extension pass, and no VM row here may be marked PASS because of it.
+
+The desktop selector list, which this extension's list is a superset of, can match a real hydrated composer. It does not say which selector matched, so the broad fallback `[contenteditable="true"][role="textbox"]` must not be narrowed until the probe answers which `META_INPUT_SELECTORS` entry matches the composer (Q1), whether that composer sits inside `META_COMPOSER_CONTAINER` (Q2), and how many other `[contenteditable="true"][role="textbox"]` nodes are not the composer (Q3).
+
+The upgraded [META-AI-STEP3-PROBE.js](META-AI-STEP3-PROBE.js) records exactly those three answers in one authenticated run: `matchedSelectors` and `container` on each visible composer, plus the `textboxes` census (`total`, `visible`, `usable`, `nonComposer`).
