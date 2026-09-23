@@ -145,7 +145,9 @@ Compress-Archive -Path dist\* -DestinationPath store\multi-ai-chat-store-v0.3.0.
 (cd dist && zip -r ../store/multi-ai-chat-store-v0.3.0.zip .)
 ```
 
-This filename is the v0.3.0 release asset, on GitHub and in the Chrome Web Store. Its published SHA-256 is `d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80`. The store lists this package, updated 2026-09-23.
+This filename is the v0.3.0 release asset. Its published SHA-256 is `d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80`, which is the hash of the **GitHub Release** ZIP — the file users download and verify.
+
+The Chrome Web Store build has the same contents but a **different** SHA-256 (`57c1157af3d3851d3f9a0f45cb7579e4883258ae5a20e48bbdd25428e4f9054f` for this release), because `zip` records each file's mtime and the workflow rebuilds `dist/` on a fresh checkout. That mismatch is expected and is **not** the "two different builds sharing one version string" bug. Confirm it the cheap way before raising it: `gh run download <run-id>`, extract both archives, then `diff -r` plus a per-file `sha256sum` comparison. For v0.3.0 both matched exactly.
 
 Always run `npm run verify` first so `dist/` reflects the current source.
 
