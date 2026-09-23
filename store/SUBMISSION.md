@@ -1,12 +1,12 @@
 # Chrome Web Store — submission pack
 
-Everything needed for the Developer Dashboard listing of **Multi-AI Chat**.
-The package that is built and pending upload is **v0.3.0** (`multi-ai-chat-store-v0.3.0.zip`).
-The build listed in the Chrome Web Store today is still **v0.2.3**.
+Everything needed for the Developer Dashboard listing of **Multi-AI Chat** (**v0.3.0**).
+The live Chrome Web Store listing is **v0.3.0**, updated 2026-09-23, and includes experimental Meta AI.
+The listed package is `multi-ai-chat-store-v0.3.0.zip`.
 Copy each block into the matching field. Items marked **[you]** can only be done by the
 publishing Google account.
 
-**Built package, pending upload (v0.3.0):** source, `public/manifest.json`, and `dist/manifest.json` are already 0.3.0. GitHub Release [v0.3.0](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.3.0) publishes `multi-ai-chat-store-v0.3.0.zip`. That file is the package waiting for Chrome Web Store upload. It is not the build the store lists today. The package adds an experimental Meta AI replacement while keeping four active providers and the original four as defaults. `https://www.meta.ai/*` and `https://meta.ai/*` are optional host permissions, requested only when the user activates Meta. Declining keeps Meta on standby. There is no static Meta content script; it is registered dynamically after access is granted. The store upload workflow has not been run, so the live listing is still the v0.2.3 four-provider build. When uploading v0.3.0, update the listing copy and the permission justifications for that package. Do not describe the live v0.2.3 listing as v0.3.0 or as including Meta AI. Authenticated Meta send and receive has not been exercised on a real signed-in page. That is a caveat for user reports, not a gate on this package. The reference remains [the Meta AI smoke checklist](./META-AI-SMOKE.md). The listing blocks below still describe the currently listed v0.2.3 build.
+**Live listing (v0.3.0):** source, `public/manifest.json`, and `dist/manifest.json` are 0.3.0. GitHub Release [v0.3.0](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.3.0) publishes `multi-ai-chat-store-v0.3.0.zip`, and that package is the build the Chrome Web Store lists. The package adds an experimental Meta AI replacement while keeping four active providers and the original four as defaults. `https://www.meta.ai/*` and `https://meta.ai/*` are optional host permissions, requested only when the user activates Meta. Declining keeps Meta on standby. There is no static Meta content script; it is registered dynamically after access is granted. Authenticated Meta send and receive has not been exercised on a real signed-in page. That caveat is for user reports. Publishing this package did not depend on that exercise. The reference remains [the Meta AI smoke checklist](./META-AI-SMOKE.md). The summary and detailed description below name the four default providers. Experimental Meta AI stays off until the user activates it.
 
 ---
 
@@ -14,7 +14,7 @@ publishing Google account.
 
 1. **Register a developer account** at https://chrome.google.com/webstore/devconsole — one-time **US$5** fee (Google account + card). New accounts may need identity verification (can take a few days), and the publishing Google account must have **2-Step Verification** enabled.
 2. **Privacy policy.** Use the public repository copy at `https://github.com/teddashh/multi-ai-chat/blob/master/store/PRIVACY.md` (or mirror it on the developer's own domain). A privacy-policy URL is **required** because the extension reads page content.
-3. **Upload the package** `multi-ai-chat-store-v0.3.0.zip` (see §6 to regenerate). This is the built v0.3.0 package, still pending upload. The live store listing is the v0.2.3 build.
+3. **Upload the package** `multi-ai-chat-store-v0.3.0.zip` (see §6 to regenerate). This v0.3.0 package is the live Chrome Web Store listing, updated 2026-09-23.
 4. **Add the screenshot and small promo tile** from `store/` (see §5).
 5. Fill the fields below, complete the **Privacy practices** tab (§4), then **Submit for review**.
 
@@ -92,11 +92,12 @@ Paste each into the matching "reason" box on the **Privacy practices** tab.
 | `tabs` | Locates and focuses the user's existing ChatGPT/Claude/Gemini/Grok tabs and detects when a provider tab loads, navigates, reloads, or closes, so the panel shows accurate connection status. Not used to read tab contents. |
 | `scripting` | Re-injects the extension's own bundled content script into a provider tab when that tab predates the extension load or its content script was evicted (e.g. after the service worker restarts). No remote or dynamically fetched code is ever executed. |
 | `storage` | Saves the user's own data locally: UI language, up to 30 recent conversations, and the optional HackMD token. Nothing is sent to the developer. |
-| **Host access** to `chatgpt.com`, `chat.openai.com`, `claude.ai`, `gemini.google.com`, `grok.com` | The content script must run on these provider pages to type the prompt into the composer, press send, and read back the on-page response so it can be shown in the Side Panel and passed to the next workflow step. These are the only sites the extension automates. |
+| **Host access** to `chatgpt.com`, `chat.openai.com`, `claude.ai`, `gemini.google.com`, `grok.com` | The content script must run on these provider pages to type the prompt into the composer, press send, and read back the on-page response so it can be shown in the Side Panel and passed to the next workflow step. These are the required hosts. Optional access to meta.ai is a separate row. |
 | Host access to `api.hackmd.io` | Contacted only when the user explicitly clicks Publish, to create a HackMD note from the current conversation using the user's own token. Never contacted otherwise. |
+| Optional host access to `https://www.meta.ai/*` and `https://meta.ai/*` | Requested only when the user activates experimental Meta AI. If the user declines, Meta stays on standby. The packaged `content/meta.js` is registered dynamically after the grant; it is not a static content script and not a required install-time host permission. |
 | **Remote code** | **No.** All code is packaged in the extension; nothing is fetched and executed at runtime. |
 
-The rows above match the **currently listed v0.2.3** build and do not include Meta. The **v0.3.0 package that is built and pending upload** adds `https://www.meta.ai/*` and `https://meta.ai/*` as **optional** host permissions. Chrome asks for them only when the user activates experimental Meta AI. If the user declines, Meta stays on standby. The packaged `content/meta.js` is registered dynamically after the grant; it is not a static content script and not a required install-time host permission. Add that justification on the v0.3.0 upload. Leave it off the live v0.2.3 listing.
+The optional meta.ai row above is part of the live **v0.3.0** listing. Authenticated Meta send and receive has not been exercised on a real signed-in page. That caveat is for user reports. Publishing this package did not depend on that exercise. The reference remains [the Meta AI smoke checklist](./META-AI-SMOKE.md).
 
 ---
 
@@ -144,7 +145,7 @@ Compress-Archive -Path dist\* -DestinationPath store\multi-ai-chat-store-v0.3.0.
 (cd dist && zip -r ../store/multi-ai-chat-store-v0.3.0.zip .)
 ```
 
-This filename is the GitHub Release v0.3.0 asset. Its published SHA-256 is `d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80`. The file is the package pending Chrome Web Store upload. The listing in the store is still the v0.2.3 build until this package is uploaded.
+This filename is the v0.3.0 release asset, on GitHub and in the Chrome Web Store. Its published SHA-256 is `d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80`. The store lists this package, updated 2026-09-23.
 
 Always run `npm run verify` first so `dist/` reflects the current source.
 

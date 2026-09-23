@@ -6,9 +6,9 @@
 
 한 번 질문하고 네 개의 AI를 함께 활용하세요. Multi-AI Chat은 로그인된 **ChatGPT, Claude, Gemini, Grok** 탭을 조율하는 가벼운 Chrome Side Panel입니다. 이미 이용 권한이 있는 provider 페이지를 그대로 사용하므로 모델 API 키나 별도의 채팅 backend가 필요하지 않습니다.
 
-**GitHub 릴리스: v0.3.0** · Chrome 웹 스토어 등록 버전: v0.2.3 · Chrome 114+ · Manifest V3 · 5개 인터페이스 언어 · MIT
+**최신 릴리스: v0.3.0** · Chrome 114+ · Manifest V3 · 5개 인터페이스 언어 · MIT
 
-**GitHub 릴리스 v0.3.0에는 기본적으로 꺼져 있는 실험적 Meta AI 대기 옵션이 있습니다. Chrome 웹 스토어 등록 버전은 여전히 v0.2.3이며 Meta AI가 없습니다.** 기본적으로 기존 네 제공자가 활성화됩니다. **설정 → 대기 AI**에서 기존 제공자 하나를 선택하면 Meta AI가 대신 활성화되며, 항상 네 제공자만 활성화됩니다. Meta를 활성화하면 meta.ai 접근을 요청하고, 거부하면 Meta는 대기 상태로 유지됩니다. 전송 대상과 역할이 조정되고 재시작 후에도 선택이 유지됩니다. 기존 탭과 로그인은 삭제하지 않습니다. 게스트 이용은 Meta 사이트와 지역에 따라 달라지며 비활성 입력란은 준비 완료로 표시하지 않습니다. 로그인한 상태의 Meta 전송과 수신은 실제로 로그인한 페이지에서 실행된 적이 없습니다. 권한 요청, content script의 동적 등록, 브라우저를 다시 시작한 뒤의 유지는 브라우저에서 실행한 기록이 아니라 단위 테스트 범위입니다. Meta가 예상대로 동작하지 않으면 [이슈를 열어](https://github.com/teddashh/multi-ai-chat/issues) 주세요. 그때 볼 항목은 [체크리스트](./store/META-AI-SMOKE.md)에 있습니다. 나머지 네 제공자는 영향을 받지 않습니다. 이 동작은 GitHub v0.3.0 ZIP에 있으며 Chrome 웹 스토어 등록 버전에는 없습니다.
+**v0.3.0에는 기본적으로 꺼져 있는 실험적 Meta AI 대기 옵션이 있습니다.** 기본적으로 기존 네 제공자가 활성화됩니다. **설정 → 대기 AI**에서 기존 제공자 하나를 선택하면 Meta AI가 대신 활성화되며, 항상 네 제공자만 활성화됩니다. Meta를 활성화하면 meta.ai 접근을 요청하고, 거부하면 Meta는 대기 상태로 유지됩니다. 전송 대상과 역할이 조정되고 재시작 후에도 선택이 유지됩니다. 기존 탭과 로그인은 삭제하지 않습니다. 게스트 이용은 Meta 사이트와 지역에 따라 달라지며 비활성 입력란은 준비 완료로 표시하지 않습니다.
 
 > Multi-AI Chat은 제3자 웹 UI를 자동으로 조작합니다. Provider의 화면 변경으로 페이지 selector가 일시적으로 작동하지 않을 수 있으며 자동화 사용에는 각 서비스 약관이 적용될 수 있습니다. 사용 권한이 있는 계정과 콘텐츠만 이용하세요.
 
@@ -58,13 +58,13 @@
 
 [Chrome 웹 스토어에서 Multi-AI Chat을 설치](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah)하세요. 승인된 업데이트는 Chrome이 자동으로 설치하므로 일반 사용자에게 가장 적합한 방법입니다.
 
-Chrome 웹 스토어 등록 버전은 여전히 **v0.2.3**입니다. 그 링크에서 설치하면 v0.2.3이며 Meta AI는 포함되지 않습니다. v0.3.0은 GitHub에만 있습니다. 아래 버전별 ZIP이 그 GitHub 패키지입니다.
+Chrome 웹 스토어 등록 버전은 **v0.3.0**(2026-09-23 업데이트)이며 실험적 Meta AI가 포함됩니다. Chrome은 업데이트를 단계적으로 배포하므로 사용자에 따라 아직 v0.3.0이 아닐 수 있습니다.
 
 ### 수동 또는 개발자 설치
 
 GitHub Release ZIP은 수동 설치용 대안이며 unpacked extension으로 바로 불러올 수 있어 소스 build가 필요하지 않습니다.
 
-> v0.3.0은 현재 GitHub 릴리스입니다. 아래 ZIP과 checksum은 그 GitHub 릴리스에 첨부된 정식 파일입니다. Chrome 웹 스토어에 등록된 v0.2.3은 다른 빌드입니다.
+> v0.3.0은 현재 릴리스입니다. 아래 ZIP과 checksum은 그 GitHub 릴리스에 첨부된 정식 파일이며, Chrome 웹 스토어에 등록된 같은 v0.3.0을 수동으로 설치할 때 사용합니다.
 
 1. [`multi-ai-chat-store-v0.3.0.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip)과 [checksum 파일](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip.sha256)을 다운로드합니다.
 2. 압축 파일을 검증합니다. 올바른 SHA-256은 `d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80`입니다.
