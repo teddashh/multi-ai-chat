@@ -6,9 +6,9 @@
 
 質問は一度だけ。4つのAIをまとめて動かせます。Multi-AI Chat は、ログイン済みの **ChatGPT、Claude、Gemini、Grok** タブを連携させる軽量な Chrome Side Panel です。普段アクセスしている provider ページをそのまま利用するため、モデルAPIキーも独自のチャットbackendも必要ありません。
 
-**GitHub リリース：v0.3.0** · Chrome ウェブストア掲載：v0.2.3 · Chrome 114+ · Manifest V3 · 5言語UI · MIT
+**最新リリース：v0.3.0** · Chrome 114+ · Manifest V3 · 5言語UI · MIT
 
-**GitHub リリース v0.3.0 には、初期状態ではオフの実験的な Meta AI 待機オプションがあります。Chrome ウェブストアの掲載は引き続き v0.2.3 で、Meta AI は含まれません。** 初期状態では従来の4つが有効です。「**設定 → 待機中の AI**」でそのうち1つを選ぶと Meta AI が代わりに有効になり、同時に有効な AI は常に4つです。Meta を有効にすると meta.ai へのアクセスを求め、拒否した場合は Meta が待機のままになります。送信先と役割は自動調整され、再起動後も選択が保持されます。既存のタブやログインは削除しません。ゲスト利用は Meta の現在のサイトや地域によります。無効な入力欄は準備完了と判定しません。ログインした状態での Meta の送信と受信は、実際にログインしたページではまだ操作されていません。権限の確認、content script の動的登録、ブラウザ再起動後の保持は、ブラウザ上の実行ではなくユニットテストの範囲です。Meta がうまく動かないときは [issue を開いて](https://github.com/teddashh/multi-ai-chat/issues)ください。確認項目は[チェックリスト](./store/META-AI-SMOKE.md)にあります。他の4つには影響しません。この動作は GitHub v0.3.0 の ZIP にあり、Chrome ウェブストアの掲載版にはありません。
+**v0.3.0 には、初期状態ではオフの実験的な Meta AI 待機オプションがあります。** 初期状態では従来の4つが有効です。「**設定 → 待機中の AI**」でそのうち1つを選ぶと Meta AI が代わりに有効になり、同時に有効な AI は常に4つです。Meta を有効にすると meta.ai へのアクセスを求め、拒否した場合は Meta が待機のままになります。送信先と役割は自動調整され、再起動後も選択が保持されます。既存のタブやログインは削除しません。ゲスト利用は Meta の現在のサイトや地域によります。無効な入力欄は準備完了と判定しません。
 
 > Multi-AI Chat は第三者のWeb UIを自動操作します。Provider 側のデザイン変更によってページ selector が一時的に動作しなくなることがあります。また、自動化は各サービスの利用規約の対象となる場合があります。利用権限のあるアカウントとコンテンツのみを使用してください。
 
@@ -58,13 +58,13 @@
 
 [Chrome ウェブストアから Multi-AI Chat をインストール](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah)できます。承認済みの更新は Chrome が自動的に適用するため、通常はこちらをお使いください。
 
-Chrome ウェブストアの掲載は引き続き **v0.2.3** です。そのリンクからインストールすると v0.2.3 になり、Meta AI は含まれません。v0.3.0 は GitHub だけにあります。下記のバージョン付き ZIP がその GitHub パッケージです。
+Chrome ウェブストアの掲載は **v0.3.0**（2026-09-23 更新）で、実験的な Meta AI が含まれます。Chrome は更新を段階的に配信するため、利用者によってはまだ v0.3.0 になっていない場合があります。
 
 ### 手動または開発者向けインストール
 
 GitHub Release の ZIP は手動インストール用のバックアップです。unpacked extension として直接読み込めるため、ソースの build は不要です。
 
-> v0.3.0 は現在の GitHub Release です。以下の ZIP と checksum は、その GitHub Release に添付された正式なファイルです。Chrome ウェブストアに掲載中の v0.2.3 は別のビルドです。
+> v0.3.0 は現在のリリースです。以下の ZIP と checksum は、その GitHub Release に添付された正式なファイルで、Chrome ウェブストアに掲載されている同じ v0.3.0 を手動インストールするためのものです。
 
 1. [`multi-ai-chat-store-v0.3.0.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip) と [checksum ファイル](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip.sha256)をダウンロードします。
 2. アーカイブを検証します。正しい SHA-256 は `d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80` です。

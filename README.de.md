@@ -6,13 +6,13 @@
 
 Einmal fragen, vier KIs gemeinsam einsetzen. Multi-AI Chat ist ein leichtes Chrome Side Panel, das deine angemeldeten **ChatGPT-, Claude-, Gemini- und Grok-Tabs** koordiniert. Es verwendet die Provider-Seiten, auf die du bereits Zugriff hast – ohne Modell-API-Schlüssel und ohne separaten Chat-Server.
 
-**GitHub-Release: v0.3.0** · Eintrag im Chrome Web Store: v0.2.3 · Chrome 114+ · Manifest V3 · Fünf Oberflächensprachen · MIT
+**Aktuelle Version: v0.3.0** · Chrome 114+ · Manifest V3 · Fünf Oberflächensprachen · MIT
 
 > Multi-AI Chat automatisiert Weboberflächen Dritter. Eine Änderung beim Provider kann Seiten-Selektoren vorübergehend unbrauchbar machen. Automatisierte Nutzung kann außerdem den jeweiligen Nutzungsbedingungen unterliegen. Verwende nur Konten und Inhalte, zu deren Nutzung du berechtigt bist.
 
 ![Multi-AI Chat führt in Chrome einen Workflow mit mehreren Providern aus](./store/screenshot-1280x800.png)
 
-**GitHub-Release v0.3.0 enthält Meta AI als experimentellen Standby-Anbieter, standardmäßig aus. Der Eintrag im Chrome Web Store ist weiterhin v0.2.3 und enthält Meta AI nicht.** Standardmäßig bleiben die bisherigen vier Anbieter aktiv. Unter **Einstellungen → Inaktiver Anbieter** lässt sich einer davon durch Meta AI ersetzen; immer bleiben genau vier aktiv. Beim Aktivieren von Meta wird der Zugriff auf meta.ai angefragt; lehnst du ab, bleibt Meta inaktiv. Ziele und Rollen werden angepasst, die Auswahl bleibt nach Neustarts erhalten und vorhandene Tabs sowie Anmeldungen bleiben bestehen. Metas Gastzugang hängt von Website und Region ab. Deaktivierte Eingabefelder gelten nicht als bereit. Authentifiziertes Senden und Empfangen mit Meta wurde auf einer wirklich angemeldeten Seite nicht ausgeführt. Die Berechtigungsabfrage, die dynamische Content-Script-Registrierung und das Beibehalten nach einem Browser-Neustart haben eine Unit-Test-Abdeckung und keinen Lauf im Browser. Wenn Meta sich falsch verhält, [öffne ein Issue](https://github.com/teddashh/multi-ai-chat/issues). Die [Checkliste](./store/META-AI-SMOKE.md) ist die Referenz für diesen Bericht. Die anderen vier Anbieter sind nicht betroffen. Dieses Verhalten steckt im ZIP von GitHub v0.3.0, nicht im Eintrag des Chrome Web Store.
+**v0.3.0 enthält Meta AI als experimentellen Standby-Anbieter, standardmäßig aus.** Standardmäßig bleiben die bisherigen vier Anbieter aktiv. Unter **Einstellungen → Inaktiver Anbieter** lässt sich einer davon durch Meta AI ersetzen; immer bleiben genau vier aktiv. Beim Aktivieren von Meta wird der Zugriff auf meta.ai angefragt; lehnst du ab, bleibt Meta inaktiv. Ziele und Rollen werden angepasst, die Auswahl bleibt nach Neustarts erhalten und vorhandene Tabs sowie Anmeldungen bleiben bestehen. Metas Gastzugang hängt von Website und Region ab. Deaktivierte Eingabefelder gelten nicht als bereit.
 
 ## Änderungen in v0.3.0
 
@@ -58,13 +58,13 @@ Fällt ein Provider während des Rundtischs aus, pausiert der Workflow und biete
 
 [Installiere Multi-AI Chat aus dem Chrome Web Store](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah). Chrome installiert freigegebene Updates automatisch; für die normale Nutzung ist dies die beste Option.
 
-Der Eintrag im Chrome Web Store ist weiterhin **v0.2.3**. Diese Installation liefert v0.2.3 und enthält Meta AI nicht. v0.3.0 gibt es nur auf GitHub. Das versionierte ZIP unten ist dieses GitHub-Paket.
+Der Eintrag im Chrome Web Store ist **v0.3.0** (aktualisiert am 2026-09-23) und enthält Meta AI als experimentellen Standby. Chrome rollt Updates schrittweise aus, daher hat ein bestimmter Nutzer v0.3.0 möglicherweise noch nicht.
 
 ### Manuelle oder Entwickler-Installation
 
 Die ZIP-Datei aus GitHub Releases dient als manuelle Alternative und kann direkt als entpackte Erweiterung geladen werden; ein Build aus dem Quellcode ist nicht erforderlich.
 
-> v0.3.0 ist das aktuelle GitHub-Release. Die folgende ZIP-Datei und Prüfsumme sind die offiziellen Dateien dieses GitHub-Releases. Der Eintrag im Chrome Web Store ist weiterhin v0.2.3 und ein anderer Build.
+> v0.3.0 ist die aktuelle Version. Die folgende ZIP-Datei und Prüfsumme sind die offiziellen Dateien dieses GitHub-Releases und dienen der manuellen Installation derselben Version, die der Chrome Web Store listet.
 
 1. Lade [`multi-ai-chat-store-v0.3.0.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip) und die zugehörige [Prüfsummendatei](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip.sha256) herunter.
 2. Prüfe das Archiv. Die erwartete SHA-256-Prüfsumme lautet `d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80`.

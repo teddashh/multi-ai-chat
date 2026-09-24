@@ -6,9 +6,9 @@
 
 只問一次，讓四個 AI 一起工作。Multi-AI Chat 是輕量的 Chrome Side Panel，能協調你已登入的 **ChatGPT、Claude、Gemini、Grok** 分頁。它直接使用你原本就能存取的 provider 網頁，不需要模型 API Key，也沒有額外的對話後端。
 
-**GitHub 版本：v0.3.0** · Chrome 線上應用程式商店上架版本：v0.2.3 · Chrome 114+ · Manifest V3 · 五種介面語言 · MIT
+**目前正式版本：v0.3.0** · Chrome 114+ · Manifest V3 · 五種介面語言 · MIT
 
-**GitHub 版本 v0.3.0 包含實驗性 Meta AI 備用提供者，預設關閉。Chrome 線上應用程式商店目前上架的仍是 v0.2.3，不含 Meta AI。** 預設仍啟用原本四家。在「**設定 → 備用 AI**」選擇其中一家，即可讓 Meta AI 接替；同時固定啟用四家。啟用 Meta 時會要求 meta.ai 的存取權限，若拒絕則 Meta 維持備用。自由分送目標與工作流角色會同步調整，重開後保留選擇，既有分頁與登入不會被刪除。Meta 訪客使用取決於當下網站／區域，停用或 inert 的輸入框不會被判定為就緒。已登入狀態下的 Meta 送出與收回，尚未在真實登入的頁面上操作過。權限提示、content script 的動態註冊，以及瀏覽器重新啟動後是否仍保留，目前只有單元測試涵蓋，沒有瀏覽器執行紀錄。若 Meta 出現問題，請[開啟 issue](https://github.com/teddashh/multi-ai-chat/issues)；對照項目見[檢查表](./store/META-AI-SMOKE.md)。其餘四家不受影響。這項行為在 GitHub v0.3.0 ZIP 裡，不在 Chrome 線上應用程式商店的上架版本裡。
+**v0.3.0 包含實驗性 Meta AI 備用提供者，預設關閉。** 預設仍啟用原本四家。在「**設定 → 備用 AI**」選擇其中一家，即可讓 Meta AI 接替；同時固定啟用四家。啟用 Meta 時會要求 meta.ai 的存取權限，若拒絕則 Meta 維持備用。自由分送目標與工作流角色會同步調整，重開後保留選擇，既有分頁與登入不會被刪除。Meta 訪客使用取決於當下網站／區域，停用或 inert 的輸入框不會被判定為就緒。
 
 > Multi-AI Chat 會自動操作第三方網頁介面。Provider 改版可能暫時使頁面 selector 失效，自動化也可能受各服務條款約束。請只使用你有權使用的帳號與內容。
 
@@ -58,13 +58,13 @@
 
 [從 Chrome 線上應用程式商店安裝 Multi-AI Chat](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah)。Chrome 會自動安裝審核通過的更新，一般使用建議選這個方式。
 
-Chrome 線上應用程式商店目前上架的仍是 **v0.2.3**。從該連結安裝得到的是 v0.2.3，不含 Meta AI。v0.3.0 只在 GitHub 提供。下方的版本化 ZIP 就是這份 GitHub 套件。
+Chrome 線上應用程式商店上架版本是 **v0.3.0**（2026-09-23 更新），包含實驗性 Meta AI。Chrome 會逐步推出更新，因此個別使用者可能還沒有 v0.3.0。
 
 ### 手動或開發者安裝
 
 GitHub Release ZIP 是手動安裝的備援方案，可以直接當作 unpacked extension 載入，不必建置原始碼。
 
-> v0.3.0 是目前的 GitHub Release。下方 ZIP 與 checksum 是該 Release 所附的正式檔案。Chrome 線上應用程式商店目前上架的 v0.2.3 是另一個版本。
+> v0.3.0 是目前的正式版本。下方 ZIP 與 checksum 是該 GitHub Release 所附的正式檔案，用來手動安裝 Chrome 線上應用程式商店上架的同一版。
 
 1. 下載 [`multi-ai-chat-store-v0.3.0.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip) 與它的 [checksum 檔](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip.sha256)。
 2. 驗證壓縮檔；正確的 SHA-256 是 `d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80`。

@@ -6,9 +6,9 @@
 
 Ask once and put four AIs to work. Multi-AI Chat is a lightweight Chrome Side Panel that coordinates your signed-in **ChatGPT, Claude, Gemini, and Grok** tabs. It uses the provider pages you already have access to—there are no model API keys and no separate chat backend.
 
-**GitHub release: v0.3.0** · Chrome Web Store listing: v0.2.3 · Chrome 114+ · Manifest V3 · Five interface languages · MIT
+**Current release: v0.3.0** · Chrome 114+ · Manifest V3 · Five interface languages · MIT
 
-**GitHub release v0.3.0 includes experimental Meta AI as a standby provider that stays off by default. The Chrome Web Store listing is still v0.2.3 and does not include Meta AI.** The original four remain active by default. In **Settings → Standby provider**, choose one of them to activate Meta AI in its place; exactly four providers stay active. Activating Meta asks for access to meta.ai, and declining keeps Meta on standby. Targets and workflow roles follow the selection, which persists across restarts. Existing tabs and sign-ins are preserved. Meta guest access depends on the current site/region, and an inert or disabled composer is not treated as ready. Authenticated Meta send and receive has not been exercised on a real signed-in page. The permission prompt, dynamic content-script registration, and browser-restart persistence have unit-test coverage rather than a browser run. If Meta misbehaves, [open an issue](https://github.com/teddashh/multi-ai-chat/issues); the [checklist](./store/META-AI-SMOKE.md) is the reference for that report. The other four providers are unaffected. This behavior is in the GitHub v0.3.0 ZIP, not in the Chrome Web Store listing.
+**v0.3.0 includes experimental Meta AI as a standby provider that stays off by default.** The original four remain active by default. In **Settings → Standby provider**, choose one of them to activate Meta AI in its place; exactly four providers stay active. Activating Meta asks for access to meta.ai, and declining keeps Meta on standby. Targets and workflow roles follow the selection, which persists across restarts. Existing tabs and sign-ins are preserved. Meta guest access depends on the current site/region, and an inert or disabled composer is not treated as ready.
 
 > Multi-AI Chat automates third-party web interfaces. A provider redesign can temporarily break page selectors, and automated use may be governed by each provider's terms. Use only accounts and content you are authorized to use.
 
@@ -58,13 +58,13 @@ If a provider fails during Roundtable, the workflow pauses and offers **Retry**,
 
 [Install Multi-AI Chat from the Chrome Web Store](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah). Chrome installs approved updates automatically, so this is the best option for regular use.
 
-The Chrome Web Store listing is still **v0.2.3**. Installing from that link gives v0.2.3, which does not include Meta AI. v0.3.0 is available from GitHub only. The versioned ZIP below is that GitHub package.
+The Chrome Web Store listing is **v0.3.0** (updated 2026-09-23) and includes experimental Meta AI. Chrome rolls updates out gradually, so a given user may not have v0.3.0 yet.
 
 ### Manual or developer install
 
 The GitHub Release ZIP is a manual backup that can be loaded as an unpacked extension; no source build is required.
 
-> v0.3.0 is the current GitHub release. The ZIP and checksum below are the official files attached to that GitHub Release. The Chrome Web Store listing is still v0.2.3 and is a different build.
+> v0.3.0 is the current release. The ZIP and checksum below are the official files attached to its GitHub Release, for manual installation of the same release the Chrome Web Store lists.
 
 1. Download [`multi-ai-chat-store-v0.3.0.zip`](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip) and its [checksum file](https://github.com/teddashh/multi-ai-chat/releases/download/v0.3.0/multi-ai-chat-store-v0.3.0.zip.sha256).
 2. Verify the archive. The expected SHA-256 is `d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80`.
