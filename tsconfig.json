@@ -12,12 +12,10 @@
     "declaration": false,
     "outDir": "./dist",
     "rootDir": "./src",
-    "baseUrl": "./src",
-    "ignoreDeprecations": "6.0",
     "types": ["chrome"],
     "paths": {
-      "@shared/*": ["shared/*"],
-      "@sidepanel/*": ["sidepanel/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@sidepanel/*": ["./src/sidepanel/*"]
     }
   },
   "include": ["src/**/*"],
