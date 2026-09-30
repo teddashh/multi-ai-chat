@@ -836,7 +836,7 @@ export default function App() {
         {mode !== 'free' && (
           <div className="mt-2">
             <button type="button" onClick={() => setShowRoleConfig((current) => !current)} className="text-xs font-medium text-sky-700 hover:text-sky-900">{showRoleConfig ? t('roles.toggle.hide') : t('roles.toggle.show')}</button>
-            {showRoleConfig && <RoleConfig providers={providers} mode={mode} roles={roles} onRolesChange={setRoles} />}
+            {showRoleConfig && <RoleConfig providers={providers} mode={mode} roles={roles} onRolesChange={setRoles} disabled={!hydrated || isProcessing} />}
           </div>
         )}
 
