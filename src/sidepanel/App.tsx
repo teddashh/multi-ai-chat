@@ -170,7 +170,7 @@ export default function App() {
   const clientIdRef = useRef(crypto.randomUUID());
   const activeConversationIdRef = useRef('');
   const conversationRevisionRef = useRef(0);
-  const activeWorkflowIdRef = useRef<string>();
+  const activeWorkflowIdRef = useRef<string | undefined>(undefined);
   const ignoredWorkflowIdsRef = useRef(new Set<string>());
   const completedWorkflowIdsRef = useRef(new Set<string>());
   const ignoredRequestIdsRef = useRef(new Set<string>());
