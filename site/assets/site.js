@@ -3,7 +3,7 @@
 
   const translations = {
     en: {
-      metaTitle: "Multi-AI Chat — One prompt. Four perspectives.",
+      metaTitle: "Multi-AI Chat · One prompt. Four perspectives.",
       metaDescription: "Run reliable multi-AI workflows across ChatGPT, Claude, Gemini, and Grok from one Chrome Side Panel.",
       skip: "Skip to content",
       homeAria: "Multi-AI Chat home",
@@ -17,7 +17,7 @@
       languageLabel: "Language",
       eyebrow: "Open-source · v0.3.0 · Chrome 114+",
       heroTitle: "One prompt.\nFour perspectives.\nA clearer answer.",
-      heroLead: "Coordinate ChatGPT, Claude, Gemini, and Grok from one focused Side Panel. Multi-AI Chat uses the tabs you are already signed into—no model API keys and no separate chat backend.",
+      heroLead: "Coordinate ChatGPT, Claude, Gemini, and Grok from one focused Side Panel. Multi-AI Chat uses the tabs you are already signed into: no model API keys and no separate chat backend.",
       downloadButton: "Add to Chrome",
       installButton: "Installation options",
       principlesAria: "Product principles",
@@ -43,7 +43,7 @@
       modeCodingDesc: "An eight-step loop for specification, review, implementation, testing, revision, and acceptance.",
       modeCodingFlow: "Plan → Build → Test → Accept",
       modeRoundtable: "Roundtable",
-      modeRoundtableDesc: "Four AIs build on the shared discussion across five rounds—twenty contributions in total.",
+      modeRoundtableDesc: "Four AIs build on the shared discussion across five rounds (twenty contributions in total).",
       modeRoundtableFlow: "5 rounds × 4 AIs",
       recoveryKicker: "Built for the imperfect web",
       recoveryTitle: "A failed turn does not have to end the table.",
@@ -90,7 +90,7 @@
       localTitle: "What stays local",
       localDesc: "Interface settings, up to 30 conversations, and an optional HackMD token live in chrome.storage.local. Provider content scripts cannot read that token.",
       accessTitle: "What the extension accesses",
-      accessDesc: "sidePanel, tabs, scripting, and storage; host access is limited to ChatGPT, Claude, Gemini, Grok, and—only when you publish—api.hackmd.io. meta.ai is requested only after you activate Meta.",
+      accessDesc: "sidePanel, tabs, scripting, and storage; host access is limited to ChatGPT, Claude, Gemini, Grok, and (only when you publish) api.hackmd.io. meta.ai is requested only after you activate Meta.",
       sentTitle: "What leaves your device",
       sentDesc: "The prompts you send to selected providers, plus the current conversation and your own token only if you explicitly publish to HackMD. Nothing is sent to the developer.",
       desktopKicker: "Need a dedicated workspace?",
@@ -102,6 +102,7 @@
       footerIssues: "Issues",
       footerDocs: "Documentation",
       footerLicense: "MIT License",
+      footerHub: "All projects",
       credits: "Sponsored by AI-Sister.com. Created by Ted Huang, with substantial v0.2.x contributions from DaveTseng2019.",
       notFoundTitle: "That page wandered off.",
       notFoundDesc: "The address may have changed, but the official Multi-AI Chat site is still one click away.",
@@ -109,7 +110,7 @@
       notFoundGitHub: "Open the GitHub repository"
     },
     "zh-TW": {
-      metaTitle: "Multi-AI Chat — 一個問題，四種觀點",
+      metaTitle: "Multi-AI Chat · 一個問題，四種觀點",
       metaDescription: "在同一個 Chrome Side Panel 中，跨 ChatGPT、Claude、Gemini、Grok 執行可靠的多 AI workflow。",
       skip: "跳到主要內容",
       homeAria: "Multi-AI Chat 首頁",
@@ -208,6 +209,7 @@
       footerIssues: "Issues",
       footerDocs: "說明文件",
       footerLicense: "MIT License",
+      footerHub: "全部專案",
       credits: "由 AI-Sister.com 贊助、Ted Huang 創作；DaveTseng2019 對 v0.2.x 有大量貢獻。",
       notFoundTitle: "這個頁面走遠了。",
       notFoundDesc: "網址可能已變更，但只要一步就能回到 Multi-AI Chat 官方網站。",
@@ -215,7 +217,7 @@
       notFoundGitHub: "開啟 GitHub repository"
     },
     ja: {
-      metaTitle: "Multi-AI Chat — 1つの質問、4つの視点",
+      metaTitle: "Multi-AI Chat · 1つの質問、4つの視点",
       metaDescription: "1つの Chrome Side Panel から ChatGPT、Claude、Gemini、Grok をまたぐ安定した複数AI workflowを実行。",
       skip: "本文へ移動",
       homeAria: "Multi-AI Chat ホーム",
@@ -314,6 +316,7 @@
       footerIssues: "Issues",
       footerDocs: "ドキュメント",
       footerLicense: "MIT License",
+      footerHub: "すべてのプロジェクト",
       credits: "AI-Sister.com のスポンサーにより Ted Huang が制作。v0.2.x には DaveTseng2019 から多大な貢献をいただきました。",
       notFoundTitle: "ページが見つかりません。",
       notFoundDesc: "URLが変更された可能性があります。Multi-AI Chat 公式サイトへ戻ることができます。",
@@ -321,7 +324,7 @@
       notFoundGitHub: "GitHub repository を開く"
     },
     de: {
-      metaTitle: "Multi-AI Chat — Eine Frage, vier Perspektiven",
+      metaTitle: "Multi-AI Chat · Eine Frage, vier Perspektiven",
       metaDescription: "Zuverlässige Multi-KI-Workflows über ChatGPT, Claude, Gemini und Grok aus einem Chrome Side Panel.",
       skip: "Zum Inhalt springen",
       homeAria: "Multi-AI Chat Startseite",
@@ -335,7 +338,7 @@
       languageLabel: "Sprache",
       eyebrow: "Open Source · v0.3.0 · Chrome 114+",
       heroTitle: "Eine Frage.\nVier Perspektiven.\nEine klarere Antwort.",
-      heroLead: "Koordiniere ChatGPT, Claude, Gemini und Grok in einem fokussierten Side Panel. Multi-AI Chat verwendet deine bereits angemeldeten Tabs – ohne Modell-API-Schlüssel und ohne separaten Chat-Server.",
+      heroLead: "Koordiniere ChatGPT, Claude, Gemini und Grok in einem fokussierten Side Panel. Multi-AI Chat verwendet deine bereits angemeldeten Tabs, ohne Modell-API-Schlüssel und ohne separaten Chat-Server.",
       downloadButton: "Zu Chrome hinzufügen",
       installButton: "Installationsoptionen",
       principlesAria: "Produktprinzipien",
@@ -361,7 +364,7 @@
       modeCodingDesc: "Acht Schritte für Spezifikation, Review, Umsetzung, Tests, Überarbeitung und Abnahme.",
       modeCodingFlow: "Plan → Build → Test → Abnahme",
       modeRoundtable: "Rundtisch",
-      modeRoundtableDesc: "Vier KIs bauen über fünf Runden auf der gemeinsamen Diskussion auf – insgesamt zwanzig Beiträge.",
+      modeRoundtableDesc: "Vier KIs bauen über fünf Runden auf der gemeinsamen Diskussion auf (insgesamt zwanzig Beiträge).",
       modeRoundtableFlow: "5 Runden × 4 KIs",
       recoveryKicker: "Für das unvollkommene Web gebaut",
       recoveryTitle: "Ein fehlgeschlagener Beitrag muss den Tisch nicht beenden.",
@@ -408,7 +411,7 @@
       localTitle: "Was lokal bleibt",
       localDesc: "UI-Einstellungen, bis zu 30 Gespräche und ein optionaler HackMD-Token liegen in chrome.storage.local. Provider-Content-Scripts können den Token nicht lesen.",
       accessTitle: "Worauf die Erweiterung zugreift",
-      accessDesc: "sidePanel, tabs, scripting und storage; Hostzugriff ist auf ChatGPT, Claude, Gemini, Grok sowie – nur beim Veröffentlichen – api.hackmd.io beschränkt. meta.ai wird nur angefragt, nachdem Meta aktiviert wurde.",
+      accessDesc: "sidePanel, tabs, scripting und storage; Hostzugriff ist auf ChatGPT, Claude, Gemini, Grok sowie (nur beim Veröffentlichen) api.hackmd.io beschränkt. meta.ai wird nur angefragt, nachdem Meta aktiviert wurde.",
       sentTitle: "Was dein Gerät verlässt",
       sentDesc: "Prompts an ausgewählte Provider sowie das aktuelle Gespräch und dein eigener Token nur bei ausdrücklicher HackMD-Veröffentlichung. Nichts wird an den Entwickler gesendet.",
       desktopKicker: "Brauchst du einen eigenen Arbeitsbereich?",
@@ -420,6 +423,7 @@
       footerIssues: "Issues",
       footerDocs: "Dokumentation",
       footerLicense: "MIT-Lizenz",
+      footerHub: "Alle Projekte",
       credits: "Gesponsert von AI-Sister.com. Erstellt von Ted Huang, mit umfangreichen v0.2.x-Beiträgen von DaveTseng2019.",
       notFoundTitle: "Diese Seite ist nicht mehr hier.",
       notFoundDesc: "Die Adresse hat sich möglicherweise geändert. Zur offiziellen Multi-AI-Chat-Website ist es nur ein Klick.",
@@ -427,7 +431,7 @@
       notFoundGitHub: "GitHub-Repository öffnen"
     },
     ko: {
-      metaTitle: "Multi-AI Chat — 하나의 질문, 네 가지 관점",
+      metaTitle: "Multi-AI Chat · 하나의 질문, 네 가지 관점",
       metaDescription: "하나의 Chrome Side Panel에서 ChatGPT, Claude, Gemini, Grok을 아우르는 안정적인 다중 AI workflow를 실행하세요.",
       skip: "본문으로 건너뛰기",
       homeAria: "Multi-AI Chat 홈",
@@ -526,6 +530,7 @@
       footerIssues: "Issues",
       footerDocs: "문서",
       footerLicense: "MIT License",
+      footerHub: "모든 프로젝트",
       credits: "AI-Sister.com 후원, Ted Huang 제작. DaveTseng2019가 v0.2.x에 크게 기여했습니다.",
       notFoundTitle: "페이지를 찾을 수 없습니다.",
       notFoundDesc: "주소가 변경되었을 수 있습니다. Multi-AI Chat 공식 사이트로 바로 돌아갈 수 있습니다.",
@@ -558,7 +563,7 @@
 
     document.documentElement.lang = activeLocale;
     document.title = document.body.classList.contains("not-found-page")
-      ? `${copy.notFoundTitle} — Multi-AI Chat`
+      ? `${copy.notFoundTitle} · Multi-AI Chat`
       : copy.metaTitle;
     if (description) description.content = copy.metaDescription;
     if (ogTitle) ogTitle.content = copy.metaTitle;
