@@ -888,7 +888,7 @@ export default function App() {
             <div className="flex items-center gap-2 border-b border-slate-200 p-3">
               <BrandMark />
               <h2 className="flex-1 text-sm font-semibold">{t('session.history')}</h2>
-              <button type="button" onClick={closeDrawer} className="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100">{t('app.close')}</button>
+              <button type="button" onClick={closeDrawer} className="rounded-sm px-2 py-1 text-xs text-slate-500 hover:bg-slate-100">{t('app.close')}</button>
             </div>
             <div className="p-3"><button type="button" disabled={isProcessing} onClick={startNewConversation} className="w-full rounded-xl border border-sky-300 bg-sky-50 px-3 py-2 text-left text-sm font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-50">＋ {t('app.new')}</button></div>
             <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-3">

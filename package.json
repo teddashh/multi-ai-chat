@@ -20,10 +20,10 @@
     "clean": "rimraf dist"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/chrome": "^0.3.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "autoprefixer": "^10.5.6",
     "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.5",
     "html-webpack-plugin": "^5.6.8",
@@ -32,7 +32,7 @@
     "postcss-loader": "^8.1.1",
     "rimraf": "^6.0.1",
     "sharp": "^0.35.4",
-    "tailwindcss": "^3.4.17",
+    "tailwindcss": "^4.3.3",
     "ts-loader": "^9.6.2",
     "typescript": "^6.0.3",
     "webpack": "^5.111.1",

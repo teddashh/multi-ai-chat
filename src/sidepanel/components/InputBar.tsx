@@ -46,7 +46,7 @@ export default function InputBar({ onSend, onCancel, disabled, isProcessing, rea
           {readinessOpenError && <p role="alert" className="mt-1 text-xs leading-relaxed text-red-700">{readinessOpenError}</p>}
         </div>
       )}
-      <div className="rounded-2xl border border-slate-300 bg-white p-2 shadow-sm focus-within:border-sky-400 focus-within:ring-2 focus-within:ring-sky-100">
+      <div className="rounded-2xl border border-slate-300 bg-white p-2 shadow-xs focus-within:border-sky-400 focus-within:ring-2 focus-within:ring-sky-100">
         <textarea
           ref={textareaRef}
           value={text}
@@ -64,7 +64,7 @@ export default function InputBar({ onSend, onCancel, disabled, isProcessing, rea
           aria-label={t('input.label')}
           aria-describedby={readinessNotice ? 'input-readiness' : undefined}
           rows={2}
-          className="block max-h-[140px] min-h-[52px] w-full resize-none bg-transparent px-2 py-1 text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-500 disabled:cursor-not-allowed"
+          className="block max-h-[140px] min-h-[52px] w-full resize-none bg-transparent px-2 py-1 text-sm leading-relaxed text-slate-900 outline-hidden placeholder:text-slate-500 disabled:cursor-not-allowed"
         />
         <div className="mt-1 flex items-center justify-end gap-2">
           {isProcessing && <button type="button" onClick={onCancel} className="shrink-0 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100">{t('input.stop')}</button>}

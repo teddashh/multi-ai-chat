@@ -222,7 +222,7 @@ export default function SettingsModal({ isOpen, locale, onLocaleChange, theme, o
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={dismiss}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs" onClick={dismiss}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="settings-title" tabIndex={-1} onKeyDown={handleKeyDown} className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 id="settings-title" className="text-base font-semibold text-slate-900">{t('settings.title')}</h2>
@@ -230,12 +230,12 @@ export default function SettingsModal({ isOpen, locale, onLocaleChange, theme, o
         </div>
 
         <label className="mt-4 block text-xs font-semibold text-slate-700" htmlFor="language-select">{t('settings.language')}</label>
-        <select id="language-select" value={locale} disabled={tokenState === 'loading' || tokenState === 'saving' || tokenState === 'saved'} onChange={(event) => onLocaleChange(event.target.value as Locale)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-400 disabled:opacity-50">
+        <select id="language-select" value={locale} disabled={tokenState === 'loading' || tokenState === 'saving' || tokenState === 'saved'} onChange={(event) => onLocaleChange(event.target.value as Locale)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-hidden focus:border-sky-400 disabled:opacity-50">
           {SUPPORTED_LOCALES.map((candidate) => <option key={candidate} value={candidate}>{LOCALE_LABELS[candidate]}</option>)}
         </select>
 
         <label className="mt-4 block text-xs font-semibold text-slate-700" htmlFor="theme-select">{t('settings.theme')}</label>
-        <select id="theme-select" value={theme} onChange={(event) => onThemeChange(event.target.value as ThemeMode)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-400">
+        <select id="theme-select" value={theme} onChange={(event) => onThemeChange(event.target.value as ThemeMode)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-hidden focus:border-sky-400">
           {THEME_MODES.map((mode) => <option key={mode} value={mode}>{t(`settings.theme.${mode}`)}</option>)}
         </select>
 
@@ -248,7 +248,7 @@ export default function SettingsModal({ isOpen, locale, onLocaleChange, theme, o
           aria-invalid={Boolean(providerError) || undefined}
           aria-describedby={providerError ? 'standby-help standby-error' : 'standby-help'}
           onChange={handleStandbyChange}
-          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-400 disabled:opacity-50"
+          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-hidden focus:border-sky-400 disabled:opacity-50"
         >
           {ALL_PROVIDERS.map((provider) => <option key={provider} value={provider}>{AI_PROVIDERS[provider].name}</option>)}
         </select>
@@ -267,7 +267,7 @@ export default function SettingsModal({ isOpen, locale, onLocaleChange, theme, o
           aria-describedby={tokenState === 'loading' ? 'settings-token-status' : tokenErrorKey ? 'settings-token-error' : undefined}
           onChange={(event) => setToken(event.target.value)}
           placeholder="hmd_xxxxxxxxxxxxxxxx"
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 disabled:opacity-50"
+          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-hidden focus:border-sky-400 disabled:opacity-50"
         />
         {tokenState === 'loading' && <p id="settings-token-status" role="status" className="mt-1 text-xs text-slate-500">{t('settings.token_loading')}</p>}
         {tokenErrorKey && <p id="settings-token-error" role="alert" className="mt-1 text-xs text-red-700">{t(tokenErrorKey)}</p>}
