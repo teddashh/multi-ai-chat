@@ -1,4 +1,4 @@
-# Multi-AI Chat — Chrome Side Panel
+# Multi-AI Chat: Chrome Side Panel
 
 [English](./README.md) · [繁體中文](./README.zh-TW.md) · [日本語](./README.ja.md) · [Deutsch](./README.de.md) · **한국어**
 
@@ -138,10 +138,10 @@ npm audit
 
 주요 모듈:
 
-- `src/background/service-worker.ts` — workflow 조율, request 격리, 취소, 탭 복구
-- `src/content/base.ts` — 검증된 입력, 전송, 응답 engine
-- `src/content/*.ts` — provider별 selector와 editor strategy
-- `src/sidepanel/` — React UI, 로컬 session, Markdown, theme, localization
+- `src/background/service-worker.ts`: workflow 조율, request 격리, 취소, 탭 복구
+- `src/content/base.ts`: 검증된 입력, 전송, 응답 engine
+- `src/content/*.ts`: provider별 selector와 editor strategy
+- `src/sidepanel/`: React UI, 로컬 session, Markdown, theme, localization
 
 Pull Request를 열기 전에 `npm run verify`를 실행하세요. Provider 페이지가 작동하지 않으면 provider와 브라우저 버전을 적어 [Issue](https://github.com/teddashh/multi-ai-chat/issues)를 열 수 있습니다. 스크린샷이나 log에서는 prompt, 응답, 계정 정보, Token을 제거하세요.
 

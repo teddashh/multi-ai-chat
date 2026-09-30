@@ -1,4 +1,4 @@
-# Multi-AI Chat — Chrome Side Panel
+# Multi-AI Chat: Chrome Side Panel
 
 [English](./README.md) · [繁體中文](./README.zh-TW.md) · **日本語** · [Deutsch](./README.de.md) · [한국어](./README.ko.md)
 
@@ -138,10 +138,10 @@ npm audit
 
 主要モジュール：
 
-- `src/background/service-worker.ts` — workflow の編成、request の分離、キャンセル、タブ復旧
-- `src/content/base.ts` — 検証付きの入力・送信・応答 engine
-- `src/content/*.ts` — provider 固有の selector と editor strategy
-- `src/sidepanel/` — React UI、ローカル session、Markdown、theme、localization
+- `src/background/service-worker.ts`：workflow の編成、request の分離、キャンセル、タブ復旧
+- `src/content/base.ts`：検証付きの入力・送信・応答 engine
+- `src/content/*.ts`：provider 固有の selector と editor strategy
+- `src/sidepanel/`：React UI、ローカル session、Markdown、theme、localization
 
 Pull Request の前に `npm run verify` を実行してください。Provider ページが動作しなくなった場合は、provider 名とブラウザーのバージョンを添えて [Issue](https://github.com/teddashh/multi-ai-chat/issues) を作成できます。スクリーンショットや log から prompt、応答、アカウント情報、Token を削除してください。
 
