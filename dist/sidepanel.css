@@ -842,6 +842,9 @@ video {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.hyphens-auto {
+  hyphens: auto;
+}
 .whitespace-pre-wrap {
   white-space: pre-wrap;
 }
