@@ -1,10 +1,10 @@
-# Multi-AI Chat — Chrome Side Panel
+# Multi-AI Chat: Chrome Side Panel
 
 **English** · [繁體中文](./README.zh-TW.md) · [日本語](./README.ja.md) · [Deutsch](./README.de.md) · [한국어](./README.ko.md)
 
 [Install from the Chrome Web Store](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah) · [Official website](https://teddashh.github.io/multi-ai-chat/) · [v0.3.0 release](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.3.0) · [Desktop edition](https://teddashh.github.io/multi-ai-chat-desktop/)
 
-Ask once and put four AIs to work. Multi-AI Chat is a lightweight Chrome Side Panel that coordinates your signed-in **ChatGPT, Claude, Gemini, and Grok** tabs. It uses the provider pages you already have access to—there are no model API keys and no separate chat backend.
+Ask once and put four AIs to work. Multi-AI Chat is a lightweight Chrome Side Panel that coordinates your signed-in **ChatGPT, Claude, Gemini, and Grok** tabs. It uses the provider pages you already have access to. There are no model API keys and no separate chat backend.
 
 **Current release: v0.3.0** · Chrome 114+ · Manifest V3 · Five interface languages · MIT
 
@@ -138,10 +138,10 @@ npm audit
 
 Key modules:
 
-- `src/background/service-worker.ts` — workflow orchestration, request isolation, cancellation, and tab recovery
-- `src/content/base.ts` — verified input, send, and response engine
-- `src/content/*.ts` — provider-specific selectors and editor strategies
-- `src/sidepanel/` — React interface, local sessions, Markdown, themes, and localization
+- `src/background/service-worker.ts`: workflow orchestration, request isolation, cancellation, and tab recovery
+- `src/content/base.ts`: verified input, send, and response engine
+- `src/content/*.ts`: provider-specific selectors and editor strategies
+- `src/sidepanel/`: React interface, local sessions, Markdown, themes, and localization
 
 Please run `npm run verify` before opening a pull request. For a provider-page breakage, [open an issue](https://github.com/teddashh/multi-ai-chat/issues) with the provider and browser version, but remove prompts, responses, account details, and tokens from screenshots or logs.
 

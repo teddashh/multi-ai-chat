@@ -1,4 +1,4 @@
-# Multi-AI Chat — Chrome Side Panel
+# Multi-AI Chat: Chrome Side Panel
 
 [English](./README.md) · **繁體中文** · [日本語](./README.ja.md) · [Deutsch](./README.de.md) · [한국어](./README.ko.md)
 
@@ -138,10 +138,10 @@ npm audit
 
 核心模組：
 
-- `src/background/service-worker.ts` — workflow 編排、request 隔離、取消與分頁復原
-- `src/content/base.ts` — 經驗證的輸入、送出與回應引擎
-- `src/content/*.ts` — provider selector 與 editor strategy
-- `src/sidepanel/` — React 介面、本機 session、Markdown、theme 與 localization
+- `src/background/service-worker.ts`：workflow 編排、request 隔離、取消與分頁復原
+- `src/content/base.ts`：經驗證的輸入、送出與回應引擎
+- `src/content/*.ts`：provider selector 與 editor strategy
+- `src/sidepanel/`：React 介面、本機 session、Markdown、theme 與 localization
 
 開 Pull Request 前請執行 `npm run verify`。遇到 provider 頁面失效時，可到 [Issues](https://github.com/teddashh/multi-ai-chat/issues) 提供 provider 與瀏覽器版本；請先從截圖或 log 移除 prompt、回答、帳號資料與 Token。
 

@@ -1,10 +1,10 @@
-# Multi-AI Chat — Chrome Side Panel
+# Multi-AI Chat: Chrome Side Panel
 
 [English](./README.md) · [繁體中文](./README.zh-TW.md) · [日本語](./README.ja.md) · **Deutsch** · [한국어](./README.ko.md)
 
 [Im Chrome Web Store installieren](https://chromewebstore.google.com/detail/multi-ai-chat/nomhpmmhkmolkmpkjfeainjoifkipdah) · [Offizielle Website](https://teddashh.github.io/multi-ai-chat/?lang=de) · [Release v0.3.0](https://github.com/teddashh/multi-ai-chat/releases/tag/v0.3.0) · [Desktop-Version](https://teddashh.github.io/multi-ai-chat-desktop/?lang=de)
 
-Einmal fragen, vier KIs gemeinsam einsetzen. Multi-AI Chat ist ein leichtes Chrome Side Panel, das deine angemeldeten **ChatGPT-, Claude-, Gemini- und Grok-Tabs** koordiniert. Es verwendet die Provider-Seiten, auf die du bereits Zugriff hast – ohne Modell-API-Schlüssel und ohne separaten Chat-Server.
+Einmal fragen, vier KIs gemeinsam einsetzen. Multi-AI Chat ist ein leichtes Chrome Side Panel, das deine angemeldeten **ChatGPT-, Claude-, Gemini- und Grok-Tabs** koordiniert. Es verwendet die Provider-Seiten, auf die du bereits Zugriff hast, ohne Modell-API-Schlüssel und ohne separaten Chat-Server.
 
 **Aktuelle Version: v0.3.0** · Chrome 114+ · Manifest V3 · Fünf Oberflächensprachen · MIT
 
@@ -38,7 +38,7 @@ Beide Versionen verwenden die Web-Sitzungen der Provider und benötigen keine Mo
 - Bis zu 30 Gespräche werden lokal gespeichert, mit sicherer Markdown-Darstellung, Anschlussfragen und „Neuer Chat“.
 - Oberfläche auf Englisch, traditionellem Chinesisch, Japanisch, Deutsch und Koreanisch.
 - Helle, dunkle oder systemabhängige Darstellung mit WCAG-geprüftem Kontrast.
-- Optionale Veröffentlichung auf HackMD mit dem eigenen Token – nur nach ausdrücklicher Auswahl.
+- Optionale Veröffentlichung auf HackMD mit dem eigenen Token, nur nach ausdrücklicher Auswahl.
 
 ## Modi und Wiederherstellung
 
@@ -138,10 +138,10 @@ npm audit
 
 Wichtige Module:
 
-- `src/background/service-worker.ts` — Workflow-Steuerung, Request-Isolation, Abbruch und Tab-Wiederherstellung
-- `src/content/base.ts` — geprüfte Eingabe-, Sende- und Antwortlogik
-- `src/content/*.ts` — Provider-spezifische Selektoren und Editor-Strategien
-- `src/sidepanel/` — React-Oberfläche, lokale Sitzungen, Markdown, Themes und Lokalisierung
+- `src/background/service-worker.ts`: Workflow-Steuerung, Request-Isolation, Abbruch und Tab-Wiederherstellung
+- `src/content/base.ts`: geprüfte Eingabe-, Sende- und Antwortlogik
+- `src/content/*.ts`: Provider-spezifische Selektoren und Editor-Strategien
+- `src/sidepanel/`: React-Oberfläche, lokale Sitzungen, Markdown, Themes und Lokalisierung
 
 Führe vor einem Pull Request `npm run verify` aus. Wenn eine Provider-Seite nicht mehr funktioniert, erstelle ein [Issue](https://github.com/teddashh/multi-ai-chat/issues) mit Provider und Browser-Version. Entferne zuvor Prompts, Antworten, Kontodaten und Tokens aus Screenshots oder Logs.
 
