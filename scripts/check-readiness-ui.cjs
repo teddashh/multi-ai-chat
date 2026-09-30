@@ -21,6 +21,8 @@ function installChromeDouble({ seed, initialConnections }) {
   const read = () => JSON.parse(localStorage.getItem(key) || JSON.stringify(seed));
   const write = (values) => localStorage.setItem(key, JSON.stringify({ ...read(), ...values }));
   const listeners = new Set();
+  const permissionAdded = new Set();
+  const permissionRemoved = new Set();
   let pending = [];
   let pendingStorage = [];
   const storageCall = (method, keys, perform) => {
@@ -36,6 +38,7 @@ function installChromeDouble({ seed, initialConnections }) {
     connections: initialConnections, requests: [], scope: undefined,
     allowSend: false, sent: [],
     storageCalls: [], storageHold: null,
+    metaHostGranted: false, permissionRequests: [], grantPermissionRequest: false,
     pendingStorageCount: () => pendingStorage.length,
     releaseStorage(fail = false) {
       this.storageHold = null;
@@ -47,6 +50,11 @@ function installChromeDouble({ seed, initialConnections }) {
       }
     },
     emit(message) { for (const listener of listeners) listener(message); },
+    emitPermissions(event, changed = {}) {
+      const set = event === 'onAdded' ? permissionAdded : event === 'onRemoved' ? permissionRemoved : undefined;
+      if (!set) throw new Error(`Unexpected permission event: ${event}`);
+      for (const listener of set) listener(changed);
+    },
     setConnections(connections) {
       this.connections = connections;
       this.emit({ action: 'CONNECTIONS_UPDATE', payload: connections });
@@ -97,6 +105,29 @@ function installChromeDouble({ seed, initialConnections }) {
         } else throw new Error(`Unexpected runtime action: ${message.action}`);
         if (callback) queueMicrotask(() => callback(result));
         return Promise.resolve(result);
+      },
+    },
+    permissions: {
+      onAdded: {
+        addListener: listener => permissionAdded.add(listener),
+        removeListener: listener => permissionAdded.delete(listener),
+      },
+      onRemoved: {
+        addListener: listener => permissionRemoved.add(listener),
+        removeListener: listener => permissionRemoved.delete(listener),
+      },
+      contains() {
+        return Promise.resolve(Boolean(window.readinessFixture.metaHostGranted));
+      },
+      // Origins only. A user grant is simulated only when grantPermissionRequest is set.
+      request(details) {
+        const fixture = window.readinessFixture;
+        const origins = Array.isArray(details?.origins) ? [...details.origins] : [];
+        fixture.permissionRequests.push({ origins });
+        if (!fixture.grantPermissionRequest) return Promise.resolve(false);
+        fixture.metaHostGranted = true;
+        for (const listener of permissionAdded) listener({ origins });
+        return Promise.resolve(true);
       },
     },
   };
