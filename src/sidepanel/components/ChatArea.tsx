@@ -14,8 +14,8 @@ interface Props {
 export default function ChatArea({ messages, mode, conversationId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stickToEndRef = useRef(true);
-  const previousConversationIdRef = useRef<string>();
-  const previousMessageIdRef = useRef<string>();
+  const previousConversationIdRef = useRef<string | undefined>(undefined);
+  const previousMessageIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const container = containerRef.current;

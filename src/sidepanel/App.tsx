@@ -170,7 +170,7 @@ export default function App() {
   const clientIdRef = useRef(crypto.randomUUID());
   const activeConversationIdRef = useRef('');
   const conversationRevisionRef = useRef(0);
-  const activeWorkflowIdRef = useRef<string>();
+  const activeWorkflowIdRef = useRef<string | undefined>(undefined);
   const ignoredWorkflowIdsRef = useRef(new Set<string>());
   const completedWorkflowIdsRef = useRef(new Set<string>());
   const ignoredRequestIdsRef = useRef(new Set<string>());
@@ -836,7 +836,7 @@ export default function App() {
         {mode !== 'free' && (
           <div className="mt-2">
             <button type="button" onClick={() => setShowRoleConfig((current) => !current)} className="text-xs font-medium text-sky-700 hover:text-sky-900">{showRoleConfig ? t('roles.toggle.hide') : t('roles.toggle.show')}</button>
-            {showRoleConfig && <RoleConfig providers={providers} mode={mode} roles={roles} onRolesChange={setRoles} />}
+            {showRoleConfig && <RoleConfig providers={providers} mode={mode} roles={roles} onRolesChange={setRoles} disabled={!hydrated || isProcessing} />}
           </div>
         )}
 

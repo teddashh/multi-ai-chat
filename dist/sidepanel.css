@@ -845,6 +845,10 @@
   .break-words {
     overflow-wrap: break-word;
   }
+  .hyphens-auto {
+    -webkit-hyphens: auto;
+    hyphens: auto;
+  }
   .whitespace-pre-wrap {
     white-space: pre-wrap;
   }

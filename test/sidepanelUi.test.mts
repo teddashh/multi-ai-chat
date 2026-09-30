@@ -159,6 +159,65 @@ test('role buttons expose type, pressed state and a labelled group per role', ()
   assert.doesNotMatch(markup, /<button(?![^>]*type="button")/);
 });
 
+test('role buttons are disabled when disabled is true and enabled otherwise', () => {
+  setLocale('en');
+  const changes: unknown[] = [];
+  const scrolls: number[] = [];
+  const captured: Array<{
+    disabled?: boolean;
+    onClick?: () => void;
+    onFocus?: (event: { currentTarget: { scrollIntoView: () => void } }) => void;
+  }> = [];
+  const reactImpl = new Proxy(React, {
+    get(target, prop, receiver) {
+      if (prop === 'createElement') {
+        return (type: unknown, props: typeof captured[number] | null, ...children: unknown[]) => {
+          if (type === 'button' && props) captured.push(props);
+          return target.createElement(type as React.ElementType, props, ...children);
+        };
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+  const RoleConfig = loadComponent('../src/sidepanel/components/RoleConfig.tsx', reactImpl as typeof React).default;
+  const props = {
+    providers: activeProviders, mode: 'debate' as const, roles: DEFAULT_DEBATE_ROLES,
+    onRolesChange: (next: unknown) => changes.push(next),
+  };
+  const render = (extra: { disabled?: boolean } = {}) => {
+    captured.length = 0;
+    return renderToStaticMarkup(React.createElement(RoleConfig, { ...props, ...extra }));
+  };
+  const focus = () => ({ currentTarget: { scrollIntoView() { scrolls.push(scrolls.length + 1); } } });
+  for (const markup of [render(), render({ disabled: false })]) {
+    const tags = markup.match(/<button\b[^>]*>/g) ?? [];
+    assert.equal(tags.length, 16);
+    assert.equal(tags.some((tag) => tag.includes(' disabled=""')), false);
+    assert.match(markup, /id="role-label-summary"[^>]*hyphens-auto/);
+    assert.match(markup, /id="role-label-summary"[^>]*break-words/);
+  }
+  assert.equal(captured.length, 16);
+  assert.equal(captured.every((button) => button.disabled === false), true);
+  captured[0].onClick!();
+  captured[0].onFocus!(focus());
+  assert.equal(changes.length, 1);
+  assert.equal(scrolls.length, 1);
+
+  const disabledMarkup = render({ disabled: true });
+  const disabledTags = disabledMarkup.match(/<button\b[^>]*>/g) ?? [];
+  assert.equal(disabledTags.length, 16);
+  assert.equal(disabledTags.every((tag) => tag.includes(' disabled=""')), true);
+  assert.match(disabledTags[0], /disabled:cursor-not-allowed/);
+  assert.match(disabledTags[0], /disabled:opacity-50/);
+  assert.equal(captured.every((button) => button.disabled === true), true);
+  for (const button of captured) {
+    button.onClick!();
+    button.onFocus!(focus());
+  }
+  assert.equal(changes.length, 1);
+  assert.equal(scrolls.length, 1);
+});
+
 test('connection buttons name status in five locales and mark checking as busy', () => {
   const ConnectionBar = loadComponent('../src/sidepanel/components/ConnectionBar.tsx').default;
   const connections = {
