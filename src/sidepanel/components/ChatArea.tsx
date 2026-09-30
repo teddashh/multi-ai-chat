@@ -74,10 +74,10 @@ function MessageCard({ message }: { message: ChatMessage }) {
   const role = message.modeRole ? t(message.modeRole) : '';
 
   return (
-    <article className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+    <article className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-xs">
       <div className="mb-1.5 flex items-center gap-2">
         <span className="text-[11px] font-bold" style={{ color: info.color }}>{info.name}</span>
-        {role && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500">{role}</span>}
+        {role && <span className="rounded-sm bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500">{role}</span>}
         {streaming && <span className="animate-pulse text-[11px] text-amber-600">{t('chat.typing')}</span>}
       </div>
       <div className="text-sm text-slate-800"><MarkdownText text={message.content} /></div>

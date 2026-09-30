@@ -32,7 +32,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
     const key = `${keyPrefix}-${index}`;
 
     if (token.startsWith('`')) {
-      nodes.push(<code key={key} className="rounded bg-slate-200 px-1 py-0.5 font-mono text-[0.9em] text-slate-900">{token.slice(1, -1)}</code>);
+      nodes.push(<code key={key} className="rounded-sm bg-slate-200 px-1 py-0.5 font-mono text-[0.9em] text-slate-900">{token.slice(1, -1)}</code>);
     } else if (token.startsWith('**') || token.startsWith('__')) {
       nodes.push(<strong key={key} className="font-semibold text-slate-950">{renderInline(token.slice(2, -2), `${key}-strong`)}</strong>);
     } else if (token.startsWith('*') || token.startsWith('_')) {

@@ -46,7 +46,7 @@ export default function RoleConfig({ providers, mode, roles, onRolesChange }: Pr
                   aria-pressed={isSelected}
                   onFocus={(event) => event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' })}
                   onClick={() => handleChange(roleKey, p)}
-                  className={`px-2 py-0.5 rounded text-xs transition-all text-center ${
+                  className={`px-2 py-0.5 rounded-sm text-xs transition-all text-center ${
                     isSelected
                       ? 'font-semibold ring-1 ring-current'
                       : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'

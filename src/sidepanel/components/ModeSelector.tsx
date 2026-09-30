@@ -27,7 +27,7 @@ export default function ModeSelector({ mode, onModeChange, disabled = false }: P
               onClick={() => onModeChange(candidate)}
               className={`min-w-[88px] flex-1 rounded-lg border px-2 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
                 active
-                  ? 'border-sky-400 bg-sky-50 text-sky-950 shadow-sm'
+                  ? 'border-sky-400 bg-sky-50 text-sky-950 shadow-xs'
                   : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
               }`}
             >
