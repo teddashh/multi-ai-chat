@@ -122,13 +122,44 @@ test('malformed stored entries are skipped without rewriting valid transcripts',
     messages: [long, streaming],
     providerUrls: { chatgpt: 'https://chatgpt.com/c/old' },
   });
-  const usable = usableConversations([null, 'nope', { title: 'missing-id' }, valid, { id: '' }, 3]);
-  assert.deepEqual(usable.map((conversation) => conversation.id), ['keep']);
+  const usable = usableConversations([
+    null,
+    'nope',
+    { title: 'missing-id' },
+    valid,
+    { id: '' },
+    3,
+    { id: 'bad-messages', messages: 5 },
+    { id: 'holes', mode: 'free', messages: [null, streaming, { id: 1, content: 'x' }, long], providerUrls: { grok: 'https://grok.com/c/1' } },
+  ]);
+  assert.deepEqual(usable.map((conversation) => conversation.id), ['keep', 'holes']);
+  assert.equal(usable[0], valid);
   assert.equal(usable[0].messages[0]?.content.length, 5_000);
   assert.equal(usable[0].messages[1]?.id, 'r1-streaming');
   assert.equal(usable[0].providerUrls?.chatgpt, 'https://chatgpt.com/c/old');
   assert.equal(usable[0].mode, 'debate');
   assert.deepEqual(usable[0].roles, DEFAULT_DEBATE_ROLES);
+  assert.deepEqual(usable[1].messages.map((message) => message.id), ['r1-streaming', 'u1']);
+  assert.equal(usable[1].providerUrls?.grok, 'https://grok.com/c/1');
+});
+
+test('storage write rejections are handled so a failed set does not surface unhandled', async () => {
+  const failures: unknown[] = [];
+  const onUnhandled = (reason: unknown) => { failures.push(reason); };
+  process.on('unhandledRejection', onUnhandled);
+  try {
+    const persister = createConversationPersister({
+      write: () => Promise.reject(new Error('quota')),
+    });
+    persister.enable();
+    persister.track(toPersistPayload([conv('A')], 'A'));
+    persister.flush();
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.deepEqual(failures, []);
+  } finally {
+    process.off('unhandledRejection', onUnhandled);
+  }
 });
 
 test('current snapshot on close persists the live mode without a versioned rewrite', () => {

@@ -738,23 +738,25 @@ function isSendParams(value: unknown): value is SendParams {
 async function notifyInterruptedWorkflow(target?: { clientId?: string; sessionId?: string }): Promise<void> {
   if (activeWorkflowId) return;
   const stored = await chrome.storage.session.get(ACTIVE_WORKFLOW_STORAGE_KEY);
+  if (activeWorkflowId) return;
   const interrupted = stored[ACTIVE_WORKFLOW_STORAGE_KEY] as { workflowId?: string; sessionId?: string; clientId?: string } | undefined;
   if (!interrupted?.workflowId || !interrupted.sessionId || !interrupted.clientId) return;
   if (!target?.clientId || target.sessionId !== interrupted.sessionId) return;
+  const interruptedWorkflowId = interrupted.workflowId;
   await sendWorkflowStatus(
     { key: 'workflow.interrupted' },
-    interrupted.workflowId,
+    interruptedWorkflowId,
     interrupted.sessionId,
     target.clientId,
   );
-  sendSystemError(encodeError('error.worker_stopped'), interrupted.workflowId);
+  sendSystemError(encodeError('error.worker_stopped'), interruptedWorkflowId);
   await sendWorkflowStatus(
     { key: '', done: true, cancelled: false },
-    interrupted.workflowId,
+    interruptedWorkflowId,
     interrupted.sessionId,
     target.clientId,
   );
-  await chrome.storage.session.remove(ACTIVE_WORKFLOW_STORAGE_KEY);
+  await clearPersistedWorkflow(interruptedWorkflowId);
 }
 
 async function clearPersistedWorkflow(workflowId: string): Promise<void> {

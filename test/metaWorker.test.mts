@@ -67,6 +67,8 @@ function worker(
   const local = { ...stored };
   const session: Record<string, unknown> = { ...extras.session };
   const rejectSend = extras.rejectSend ?? [];
+  const broadcastHold: { current?: (message: any) => Promise<void> | void } = {};
+  const sessionGetHold: { current?: () => Promise<void> } = {};
   const tabs = ALL_PROVIDERS.flatMap((provider, index) => missingTabs.includes(provider) ? [] : [{ id: index + 1, url: AI_PROVIDERS[provider].url }]);
   interface DynamicScript {
     id: string;
@@ -85,9 +87,13 @@ function worker(
   function event() {
     return { listeners: [] as Function[], addListener(listener: Function) { this.listeners.push(listener); } };
   }
-  function storage(values: Record<string, unknown>) {
+  function storage(values: Record<string, unknown>, beforeGet?: { current?: () => Promise<void> }) {
     return {
-      get: async (keys: string | string[]) => Object.fromEntries((Array.isArray(keys) ? keys : [keys]).map((key) => [key, values[key]])),
+      get: async (keys: string | string[]) => {
+        const snapshot = Object.fromEntries((Array.isArray(keys) ? keys : [keys]).map((key) => [key, values[key]]));
+        if (beforeGet?.current) await beforeGet.current();
+        return snapshot;
+      },
       set: async (updates: Record<string, unknown>) => { Object.assign(values, updates); },
       remove: async (key: string) => { delete values[key]; },
       setAccessLevel: async () => {},
@@ -95,10 +101,13 @@ function worker(
   }
   const chrome = {
     sidePanel: { setPanelBehavior: async () => {} },
-    storage: { local: storage(local), session: storage(session) },
+    storage: { local: storage(local), session: storage(session, sessionGetHold) },
     runtime: {
       onMessage: event(), onConnect: event(), onInstalled: event(), onStartup: event(),
-      sendMessage: async (message: any) => { broadcasts.push(message); },
+      sendMessage: async (message: any) => {
+        if (broadcastHold.current) await broadcastHold.current(message);
+        broadcasts.push(message);
+      },
     },
     tabs: {
       onUpdated: event(), onRemoved: event(),
@@ -200,6 +209,8 @@ function worker(
   return {
     command, sent, stops, broadcasts, local, session, navigated, created, ready, complete, fail, removeTab,
     dynamicScripts, contentScriptErrors, permissions: chrome.permissions, runtime: chrome.runtime,
+    holdBroadcasts(handler?: (message: any) => Promise<void> | void) { broadcastHold.current = handler; },
+    holdSessionGets(handler?: () => Promise<void>) { sessionGetHold.current = handler; },
     grantMetaHostAccess: (granted: boolean) => { metaHostPermitted = granted; },
     close: () => { for (const timer of timers) clearTimeout(timer); },
     send: (mode = 'free', targets?: string[], options: {
@@ -402,7 +413,43 @@ test('Free does not add a system error when every target already delivered [Erro
   for (const message of app.sent) app.fail(message, '[Error: quota]');
   await running;
   assert.equal(app.broadcasts.filter((message) => message.provider === 'system').length, 0);
+  assert.equal(app.broadcasts.filter((message) => (
+    message.action === 'RESPONSE_DONE' && String(message.payload).includes('Error:')
+  )).length, 0);
   assert.ok(app.broadcasts.some((message) => message.payload?.done === true));
+});
+
+test('Free keeps a delivered [Error:] off the system channel when the other target answers', async (t) => {
+  const app = worker({ standbyProvider: 'grok' }, false);
+  t.after(app.close);
+  await app.ready;
+  const running = app.send('free', ['chatgpt', 'meta']);
+  await waitUntil(() => app.sent.length === 2, 'free fanout before mixed delivered error');
+  app.fail(app.sent.find((message) => message.provider === 'chatgpt'), '[Error: quota]');
+  app.complete(app.sent.find((message) => message.provider === 'meta'));
+  await running;
+  assert.equal(app.broadcasts.filter((message) => message.provider === 'system').length, 0);
+  assert.equal(app.broadcasts.some((message) => (
+    message.action === 'RESPONSE_DONE' && message.provider === 'chatgpt' && String(message.payload).includes('Error:')
+  )), false);
+  assert.ok(app.broadcasts.some((message) => message.payload?.done === true && message.payload?.cancelled !== true));
+});
+
+test('Free all-fail reports only the undelivered Meta error as a system message', async (t) => {
+  const app = worker({ standbyProvider: 'grok' }, false);
+  t.after(app.close);
+  await app.ready;
+  const running = app.send('free', ['chatgpt', 'meta']);
+  await waitUntil(() => app.sent.length === 2, 'free fanout before mixed all-fail');
+  app.fail(app.sent.find((message) => message.provider === 'chatgpt'), '[Error: quota]');
+  app.removeTab(app.sent.find((message) => message.provider === 'meta').tabId);
+  await running;
+  const systemErrors = app.broadcasts.filter((message) => message.provider === 'system');
+  assert.equal(systemErrors.length, 1);
+  assert.equal(decodeError(String(systemErrors[0]?.payload))?.key, 'error.tab_closed');
+  assert.equal(app.broadcasts.some((message) => (
+    message.action === 'RESPONSE_DONE' && message.provider === 'chatgpt' && String(message.payload).includes('Error:')
+  )), false);
 });
 
 test('Debate with Meta as pro stays serial and does not open roundtable recovery', async (t) => {
@@ -537,6 +584,123 @@ test('panel reconnect rebinds a live Meta debate so the new client can cancel', 
   assert.ok(app.stops.some((message) => message.provider === 'meta'));
 });
 
+test('finishing a Meta debate during panel replay does not emit a stale role', async (t) => {
+  const app = worker({ standbyProvider: 'grok' }, false);
+  t.after(app.close);
+  await app.ready;
+  const running = app.send('debate', undefined, { roles: META_DEBATE });
+  await waitUntil(() => (
+    app.sent.length === 1 && app.broadcasts.some((message) => message.action === 'ROLE_ASSIGNMENT' && message.provider === 'meta')
+  ), 'Meta debate role before reconnect');
+  const workflowId = app.sent[0].workflowId;
+  const requestId = app.sent[0].requestId;
+  let releaseReplay: (() => void) | undefined;
+  let held = 0;
+  app.holdBroadcasts(async (message) => {
+    if (message.action === 'WORKFLOW_STATUS' && message.payload?.clientId === 'panel-2' && !message.payload?.done) {
+      held += 1;
+      await new Promise<void>((resolve) => { releaseReplay = resolve; });
+    }
+  });
+  const reconnect = app.command({ action: 'GET_CONNECTIONS', payload: { clientId: 'panel-2', sessionId: 'session' } });
+  await waitUntil(() => held === 1, 'live status replay held');
+  assert.equal((await app.command({
+    action: 'CANCEL_WORKFLOW',
+    payload: { workflowId, sessionId: 'session', clientId: 'panel-2' },
+  })).ok, true);
+  await running;
+  const rolesBeforeRelease = app.broadcasts.filter((message) => message.action === 'ROLE_ASSIGNMENT').length;
+  releaseReplay?.();
+  app.holdBroadcasts();
+  await reconnect;
+  await flushWorkerTurns();
+  const rolesAfter = app.broadcasts.filter((message) => message.action === 'ROLE_ASSIGNMENT').slice(rolesBeforeRelease);
+  assert.equal(rolesAfter.some((message) => message.payload?.clientId === 'panel-2'), false);
+  assert.equal(app.broadcasts.some((message) => (
+    message.action === 'ROLE_ASSIGNMENT' && (!message.workflowId || (message.requestId === requestId && message.workflowId !== workflowId))
+  )), false);
+});
+
+test('replacing a Meta debate during panel replay keeps the old role out of the new workflow', async (t) => {
+  const app = worker({ standbyProvider: 'grok' }, false);
+  t.after(app.close);
+  await app.ready;
+  const firstId = crypto.randomUUID();
+  const first = app.send('debate', undefined, { roles: META_DEBATE, workflowId: firstId });
+  await waitUntil(() => (
+    app.sent.length === 1 && app.sent[0].workflowId === firstId
+  ), 'first Meta debate send');
+  const firstRequestId = app.sent[0].requestId;
+  let releaseReplay: (() => void) | undefined;
+  let held = 0;
+  app.holdBroadcasts(async (message) => {
+    if (
+      message.action === 'WORKFLOW_STATUS'
+      && message.payload?.clientId === 'panel-2'
+      && !message.payload?.done
+      && message.payload?.workflowId === firstId
+    ) {
+      held += 1;
+      await new Promise<void>((resolve) => { releaseReplay = resolve; });
+    }
+  });
+  const reconnect = app.command({ action: 'GET_CONNECTIONS', payload: { clientId: 'panel-2', sessionId: 'session' } });
+  await waitUntil(() => held === 1, 'live status replay held');
+  const secondId = crypto.randomUUID();
+  const second = app.send('debate', undefined, {
+    roles: { pro: 'chatgpt', con: 'claude', judge: 'gemini', summary: 'meta' },
+    workflowId: secondId,
+    clientId: 'panel-2',
+  });
+  await waitUntil(() => app.sent.some((message) => message.workflowId === secondId), 'replacement debate started');
+  releaseReplay?.();
+  app.holdBroadcasts();
+  await reconnect;
+  await first;
+  await completeRemaining(app, second);
+  assert.equal(app.broadcasts.some((message) => (
+    message.action === 'ROLE_ASSIGNMENT'
+    && message.workflowId === secondId
+    && message.requestId === firstRequestId
+  )), false);
+  assert.equal(app.broadcasts.some((message) => (
+    message.action === 'WORKFLOW_STATUS'
+    && message.payload?.workflowId === secondId
+    && message.payload?.key === 'workflow.debate.pro'
+    && message.payload?.params?.provider === 'Meta AI'
+  )), false);
+});
+
+test('simultaneous reconnect replays a live Meta debate only to the latest client', async (t) => {
+  const app = worker({ standbyProvider: 'grok' }, false);
+  t.after(app.close);
+  await app.ready;
+  const running = app.send('debate', undefined, { roles: META_DEBATE });
+  await waitUntil(() => app.sent.length === 1 && app.sent[0].provider === 'meta', 'Meta debate before simultaneous reconnect');
+  const workflowId = app.sent[0].workflowId;
+  await app.command({ action: 'GET_CONNECTIONS', payload: { clientId: 'panel-2', sessionId: 'session' } });
+  await app.command({ action: 'GET_CONNECTIONS', payload: { clientId: 'panel-3', sessionId: 'session' } });
+  await waitUntil(() => app.broadcasts.some((message) => (
+    message.action === 'WORKFLOW_STATUS' && message.payload?.clientId === 'panel-3' && !message.payload?.done
+  )), 'replayed status for the latest panel');
+  assert.ok(app.broadcasts.some((message) => (
+    message.payload?.clientId === 'panel-2' && message.payload?.done === true && message.payload?.cancelled === true
+  )));
+  assert.ok(app.broadcasts.some((message) => (
+    message.action === 'ROLE_ASSIGNMENT' && message.provider === 'meta' && message.payload?.clientId === 'panel-3'
+  )));
+  assert.equal((await app.command({
+    action: 'CANCEL_WORKFLOW',
+    payload: { workflowId, sessionId: 'session', clientId: 'panel-2' },
+  })).ok, false);
+  assert.equal((await app.command({
+    action: 'CANCEL_WORKFLOW',
+    payload: { workflowId, sessionId: 'session', clientId: 'panel-3' },
+  })).ok, true);
+  await running;
+  assert.ok(app.stops.some((message) => message.provider === 'meta'));
+});
+
 test('panel reconnect during Meta recovery rotates the decision identity', async (t) => {
   const app = worker({ standbyProvider: 'grok' }, false);
   t.after(app.close);
@@ -653,6 +817,63 @@ test('a replacement worker tells the reopened panel that a Meta workflow was int
   assert.ok(second.broadcasts.some((message) => (
     message.payload?.done === true && message.payload?.cancelled === false && message.payload?.clientId === 'panel-2'
   )));
+});
+
+test('a Send started during interrupted-workflow lookup keeps the new run marker', async (t) => {
+  const interruptedId = crypto.randomUUID();
+  const app = worker({ standbyProvider: 'grok' }, false, {}, [], {
+    session: {
+      multiAiActiveWorkflow: {
+        workflowId: interruptedId,
+        sessionId: 'session',
+        clientId: 'client',
+        startedAt: 1,
+      },
+    },
+  });
+  t.after(app.close);
+  await app.ready;
+  let releaseGet: (() => void) | undefined;
+  let heldGets = 0;
+  app.holdSessionGets(async () => {
+    heldGets += 1;
+    if (heldGets > 1) return;
+    await new Promise<void>((resolve) => { releaseGet = resolve; });
+  });
+  const nextId = crypto.randomUUID();
+  let running: Promise<unknown> | undefined;
+  try {
+    void app.command({ action: 'GET_CONNECTIONS', payload: { clientId: 'panel-2', sessionId: 'session' } });
+    await waitUntil(() => heldGets === 1, 'interrupted workflow lookup held');
+    running = app.send('free', ['meta'], { workflowId: nextId, clientId: 'panel-2' });
+    await waitUntil(
+      () => (app.session.multiAiActiveWorkflow as { workflowId?: string } | undefined)?.workflowId === nextId,
+      'new workflow persisted during lookup',
+    );
+    releaseGet?.();
+    releaseGet = undefined;
+    app.holdSessionGets();
+    await flushWorkerTurns();
+    assert.equal(
+      (app.session.multiAiActiveWorkflow as { workflowId?: string } | undefined)?.workflowId,
+      nextId,
+    );
+  } finally {
+    releaseGet?.();
+    app.holdSessionGets();
+    await flushWorkerTurns();
+    if (running) {
+      const pending = app.sent.find((message) => message.workflowId === nextId);
+      if (pending) app.complete(pending);
+      else {
+        await app.command({
+          action: 'CANCEL_WORKFLOW',
+          payload: { workflowId: nextId, sessionId: 'session', clientId: 'panel-2' },
+        });
+      }
+      await running;
+    }
+  }
 });
 
 test('default standby still repairs Meta out of Debate roles and leaves its tab untouched', async (t) => {
