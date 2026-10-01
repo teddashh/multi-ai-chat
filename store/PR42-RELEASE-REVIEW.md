@@ -1,4 +1,4 @@
-# PR42 — next listing draft (candidate text only)
+# PR42: next listing draft (candidate text only)
 
 Not a Store upload, merge, or QC pass. **This branch stays 0.2.3.** The next Meta-capable listing version is **TBD** (choose when packaging; do not reuse 0.2.3). Existing `store/SUBMISSION.md` is the released four-provider copy and is unchanged. Paste from **Candidate (TBD)** below only after that version exists.
 
@@ -12,11 +12,11 @@ Not a Store upload, merge, or QC pass. **This branch stays 0.2.3.** The next Met
 
 ## Remaining VM evidence (facts, not a gate)
 
-From `META-AI-SMOKE.md` / `META-AI-UX-QC.md` at this SHA: VM-01 load+default four, VM-02 standby/readiness, VM-03 send/stream/Stop, VM-04 four-way + Meta role, VM-05 Retry/Skip/Cancel, VM-06 restart/restore, VM-07 original four/export/five languages, and authenticated Side Panel UX are **NOT_RUN**. Conductor VM 2–3 PASS is recorded on older SHAs `3976212` / `74f0919`. Local 195 tests and DOM fixtures are not live provider/VM results.
+From `META-AI-SMOKE.md` / `META-AI-UX-QC.md` at this SHA: VM-01 load+default four, VM-02 standby/readiness, VM-03 send/stream/Stop, VM-04 four-way + Meta role, VM-05 Retry/Skip/Cancel, VM-06 restart/restore, VM-07 original four/export/five languages, and authenticated Side Panel UX are **NOT_RUN**. Conductor VM 2-3 PASS is recorded on older SHAs `3976212` / `74f0919`. Local 195 tests and DOM fixtures are not live provider/VM results.
 
 ---
 
-## Candidate (TBD) — English listing
+## Candidate (TBD): English listing
 
 **Item name:** `Multi-AI Chat`  
 **Summary (≤132):** `Run reliable multi-AI workflows across ChatGPT, Claude, Gemini, Grok, and optional Meta AI from one side panel.`  
@@ -26,23 +26,23 @@ From `META-AI-SMOKE.md` / `META-AI-UX-QC.md` at this SHA: VM-01 load+default fou
 
 ```
 Multi-AI Chat turns the ChatGPT, Claude, Gemini, and Grok tabs you already use into one
-multi-AI workflow — right inside Chrome's Side Panel. There are no model API keys and no
+multi-AI workflow, right inside Chrome's Side Panel. There are no model API keys and no
 separate chat backend: it drives the provider pages in your browser. Meta AI is an
 experimental optional replacement: Settings → Standby provider swaps one of the original
 four for Meta AI, keeps exactly four providers active, and preserves the standby choice
 and existing browser sessions.
 
 WORKFLOWS
-• Free — send one prompt to every selected provider in parallel and compare answers.
-• Debate — Pro → Con → Judge → Synthesis.
-• Consult — two independent answers → review → final answer.
-• Coding — an eight-step plan/review/implement/test/accept pass.
-• Roundtable — five rounds of structured debate that converge on an answer.
+• Free: send one prompt to every selected provider in parallel and compare answers.
+• Debate: Pro → Con → Judge → Synthesis.
+• Consult: two independent answers → review → final answer.
+• Coding: an eight-step plan/review/implement/test/accept pass.
+• Roundtable: five rounds of structured debate that converge on an answer.
 
 WHY IT'S RELIABLE
 • Input selectors retry, rich editors are verified, and Enter is used as a checked fallback.
 • Every request has an ID, so a late answer can never complete the wrong workflow.
-• Stop really stops — it cancels waiters and asks each provider page to stop generating.
+• Stop really stops: it cancels waiters and asks each provider page to stop generating.
 • If a Roundtable provider fails, choose Retry, Skip this turn, or Cancel; retries are isolated
   with a fresh request ID, while skips use a safe placeholder only in the remaining Roundtable
   context instead of passing error text to later turns.
@@ -62,7 +62,7 @@ and the optional HackMD token are stored locally in your browser. See the privac
 
 NOTE
 This extension automates third-party web interfaces. A provider redesign can temporarily break
-selectors, and automated use may be governed by each provider's terms — use accounts and content
+selectors, and automated use may be governed by each provider's terms. Use accounts and content
 you are authorized to use. Known issue: on Microsoft Edge, Claude may not connect because the
 browser can block the extension on claude.ai; use Google Chrome for Claude.
 ```

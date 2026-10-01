@@ -7,8 +7,8 @@ only**, and closing/reopening the panel. It needs no additional provider login.
 
 Castle could not access the existing authenticated VM: the available local QC file
 still describes `42d8454`, and no current VM/CDP endpoint was supplied. Conductor's
-handoff reports live Meta Steps 2–3 PASS at the later Lexical/streaming candidates;
-that does not establish this UX sequence or multi-provider Steps 4–5.
+handoff reports live Meta Steps 2-3 PASS at the later Lexical/streaming candidates;
+that does not establish this UX sequence or multi-provider Steps 4-5.
 
 Local Chromium launches hit SIGTRAP / inotify resource exhaustion. An isolated
 container browser allowed the production `dist/sidepanel.js` to run in real Chromium
@@ -25,7 +25,7 @@ The sequence reproduced two issues in the `d561131` runtime:
   unreadiness hint was visible. That area now shrinks and scrolls independently.
 
 The follow-up reproduced another short-panel issue in `0abba66`: a ten-line draft
-plus an open-tab failure put Send at y=630.5–662.5 in a 320×600 viewport. The upper
+plus an open-tab failure put Send at y=630.5 to 662.5 in a 320×600 viewport. The upper
 controls area now also shrinks and scrolls, keeping the input actions in view.
 The Ready-only shortcut remains reachable by scrolling that area.
 

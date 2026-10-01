@@ -16,7 +16,7 @@ git status --short
 
 Record that full SHA. In `chrome://extensions`, reload this checkout's unpacked `dist/`,
 then reload the authenticated Meta tab and reopen the Side Panel. Put Grok on standby,
-choose **Free**, select **only Meta**, and confirm **Meta AI — Ready**. Version 0.2.3
+choose **Free**, select **only Meta**, and confirm **Meta AI: Ready**. Version 0.2.3
 alone cannot identify this build. Keep any old test failure separate from the new run.
 
 ## Optional event evidence
@@ -40,7 +40,7 @@ Save the copied JSON beside the VM results, then close DevTools. Reloading the e
 restarting its worker removes the observer; start it again if needed. At most 250 events
 are retained; `droppedEvents` and `pendingSamples` disclose incomplete evidence.
 
-## Case A — stream through final
+## Case A: stream through final
 
 Send this through the Side Panel:
 
@@ -61,7 +61,7 @@ DOM sampling happens **after** receipt; `sampleDelayMs` records the gap. A false
 sample does not prove that Stop was absent when the chunk arrived. Record the visible UI
 alongside this metadata, including whether the stream window was actually observed.
 
-## Case B — stop an active stream
+## Case B: stop an active stream
 
 Send the same long prompt with the first line changed to `META-QC-STOP`. Once new text is
 appearing and Meta's Stop is visible, click **Stop in the extension Side Panel**. Confirm
@@ -84,14 +84,14 @@ Case A final matches provider + processing ends: PASS | FAIL | BLOCKED
 Case B extension Stop stops provider + no late extension text: PASS | FAIL | NOT_OBSERVED
 Exact UI error, if any: ...
 Evidence: observer JSON path / cropped UI evidence / visible observations
-Next: Step4–5 | diagnose ...
+Next: Step4-5 | diagnose ...
 ```
 
 If send fails before a chunk, capture the exact UI error; do not mark capture or Stop passed.
 If the page answers but the extension does not, the counts and event sequence help distinguish
 selector/capture failure from completion waiting. `errorLike` flags `[Error:`-prefixed output
 for inspection; it does not automatically classify the run. When Step3 passes, continue
-[Step4 fanout/serial and Step5 Retry/Skip/Cancel](META-AI-SMOKE.md#manual-checks--pending-vm-01-through-vm-07)
+[Step4 fanout/serial and Step5 Retry/Skip/Cancel](META-AI-SMOKE.md#manual-checks-pending-vm-01-through-vm-07)
 with the other required providers ready.
 
 ## Desktop signed-in reply (2026-09-21)
