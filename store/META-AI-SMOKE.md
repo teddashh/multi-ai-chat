@@ -10,9 +10,9 @@ For the three readiness UX changes and immediate panel close/reopen, use
 [Meta-only Ready UX QC](META-AI-UX-QC.md), including a repeatable DOM fixture and the
 separate actual Side Panel checklist.
 
-Latest Conductor handoff (`multi-mac-0921ET-unreadiness-ux`) reports VM Steps 2–3
+Latest Conductor handoff (`multi-mac-0921ET-unreadiness-ux`) reports VM Steps 2-3
 PASS with the Lexical fix at `3976212` and streaming candidate `74f0919`.
-Steps 4–5 still await the other required providers. The current UX follow-up names
+Steps 4-5 still await the other required providers. The current UX follow-up names
 those readiness blockers; it does not change provider login or workflow recovery.
 
 After reloading the candidate extension, the existing Meta-only-ready VM can check
@@ -178,7 +178,7 @@ extension fixture also checks chunks arrive **before** Meta's Stop disappears, t
 the completed reply. This remains controlled browser evidence; authenticated VM Step3+
 at this revision still needs a result.
 
-## Manual checks — pending (VM-01 through VM-07)
+## Manual checks: pending (VM-01 through VM-07)
 
 1. Load the built `dist/` directory as an unpacked extension. Existing v0.2.3 releases do not
    include this feature. Open all five provider tabs and confirm only the default four appear

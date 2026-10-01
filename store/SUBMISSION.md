@@ -1,4 +1,4 @@
-# Chrome Web Store — submission pack
+# Chrome Web Store: submission pack
 
 Everything needed for the Developer Dashboard listing of **Multi-AI Chat** (**v0.3.0**).
 The live Chrome Web Store listing is **v0.3.0**, updated 2026-09-23, and includes experimental Meta AI.
@@ -10,9 +10,9 @@ publishing Google account.
 
 ---
 
-## 0. Before you upload — action items **[you]**
+## 0. Before you upload: action items **[you]**
 
-1. **Register a developer account** at https://chrome.google.com/webstore/devconsole — one-time **US$5** fee (Google account + card). New accounts may need identity verification (can take a few days), and the publishing Google account must have **2-Step Verification** enabled.
+1. **Register a developer account** at https://chrome.google.com/webstore/devconsole, one-time **US$5** fee (Google account + card). New accounts may need identity verification (can take a few days), and the publishing Google account must have **2-Step Verification** enabled.
 2. **Privacy policy.** Use the public repository copy at `https://github.com/teddashh/multi-ai-chat/blob/master/store/PRIVACY.md` (or mirror it on the developer's own domain). A privacy-policy URL is **required** because the extension reads page content.
 3. **Upload the package** `multi-ai-chat-store-v0.3.0.zip` (see §6 to regenerate). This v0.3.0 package is the live Chrome Web Store listing, updated 2026-09-23.
 4. **Add the screenshot and small promo tile** from `store/` (see §5).
@@ -33,20 +33,20 @@ publishing Google account.
 
 ```
 Multi-AI Chat turns the ChatGPT, Claude, Gemini, and Grok tabs you already use into one
-multi-AI workflow — right inside Chrome's Side Panel. There are no model API keys and no
+multi-AI workflow, right inside Chrome's Side Panel. There are no model API keys and no
 separate chat backend: it drives the provider pages you are already signed into.
 
 WORKFLOWS
-• Free — send one prompt to every selected provider in parallel and compare answers.
-• Debate — Pro → Con → Judge → Synthesis.
-• Consult — two independent answers → review → final answer.
-• Coding — an eight-step plan/review/implement/test/accept pass.
-• Roundtable — five rounds of structured debate that converge on an answer.
+• Free: send one prompt to every selected provider in parallel and compare answers.
+• Debate: Pro → Con → Judge → Synthesis.
+• Consult: two independent answers → review → final answer.
+• Coding: an eight-step plan/review/implement/test/accept pass.
+• Roundtable: five rounds of structured debate that converge on an answer.
 
 WHY IT'S RELIABLE
 • Input selectors retry, rich editors are verified, and Enter is used as a checked fallback.
 • Every request has an ID, so a late answer can never complete the wrong workflow.
-• Stop really stops — it cancels waiters and asks each provider page to stop generating.
+• Stop really stops: it cancels waiters and asks each provider page to stop generating.
 • If a Roundtable provider fails, choose Retry, Skip this turn, or Cancel; retries are isolated
   with a fresh request ID, while skips use a safe placeholder only in the remaining Roundtable
   context instead of passing error text to later turns.
@@ -65,7 +65,7 @@ HackMD token are stored locally in your browser. See the privacy policy for deta
 
 NOTE
 This extension automates third-party web interfaces. A provider redesign can temporarily break
-selectors, and automated use may be governed by each provider's terms — use accounts and content
+selectors, and automated use may be governed by each provider's terms. Use accounts and content
 you are authorized to use. Known issue: on Microsoft Edge, Claude may not connect because the
 browser can block the extension on claude.ai; use Google Chrome for Claude.
 ```
@@ -101,7 +101,7 @@ The optional meta.ai row above is part of the live **v0.3.0** listing. Authentic
 
 ---
 
-## 4. Privacy practices — data collection
+## 4. Privacy practices: data collection
 
 Declare the following data types and reasons; leave every other type unchecked.
 
@@ -112,7 +112,7 @@ Declare the following data types and reasons; leave every other type unchecked.
 | **Authentication information** | Yes | The optional HackMD API token the user pastes in Settings, stored locally and sent only to HackMD when publishing. |
 | PII, health, financial, location, web history, user activity | No | Not collected. |
 
-**Three required certifications — all true:**
+**Three required certifications (all true):**
 - ☑ I do not sell or transfer user data to third parties outside the approved use cases.
 - ☑ I do not use or transfer user data for purposes unrelated to the item's single purpose.
 - ☑ I do not use or transfer user data to determine creditworthiness or for lending.
@@ -145,7 +145,7 @@ Compress-Archive -Path dist\* -DestinationPath store\multi-ai-chat-store-v0.3.0.
 (cd dist && zip -r ../store/multi-ai-chat-store-v0.3.0.zip .)
 ```
 
-This filename is the v0.3.0 release asset. Its published SHA-256 is `d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80`, which is the hash of the **GitHub Release** ZIP — the file users download and verify.
+This filename is the v0.3.0 release asset. Its published SHA-256 is `d7e976872d2e19cf8867ea7562c263d7de31f175e706ea44b67a204db3233d80`, which is the hash of the **GitHub Release** ZIP, the file users download and verify.
 
 The Chrome Web Store build has the same contents but a **different** SHA-256 (`57c1157af3d3851d3f9a0f45cb7579e4883258ae5a20e48bbdd25428e4f9054f` for this release), because `zip` records each file's mtime and the workflow rebuilds `dist/` on a fresh checkout. That mismatch is expected and is **not** the "two different builds sharing one version string" bug. Confirm it the cheap way before raising it: `gh run download <run-id>`, extract both archives, then `diff -r` plus a per-file `sha256sum` comparison. For v0.3.0 both matched exactly.
 
@@ -201,19 +201,19 @@ justifications and the privacy tab are single (English) and are not localized.
 **Summary (≤132):** `用一個 Side Panel，跨 ChatGPT、Claude、Gemini、Grok 執行可靠的多 AI workflow。`
 
 ```
-Multi-AI Chat 把你已經登入的 ChatGPT、Claude、Gemini、Grok 分頁組成一個多 AI workflow——就在 Chrome 的 Side Panel 裡。不需要模型 API Key，也沒有額外的對話後端：它直接操作你平常在用的 provider 網頁。
+Multi-AI Chat 把你已經登入的 ChatGPT、Claude、Gemini、Grok 分頁組成一個多 AI workflow，就在 Chrome 的 Side Panel 裡。不需要模型 API Key，也沒有額外的對話後端：它直接操作你平常在用的 provider 網頁。
 
 模式
-• 自由分送 — 一個問題同時送給所有勾選的 provider，最適合快速比較。
-• 四方辯證 — 正方 → 反方 → 判官 → 綜合。
-• 多方諮詢 — 兩份獨立回答 → 審查 → 最終答案。
-• Coding — 規格、審查、實作、測試、驗收共八步。
-• 道理辯證 — 四家 AI 五輪辯證，逐步收斂。
+• 自由分送：一個問題同時送給所有勾選的 provider，最適合快速比較。
+• 四方辯證：正方 → 反方 → 判官 → 綜合。
+• 多方諮詢：兩份獨立回答 → 審查 → 最終答案。
+• Coding：規格、審查、實作、測試、驗收共八步。
+• 道理辯證：四家 AI 五輪辯證，逐步收斂。
 
 為什麼可靠
 • 輸入 selector 會重試、rich editor 會驗證，送出用 Enter 做最後 fallback。
 • 每次呼叫都有 request ID，晚到的回答不會完成錯誤的流程。
-• Stop 是真的停止——拒絕 waiter，並要求每個 provider 頁面停止生成。
+• Stop 是真的停止：拒絕 waiter，並要求每個 provider 頁面停止生成。
 • 道理辯證中若 provider 失敗，可選擇重試、略過這一棒或取消；重試使用新的 request ID，略過僅在後續圓桌上下文使用安全佔位內容，不會把錯誤文字傳給後續發言。
 • 只有 composer 確認你已登入，分頁才會顯示「就緒」。
 
@@ -227,7 +227,7 @@ Multi-AI Chat 把你已經登入的 ChatGPT、Claude、Gemini、Grok 分頁組�
 你的問題直接送到你本來就在用的 provider 網頁。沒有 Multi-AI Chat 伺服器、沒有分析追蹤，也沒有模型 API 憑證。設定、對話與選填的 HackMD token 都只存在你的瀏覽器本機。
 
 說明
-本外掛會自動操作第三方網頁；provider 改版可能暫時使 selector 失效，自動化也可能受各服務條款約束——請只使用你有權使用的帳號與內容。已知問題：在 Microsoft Edge 上，Claude 可能因瀏覽器封鎖外掛在 claude.ai 執行而無法連線，請改用 Google Chrome。
+本外掛會自動操作第三方網頁；provider 改版可能暫時使 selector 失效，自動化也可能受各服務條款約束，請只使用你有權使用的帳號與內容。已知問題：在 Microsoft Edge 上，Claude 可能因瀏覽器封鎖外掛在 claude.ai 執行而無法連線，請改用 Google Chrome。
 ```
 
 ### 日本語 (ja)
@@ -238,16 +238,16 @@ Multi-AI Chat 把你已經登入的 ChatGPT、Claude、Gemini、Grok 分頁組�
 Multi-AI Chat は、ログイン済みの ChatGPT・Claude・Gemini・Grok タブを、Chrome の Side Panel から1つの複数AI workflow としてまとめます。モデルAPIキーも独自の会話backendも不要で、普段使っている provider ページを直接操作します。
 
 モード
-• 自由送信 — 選択したすべての provider へ並列送信。素早い比較に最適。
-• 四者討論 — 賛成 → 反対 → 判定 → 統合。
-• 多角相談 — 独立回答2件 → Review → 最終回答。
-• Coding — 仕様・Review・実装・Test・修正・受入の8ステップ。
-• 円卓討論 — 4つの AI が5ラウンドで議論し収束。
+• 自由送信：選択したすべての provider へ並列送信。素早い比較に最適。
+• 四者討論：賛成 → 反対 → 判定 → 統合。
+• 多角相談：独立回答2件 → Review → 最終回答。
+• Coding：仕様・Review・実装・Test・修正・受入の8ステップ。
+• 円卓討論：4つの AI が5ラウンドで議論し収束。
 
 信頼性
 • 入力 selector の再試行、rich editor の検証、最後は Enter fallback。
 • すべての呼び出しに request ID。遅延した回答が誤った workflow を完了させません。
-• Stop は本当に停止——waiter を解除し、各 provider ページに生成停止を要求。
+• Stop は本当に停止：waiter を解除し、各 provider ページに生成停止を要求。
 • 円卓討論で provider が失敗した場合は再試行・この発言をスキップ・中止を選択可能。再試行は新しい request ID を使い、スキップは残りの円卓コンテキストでのみ安全なプレースホルダーを使い、後続の発言へエラー文を渡しません。
 • composer がログインを確認した後にのみ「準備完了」と表示。
 
@@ -266,22 +266,22 @@ Multi-AI Chat は、ログイン済みの ChatGPT・Claude・Gemini・Grok タ�
 
 ### Deutsch (de)
 
-**Summary (≤132):** `Zuverlässige Multi-KI-Workflows über ChatGPT, Claude, Gemini und Grok – aus einem Side Panel.`
+**Summary (≤132):** `Zuverlässige Multi-KI-Workflows über ChatGPT, Claude, Gemini und Grok, aus einem Side Panel.`
 
 ```
-Multi-AI Chat verbindet deine angemeldeten ChatGPT-, Claude-, Gemini- und Grok-Tabs zu einem Multi-KI-Workflow – direkt im Chrome Side Panel. Keine Modell-API-Schlüssel und kein separater Gesprächsserver: Es steuert die Provider-Seiten, die du ohnehin nutzt.
+Multi-AI Chat verbindet deine angemeldeten ChatGPT-, Claude-, Gemini- und Grok-Tabs zu einem Multi-KI-Workflow, direkt im Chrome Side Panel. Keine Modell-API-Schlüssel und kein separater Gesprächsserver: Es steuert die Provider-Seiten, die du ohnehin nutzt.
 
 Modi
-• Frei — eine Frage parallel an alle ausgewählten Provider, ideal zum Vergleichen.
-• Debatte — Pro → Contra → Urteil → Synthese.
-• Beratung — zwei unabhängige Antworten → Prüfung → Ergebnis.
-• Coding — acht Schritte: Spezifikation, Reviews, Umsetzung, Tests, Abnahme.
-• Rundtisch — vier KIs debattieren in fünf Runden bis zur Konvergenz.
+• Frei: eine Frage parallel an alle ausgewählten Provider, ideal zum Vergleichen.
+• Debatte: Pro → Contra → Urteil → Synthese.
+• Beratung: zwei unabhängige Antworten → Prüfung → Ergebnis.
+• Coding: acht Schritte (Spezifikation, Reviews, Umsetzung, Tests, Abnahme).
+• Rundtisch: vier KIs debattieren in fünf Runden bis zur Konvergenz.
 
 Warum zuverlässig
 • Eingabe-Selektoren mit Retry, geprüfte Rich-Editoren, Enter als Fallback.
 • Jeder Aufruf hat eine Request-ID; verspätete Antworten schließen keinen falschen Workflow ab.
-• Stop stoppt wirklich – löst Waiter auf und bittet jede Provider-Seite, die Generierung zu beenden.
+• Stop stoppt wirklich: löst Waiter auf und bittet jede Provider-Seite, die Generierung zu beenden.
 • Scheitert ein Provider im Rundtisch, stehen Erneut versuchen, Beitrag überspringen oder Abbrechen zur Wahl; Retries erhalten eine neue Request-ID, Skips verwenden nur im verbleibenden Rundtisch-Kontext einen sicheren Platzhalter und geben keinen Fehlertext weiter.
 • „Bereit" erscheint erst, wenn der Composer die Anmeldung bestätigt.
 
@@ -295,7 +295,7 @@ Datenschutz
 Deine Prompts gehen direkt an die Provider-Seiten, die du bereits nutzt. Es gibt keinen Multi-AI-Chat-Server, keine Analyse und keine Modell-API-Zugangsdaten. Einstellungen, Gespräche und der optionale HackMD-Token werden nur lokal im Browser gespeichert.
 
 Hinweis
-Diese Erweiterung automatisiert Weboberflächen Dritter; Provider-Änderungen können Selektoren vorübergehend beschädigen, und automatisierte Nutzung kann den jeweiligen Bedingungen unterliegen – verwende nur berechtigte Konten und Inhalte. Bekanntes Problem: Unter Microsoft Edge verbindet sich Claude möglicherweise nicht, weil der Browser die Erweiterung auf claude.ai blockieren kann; nutze dafür Google Chrome.
+Diese Erweiterung automatisiert Weboberflächen Dritter; Provider-Änderungen können Selektoren vorübergehend beschädigen, und automatisierte Nutzung kann den jeweiligen Bedingungen unterliegen. Verwende nur berechtigte Konten und Inhalte. Bekanntes Problem: Unter Microsoft Edge verbindet sich Claude möglicherweise nicht, weil der Browser die Erweiterung auf claude.ai blockieren kann; nutze dafür Google Chrome.
 ```
 
 ### 한국어 (ko)
@@ -306,16 +306,16 @@ Diese Erweiterung automatisiert Weboberflächen Dritter; Provider-Änderungen k�
 Multi-AI Chat는 로그인된 ChatGPT, Claude, Gemini, Grok 탭을 Chrome Side Panel 하나에서 다중 AI workflow로 묶어 줍니다. 모델 API 키나 별도의 대화 서버가 필요 없으며, 평소 사용하는 provider 페이지를 직접 제어합니다.
 
 모드
-• 자유 전송 — 선택한 모든 provider에 병렬 전송, 빠른 비교에 최적.
-• 사자 토론 — 찬성 → 반대 → 판정 → 종합.
-• 다자 자문 — 독립 답변 2개 → 검토 → 최종 답변.
-• Coding — 명세, 검토, 구현, 테스트, 인수의 8단계.
-• 원탁 토론 — 4개 AI가 5라운드로 토론하며 수렴.
+• 자유 전송: 선택한 모든 provider에 병렬 전송, 빠른 비교에 최적.
+• 사자 토론: 찬성 → 반대 → 판정 → 종합.
+• 다자 자문: 독립 답변 2개 → 검토 → 최종 답변.
+• Coding: 명세, 검토, 구현, 테스트, 인수의 8단계.
+• 원탁 토론: 4개 AI가 5라운드로 토론하며 수렴.
 
 안정성
 • 입력 selector 재시도, rich editor 검증, 마지막엔 Enter fallback.
 • 모든 호출에 request ID가 있어 늦은 응답이 잘못된 workflow를 완료하지 않습니다.
-• Stop은 실제로 중단합니다 — waiter를 해제하고 각 provider 페이지에 생성 중단을 요청.
+• Stop은 실제로 중단합니다. waiter를 해제하고 각 provider 페이지에 생성 중단을 요청.
 • 원탁 토론 중 provider가 실패하면 다시 시도, 이번 발언 건너뛰기, 취소 중 하나를 선택할 수 있습니다. 재시도는 새 request ID를 사용하고, 건너뛰기는 남은 원탁 토론 문맥에서만 안전한 자리 표시자를 사용하며 후속 발언에 오류 문구를 전달하지 않습니다.
 • composer가 로그인 상태를 확인한 후에만 '준비됨'으로 표시.
 

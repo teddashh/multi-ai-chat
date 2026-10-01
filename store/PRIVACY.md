@@ -1,4 +1,4 @@
-# Privacy Policy — Multi-AI Chat (Chrome extension)
+# Privacy Policy: Multi-AI Chat (Chrome extension)
 
 **Effective date:** 2026-09-20 · **Last updated:** 2026-09-20
 
@@ -29,7 +29,7 @@ what it accesses and what it does **not** do.
 - **Tab state.** The extension detects when a provider tab loads, navigates, reloads, or closes
   so it can show accurate connection status. It does not use this to read unrelated tabs.
 
-## What is sent off your device — and only when you ask
+## What is sent off your device, and only when you ask
 
 - **The provider pages themselves.** Your prompt is delivered to the selected ChatGPT/Claude/Gemini/Grok/Meta AI
   page you are already using, exactly as if you had typed it there. Those services' own privacy
@@ -50,7 +50,7 @@ Nothing is ever sent to the developer.
 
 The developer never receives, sells, rents, or uses your data. The extension makes only the
 user-directed transfers described above: prompts to the providers you select in order to run a
-workflow, and—only when you click **Publish**—the current conversation and your token to HackMD.
+workflow, and (only when you click **Publish**) the current conversation and your token to HackMD.
 It makes no other transfers.
 
 Use of information received from Google APIs adheres to the Chrome Web Store User Data Policy,
@@ -59,7 +59,7 @@ including its Limited Use requirements.
 ## Permissions, briefly
 
 `sidePanel` (the UI), `tabs` (find/focus provider tabs and read connection status),
-`scripting` (re-inject the extension's own bundled content script when needed — never remote
+`scripting` (re-inject the extension's own bundled content script when needed, never remote
 code), `storage` (local settings/conversations/token), host access to the provider app domains
 (`chatgpt.com`, `chat.openai.com`, `claude.ai`, `gemini.google.com`, and `grok.com`,
 to automate their pages) and `api.hackmd.io` (only when you publish).
@@ -74,4 +74,4 @@ Material changes to this policy will be reflected by updating the effective date
 
 ## Contact
 
-Ted Huang — [TED@TED-H.com](mailto:TED@TED-H.com) · [ted-h.com](https://ted-h.com)
+Ted Huang: [TED@TED-H.com](mailto:TED@TED-H.com) · [ted-h.com](https://ted-h.com)

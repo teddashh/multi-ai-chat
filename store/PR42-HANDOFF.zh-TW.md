@@ -24,7 +24,7 @@
 - 程式 checkpoint：`e801019e81aa12583d0405321d17e4573401687d`。
 - `npm run verify`：**157 項測試**（接手後增加 44）、TypeScript、production build、版本一致性全過；此 SHA 的 GitHub Verify／CodeQL 全綠。
 - Chromium production-dist DOM 檢查：五語合計 **75 組**、0 page errors。使用模擬 Chrome runtime／storage，不能當成實際安裝 extension 或登入網站的 e2e。
-- Conductor 已回報較早 Meta 候選版 **VM Steps 2–3 PASS**（Lexical `3976212`、串流候選 `74f0919`）；Castle 未另行重跑該真實 VM，本輪後續 UX／Settings 仍需實機驗收。
+- Conductor 已回報較早 Meta 候選版 **VM Steps 2-3 PASS**（Lexical `3976212`、串流候選 `74f0919`）；Castle 未另行重跑該真實 VM，本輪後續 UX／Settings 仍需實機驗收。
 - 最後一刀為 Settings 生命週期及儲存錯誤處理。已按使用者要求停止擴充功能。已送出的 Save／Clear 仍可能在關窗後完成，關窗不等於取消儲存。
 - 版本仍 **0.2.3**；預設 ChatGPT／Claude／Gemini／Grok，Meta experimental 且預設 standby。尚未 undraft、merge 或發布 Store；分支版本號不表示 Store 已包含 Meta。
 
