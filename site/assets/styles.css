@@ -1161,3 +1161,37 @@ pre {
     border: 1px solid CanvasText;
   }
 }
+
+/* Flow diagrams. Colors are the site's own tokens. */
+.fd {
+  --fd-surface: var(--surface);
+  --fd-edge: var(--line);
+  --fd-text: var(--ink);
+  --fd-faint: var(--muted);
+  --fd-accent: var(--blue);
+  --fd-accent-ink: color-mix(in srgb, var(--blue) 60%, var(--ink));
+  --fd-warn: var(--orange);
+  --fd-info: color-mix(in srgb, var(--cyan) 40%, var(--ink));
+  --fd-font: inherit;
+}
+
+.install-section .fd {
+  --fd-surface: color-mix(in srgb, white 56%, var(--cream));
+  --fd-edge: color-mix(in srgb, var(--cream-ink) 16%, transparent);
+  --fd-text: var(--cream-ink);
+  --fd-faint: var(--cream-muted);
+  --fd-accent: color-mix(in srgb, var(--blue) 55%, var(--cream-ink));
+  --fd-accent-ink: color-mix(in srgb, var(--blue) 55%, var(--cream-ink));
+  --fd-warn: color-mix(in srgb, var(--orange) 55%, var(--cream-ink));
+  --fd-info: color-mix(in srgb, var(--violet) 45%, var(--cream-ink));
+}
+
+.fd[lang] { display: none; }
+
+html[lang="en"] .fd[lang="en"],
+html[lang="zh-TW"] .fd[lang="zh-TW"],
+html[lang="ja"] .fd[lang="ja"],
+html[lang="de"] .fd[lang="de"],
+html[lang="ko"] .fd[lang="ko"] {
+  display: block;
+}
